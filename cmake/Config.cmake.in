@@ -1,0 +1,14 @@
+@PACKAGE_INIT@
+
+set(_sirius_target_file "@_target_package_dir@/@SIRIUS_TARGET_NAME@Targets.cmake")
+set(_sirius_include_dirs "@CMAKE_INSTALL_PREFIX@/include")
+set(_sirius_library_dirs "@CMAKE_INSTALL_PREFIX@/@_target_lib_dirr@")
+
+include(${_sirius_target_file})
+
+# variable provided for use by `find_package`
+set(SIRIUS_INCLUDE_DIRS ${_sirius_include_dirs})
+set(SIRIUS_LIBRARIES @SIRIUS_TARGET_NAME@)
+set(SIRIUS_LIBRARY_DIRS ${_sirius_library_dirs})
+
+message(STATUS "Found @SIRIUS_TARGET_NAME@: @CMAKE_CURRENT_SOURCE_DIR@ (version-@SIRIUS_VERSION@)")
