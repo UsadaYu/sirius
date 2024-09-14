@@ -1,164 +1,196 @@
-/********************************************************************************************
- * @name    sirius_log.c
- * 
- * @author  胡益华
- * 
- * @date    2024-07-30
- * 
- * @brief   日志信息打印
- ********************************************************************************************/
-
-#include "internal/sirius_internal_log.h"
-
 #include "sirius_errno.h"
 #include "sirius_log.h"
-#include "sirius_macro.h"
-#include "sirius_sys.h"
+#include "sirius_attributes.h"
 
-#define I_LOG_FIFO_BUFFER_SIZE      (1024)                                  // 单次读取管道文件内容缓存大小
-#define I_LOG_FIFO_PATH_SIZE        (256)                                   // 管道文件路径长度
+#include "./internal/sirius_internal_log.h"
+#include "./internal/sirius_internal_file.h"
+#include "./internal/sirius_internal_thread.h"
 
-#define I_LOG_CMD_THREAD_STOP       "echo " LOG_LOGLEVEL_CMD " 0 > "        // 防线程阻塞命令
-#define I_LOG_CMD_THREAD_STOP_SIZE  (I_LOG_FIFO_PATH_SIZE << 1)             // 停止线程的系统调用命令长度
+/**
+ * cache size for reading the contents
+ * of a pipeline file at a time
+ */
+#define I_FIFO_BUR_SIZE (1024)
 
-typedef enum {
-    I_LOG_THREAD_STATE_INVALID      = 0,                                    // 无效状态
-    I_LOG_THREAD_STATE_EXITING      = 1,                                    // 线程需要退出
-    I_LOG_THREAD_STATE_EXITED       = 2,                                    // 线程已退出
-    I_LOG_THREAD_STATE_RUNNING      = 3,                                    // 线程正在运行
+/* the file path length of the pipeline file */
+#define I_FIFO_PATH_SIZE (256)
 
-    I_LOG_THREAD_STATE_MAX,
-} i_log_thread_state_t;
+/**
+ * the thread reading the pipeline file is blocked,
+ * and the specific blocking location is located in
+ * the read function.
+ * 
+ * the pipeline file will be opened and closed repeatedly,
+ * and if you don't, the thread reading the pipeline file
+ * will be extremely cpu intensive.
+ * 
+ * because in addition to opening the pipeline file,
+ * you can set it to block, once data is written to the
+ * pipeline file, it will become unblocked, in this case,
+ * you can only close the pipeline file and open it again.
+ * 
+ * another way is to add appropriate sleep to the thread,
+ * but I don't use that here, because I don't think it's
+ * necessary to keep doing ineffective loops
+ * 
+ * so, when I need to quit the thread reading the pipeline
+ * file, the appropriate command needs to be sent to allow
+ * the blocking read function to continue and terminate the
+ * thread
+ */
+
+/* thread termination command */
+#define I_CMD_THD_EXIT "echo " LOG_CMD_LV " 0 > "
+
+/* the length of the thread termination command */
+#define I_CMD_THD_EXIT_SIZE (I_FIFO_PATH_SIZE << 1)
 
 typedef struct {
-    pthread_t                       thread_id;                              // 管道文件读取线程标识符
-    i_log_thread_state_t            th_state;                               // 线程状态
-    char                            th_pipe_buffer[I_LOG_FIFO_BUFFER_SIZE]; // 单次读取管道文件缓存
-    char                            th_pipe_path[I_LOG_FIFO_PATH_SIZE];     // 管道文件路径
-    char
-        th_stop_cmd[I_LOG_CMD_THREAD_STOP_SIZE];                            // 停止线程的系统调用命令
-} i_log_thread_t;
+    /* thread id */
+    pthread_t id;
+
+    /* thread state */
+    sirius_internal_thd_state_t state;
+
+    /* buffer of the single-read pipe */
+    char pipe_buf[I_FIFO_BUR_SIZE];
+
+    /* path of the pipe */
+    char pipe_path[I_FIFO_PATH_SIZE];
+
+    /* buffer of the system call to stop the thread */
+    char exit_cmd[I_CMD_THD_EXIT_SIZE];
+} i_thd_t;
 
 typedef struct {
-    bool                            is_init;                                // 是否初始化
-    i_log_thread_t                  *p_g_thread;                            // 线程信息
-    sirius_log_level_t              log_level;                              // 日志等级
-    atomic_flag                     atomic_lock;                            // 原子锁
+    /* module init flag */
+    bool is_init;
+
+    /* thread config */
+    i_thd_t *p_thd;
+
+    /* log level */
+    sirius_log_lv_t log_lv;
+
+#ifndef __STDC_NO_ATOMICS__
+    /* atomic lock */
+    atomic_flag atomic_lock;
+#endif
 } i_log_t;
 
 static i_log_t g_h = {0};
 
-static char time_buffer[9] = {0};
-static inline char* i_log_current_time()
+#ifndef __STDC_NO_ATOMICS__
+#define i_atomic_set() \
+while (atomic_flag_test_and_set(&(g_h.atomic_lock)))
+#define i_atomic_clear() \
+atomic_flag_clear(&(g_h.atomic_lock))
+
+#else
+#define i_atomic_set() do {} while (0)
+#define i_atomic_clear() do {} while (0)
+#endif // __STDC_NO_ATOMICS__
+
+static char tm_buf[9] = {0};
+static inline char*
+i_current_time()
 {
-    time_t      rawtime;
-    struct tm   *p_time_info;
+    time_t raw_tm;
+    struct tm tm_info;
 
-    time(&rawtime);
-    p_time_info = localtime(&rawtime);
-    // @note Writes to the cache are unlocked
-    strftime(time_buffer, sizeof(time_buffer), "%H:%M:%S", p_time_info);
+    time(&raw_tm);
+    localtime_r(&raw_tm, &tm_info);
 
-    return time_buffer;
+    /* Note that writes to the cache are unlocked */
+    strftime(tm_buf, sizeof(tm_buf), "%H:%M:%S", &tm_info);
+    return tm_buf;
 }
 
-#define I_LOG_PRINT(color, stream, type, fmt, ...) \
+#define I_PRNT(color, stream, type, fmt, ...) \
     do { \
-        while (atomic_flag_test_and_set(&(g_h.atomic_lock))); \
+        i_atomic_set(); \
         fprintf(stream, \
-        color "[%s " #type " %s (%s|%d)] " \
-        fmt, i_log_current_time(), \
-        SIRIUS_FILE, __FUNCTION__, __LINE__, \
-        ##__VA_ARGS__); \
+            color "[%s " #type " %s (%s|%d)] " \
+            fmt, i_current_time(), \
+            SIRIUS_FILE, __FUNCTION__, __LINE__, \
+            ##__VA_ARGS__); \
         fprintf(stream, LOG_NONE); \
-        atomic_flag_clear(&(g_h.atomic_lock)); \
+        i_atomic_clear(); \
     } while (0)
 
-#define I_LOG_INFO(fmt, ...) \
-    I_LOG_PRINT(LOG_GREEN, \
-    stdout, info, fmt, ##__VA_ARGS__)
-#define I_LOG_WARN(fmt, ...) \
-    I_LOG_PRINT(LOG_YELLOW, \
-    stderr, warn, fmt, ##__VA_ARGS__)
-#define I_LOG_ERROR(fmt, ...) \
-    I_LOG_PRINT(LOG_RED, \
-    stderr, error, fmt, ##__VA_ARGS__)
+#define I_INFO(fmt, ...) \
+    I_PRNT(LOG_GREEN, stdout, info, fmt, ##__VA_ARGS__)
+#define I_WARN(fmt, ...) \
+    I_PRNT(LOG_YELLOW, stderr, warn, fmt, ##__VA_ARGS__)
+#define I_ERROR(fmt, ...) \
+    I_PRNT(LOG_RED, stderr, error, fmt, ##__VA_ARGS__)
 
-static inline int i_log_fifo_remove(const char *p_pipe)
+static inline int
+i_pipe_remove(const char *p_pipe)
 {
-    int ret = SIRIUS_ERR;
-
-    if (likely(0 == access(p_pipe, W_OK))) {
-        ret = remove(p_pipe);
-        if (ret) {
-            I_LOG_ERROR("Failed to delete file [%s]\n", p_pipe);
-            perror(NULL);
-            return ret;
-        }
-    }
-
-    return SIRIUS_OK;
+    int ret;
+    internal_file_access_and_remove(ret, p_pipe);
+    return ret;
 }
 
-#define I_LOG_UNSUPPORTED_CMD(unsupported_cmd) \
-    I_LOG_WARN("Unsupported command: \n[ %s ]\n\n", \
-    unsupported_cmd); \
+#define I_CMD_ERROR(cmd) \
+    I_WARN("invalid cmd: \n[ %s ]\n", cmd); \
     return SIRIUS_ERR_INVALID_PARAMETER;
 
-static int i_log_pipe_command_loglevel(char **pp_cmd)
+static int
+i_pipe_cmd_log_lv(char **pp_cmd)
 {
     if (pp_cmd[0]) {
-        if (likely(SIRIUS_LOG_LEVEL_0 <= atoi(pp_cmd[0])) &&
-            (SIRIUS_LOG_LEVEL_MAX > atoi(pp_cmd[0]))) {
-                g_h.log_level = atoi(pp_cmd[0]);
+        if ((SIRIUS_LOG_LV_0 <= atoi(pp_cmd[0])) &&
+            (SIRIUS_LOG_LV_MAX > atoi(pp_cmd[0]))) {
+            g_h.log_lv = atoi(pp_cmd[0]);
         } else {
-            I_LOG_UNSUPPORTED_CMD(pp_cmd[0]);
+            I_CMD_ERROR(pp_cmd[0]);
         }
     } else {
-        I_LOG_WARN("Incomplete command\n");
+        I_WARN("incomplete command\n");
     }
 
     return SIRIUS_OK;
 }
 
-static int i_log_pipe_command_deal(char **pp_cmd)
+static int
+i_pipe_cmd_deal(char **pp_cmd)
 {
     int ret = SIRIUS_OK;
 
-    if (likely(pp_cmd[0])) {
-        if (!(strcmp(LOG_LOGLEVEL_CMD, pp_cmd[0]))) {
-            ret = i_log_pipe_command_loglevel(pp_cmd + 1);
-            if (ret) {
-                return ret;
-            }
+    if (pp_cmd[0]) {
+        if (!(strcmp(LOG_CMD_LV, pp_cmd[0]))) {
+            ret = i_pipe_cmd_log_lv(pp_cmd + 1);
         } else {
-            I_LOG_UNSUPPORTED_CMD(pp_cmd[0]);
+            I_WARN("invalid cmd: \n[ %s ]\n", pp_cmd[0]);
+            ret = SIRIUS_ERR_INVALID_PARAMETER;
         }
     }
 
-    return SIRIUS_OK;
+    return ret;
 }
 
-// 单次最长命令数量
-#define I_LOG_FIFO_CMD_MAX (32)
+/* 单次间隔命令数量 */
+#define I_FIFO_CMD_MAX (32)
 
-static int i_log_pipe_command_parse(char *p_buffer)
+static void
+i_pipe_cmd_parse(char *p_buf)
 {
-    unsigned int    i                           = 0;
-    char            *p_tmp                      = NULL;
-    char            *p_cmd[I_LOG_FIFO_CMD_MAX]  = {NULL};
+    /* replace the '\n' at the end with the '\0' */
+    p_buf[strlen(p_buf) - 1] = '\0';
 
-    // 末尾换行符替换为空
-    p_buffer[strlen(p_buffer) - 1] = '\0';
-
-    p_cmd[i] = strtok_r(p_buffer, " ", &p_tmp);
+    unsigned int i = 0;
+    char *p_tmp = NULL;
+    char *p_cmd[I_FIFO_CMD_MAX] = {NULL};
+    p_cmd[i] = strtok_r(p_buf, " ", &p_tmp);
     while (p_cmd[i]) {
         i++;
 
-        if (I_LOG_FIFO_CMD_MAX == i) {
+        if (I_FIFO_CMD_MAX == i) {
             if (strtok_r(NULL, " ", &p_tmp)) {
-                I_LOG_ERROR("The number of commands exceeds the cache\n");
-                return SIRIUS_ERR_CACHE_OVERFLOW;
+                I_WARN("the number of commands exceeded\n");
+                return;
             }
             break;
         }
@@ -166,282 +198,249 @@ static int i_log_pipe_command_parse(char *p_buffer)
         p_cmd[i] = strtok_r(NULL, " ", &p_tmp);
     }
 
-    i_log_pipe_command_deal(p_cmd);
-
-    return SIRIUS_OK;
+    (void)i_pipe_cmd_deal(p_cmd);
 }
 
-static int i_log_pipe_thread(void *args)
+static int
+i_pipe_thd(void *args)
 {
-    int         fifo_fd = -1;
-    ssize_t     bytes   = 0;
-    const char  *p_pipe = (const char *)args;
+    int fd;
+    const char *p_pipe = (const char *)args;
+    i_thd_t *p_th = g_h.p_thd;
+    char *p_buf = p_th->pipe_buf;
 
-    g_h.p_g_thread->th_state = I_LOG_THREAD_STATE_RUNNING;
-
-    while (true) {
-        fifo_fd = open(p_pipe, O_RDONLY);
-        if (-1 == fifo_fd) {
-            I_LOG_ERROR("open failed\n");
+    while (INTERNAL_THD_STATE_RUNNING == p_th->state) {
+        fd = open(p_pipe, O_RDONLY);
+        if (-1 == fd) {
+            I_ERROR("[%s] open error: ", p_pipe);
             perror(NULL);
-            g_h.p_g_thread->th_state = I_LOG_THREAD_STATE_EXITED;
-            return SIRIUS_ERR;
+            goto label_thd_exited;
         }
 
-        memset(g_h.p_g_thread->th_pipe_buffer, 0, I_LOG_FIFO_BUFFER_SIZE);
-        bytes = read(fifo_fd, g_h.p_g_thread->th_pipe_buffer,
-            I_LOG_FIFO_BUFFER_SIZE);
-        if (bytes <= 0) {
-            if (I_LOG_THREAD_STATE_EXITING == g_h.p_g_thread->th_state) {
-                goto label_thread_exit;
-            }
+        memset(p_buf, 0, I_FIFO_BUR_SIZE);
+        if (read(fd, p_buf, I_FIFO_BUR_SIZE) <= 0)
             goto label_file_close;
-        }
 
-        if (I_LOG_THREAD_STATE_EXITING == g_h.p_g_thread->th_state) {
-            goto label_thread_exit;
-        }
+        if (INTERNAL_THD_STATE_EXITING == p_th->state)
+            goto label_file_close;
 
-        g_h.p_g_thread->th_pipe_buffer[I_LOG_FIFO_BUFFER_SIZE - 1] = '\0';
-        (void)i_log_pipe_command_parse(g_h.p_g_thread->th_pipe_buffer);
+        p_buf[I_FIFO_BUR_SIZE - 1] = '\0';
+        i_pipe_cmd_parse(p_buf);
 
 label_file_close:
-        close(fifo_fd);
-        fifo_fd = -1;
+        close(fd);
     }
 
-label_thread_exit:
-    close(fifo_fd);
-    g_h.p_g_thread->th_state = I_LOG_THREAD_STATE_EXITED;
-
-    return SIRIUS_OK;
+label_thd_exited:
+    p_th->state = INTERNAL_THD_STATE_EXITED;
+    pthread_exit(NULL);
 }
 
-static void i_log_pipe_destory()
+static void
+i_pipe_destory()
 {
-    int ret = SIRIUS_ERR;
+    i_thd_t *p_th = g_h.p_thd;
 
-    if (I_LOG_THREAD_STATE_EXITED != g_h.p_g_thread->th_state) {
-        g_h.p_g_thread->th_state = I_LOG_THREAD_STATE_EXITING;
-
-#define I_LOG_THREAD_EXIT_WAIT(count) \
+#define THD_JDG(count) \
     for (unsigned int i = 0; i < count; i++) { \
         usleep(50 * 1000); \
-        if (I_LOG_THREAD_STATE_EXITED == \
-            g_h.p_g_thread->th_state) { \
+        if (INTERNAL_THD_STATE_EXITED == p_th->state) { \
             goto label_thread_join; \
         } \
     }
 
-        I_LOG_THREAD_EXIT_WAIT(20);
-
-        memset(g_h.p_g_thread->th_stop_cmd, 0, I_LOG_CMD_THREAD_STOP_SIZE);
-        strncpy(g_h.p_g_thread->th_stop_cmd, I_LOG_CMD_THREAD_STOP,
-            I_LOG_CMD_THREAD_STOP_SIZE - 1);
-
-        size_t stop_cmd_len = strlen(g_h.p_g_thread->th_stop_cmd);
-        size_t copy_len = I_LOG_CMD_THREAD_STOP_SIZE - stop_cmd_len;
-        if (0 < copy_len) {
-            memmove(g_h.p_g_thread->th_stop_cmd + stop_cmd_len,
-                g_h.p_g_thread->th_pipe_path, copy_len);
-        }
-
-        if (unlikely('\0' !=
-            g_h.p_g_thread->th_stop_cmd[I_LOG_CMD_THREAD_STOP_SIZE - 1])) {
-            g_h.p_g_thread->th_stop_cmd[I_LOG_CMD_THREAD_STOP_SIZE - 1] =
-                '\0';
-            goto label_thread_cancel;
-        }
-        system(g_h.p_g_thread->th_stop_cmd);
-        I_LOG_THREAD_EXIT_WAIT(10);
-
-label_thread_cancel:
-        I_LOG_WARN("Thread [%lu] will be forcibly terminated\n",
-            g_h.p_g_thread->thread_id);
-        pthread_cancel(g_h.p_g_thread->thread_id);
-        usleep(500 * 1000);
+    switch (p_th->state) {
+        case INTERNAL_THD_STATE_INVALID:
+            goto label_pipe_remove;
+        case INTERNAL_THD_STATE_RUNNING:
+            p_th->state = INTERNAL_THD_STATE_EXITING;
+            break;
+        default:
+            goto label_thread_join;
     }
+
+    THD_JDG(20)
+
+    memset(p_th->exit_cmd, 0, I_CMD_THD_EXIT_SIZE);
+    strncpy(p_th->exit_cmd, I_CMD_THD_EXIT,
+        I_CMD_THD_EXIT_SIZE - 1);
+
+    size_t stop_cmd_len = strlen(p_th->exit_cmd);
+    size_t copy_len = I_CMD_THD_EXIT_SIZE - stop_cmd_len;
+    if (copy_len) {
+        memmove(p_th->exit_cmd + stop_cmd_len,
+            p_th->pipe_path, copy_len);
+    }
+
+    if ('\0' != p_th->exit_cmd[I_CMD_THD_EXIT_SIZE - 1]) {
+        p_th->exit_cmd[I_CMD_THD_EXIT_SIZE - 1] = '\0';
+        goto label_thd_cancel;
+    }
+
+    system(p_th->exit_cmd);
+    THD_JDG(20)
+
+label_thd_cancel:
+        I_WARN("thread[%lu] cancel\n", p_th->id);
+        pthread_cancel(p_th->id);
+        usleep(500 * 1000);
 
 label_thread_join:
-    ret = pthread_join(g_h.p_g_thread->thread_id, NULL);
-    if (ret) {
-        I_LOG_ERROR("pthread_join failed with [%d]\n", ret);
+    if (pthread_join(p_th->id, NULL)) {
+        I_ERROR("pthread_join\n");
     }
 
-    i_log_fifo_remove(g_h.p_g_thread->th_pipe_path);
+label_pipe_remove:
+    i_pipe_remove(p_th->pipe_path);
 
-#ifdef I_LOG_THREAD_EXIT_WAIT
-#undef I_LOG_THREAD_EXIT_WAIT
-#endif
+#undef THD_JDG
 }
 
-static int i_log_pipe_create(const char *p_pipe)
+static int
+i_pipe_create(const char *p_pipe)
 {
-    int ret = SIRIUS_ERR;
+    int ret;
 
-    mode_t fifo_mode =
-        S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-    ret = mkfifo(p_pipe, fifo_mode);
-    if (EEXIST == errno) {
-        I_LOG_WARN("The file [%s] already exists and will be deleted\n",
-            p_pipe);
+    mode_t mode =
+        S_IRUSR |
+        S_IWUSR |
+        S_IRGRP |
+        S_IWGRP |
+        S_IROTH |
+        S_IWOTH;
+    internal_file_mkfifo(ret, p_pipe, mode);
+    if (ret) return ret;
 
-        if (i_log_fifo_remove(p_pipe)) {
-            return SIRIUS_ERR;
-        } else {
-            ret = mkfifo(p_pipe, fifo_mode);
-            goto label_mkfifo_check;
-        }
-    }
-
-label_mkfifo_check:
+    g_h.p_thd->state = INTERNAL_THD_STATE_RUNNING;
+    ret = pthread_create(&(g_h.p_thd->id), NULL,
+        (void *)i_pipe_thd, (void *)p_pipe);
     if (ret) {
-        I_LOG_ERROR("mkfifo failed with [%d]\n", ret);
+        I_ERROR("pthread_create: [%d]\n", ret);
         perror(NULL);
-        return ret;
+        i_pipe_remove(p_pipe);
     }
-
-    ret = pthread_create(&(g_h.p_g_thread->thread_id), NULL,
-        (void *)i_log_pipe_thread, (void *)p_pipe);
-    if (ret) {
-        I_LOG_ERROR("pthread_create failed with [%d]\n", ret);
-        perror(NULL);
-        goto label_pipe_delete;
-    }
-
-    return SIRIUS_OK;
-
-label_pipe_delete:
-    i_log_fifo_remove(p_pipe);
 
     return ret;
 }
 
-static inline void i_log_parameter_init(const sirius_log_create_t *p_handle)
+static inline void
+i_param_init(const sirius_log_cr_t *p_cr)
 {
-    atomic_flag_clear(&(g_h.atomic_lock));
-    g_h.log_level   = p_handle->default_log_level;
-    g_h.is_init     = true;
+    i_atomic_clear();
+    g_h.log_lv = p_cr->log_lv;
+    g_h.is_init = true;
 }
 
-int sirius_log_print(sirius_log_level_t log_level, const char *p_color,
-                        const char *p_module, const char *p_fmt, ...)
+int
+sirius_log_print(sirius_log_lv_t log_lv,
+    const char *p_color,
+    const char *p_mod,
+    const char *p_file,
+    const char *p_func,
+    int line,
+    const char *p_fmt, ...)
 {
-    if (unlikely(!(g_h.is_init))) {
-        I_LOG_WARN("The log module is not initialized\n");
-        return 0;
-    }
+    if (unlikely(!(g_h.is_init))) return 0;
+    if (g_h.log_lv < log_lv) return 0;
 
-    if (g_h.log_level < log_level) {
-        return 0;
-    }
-
-    char    buf[LOG_PRINT_BUFFER_SIZE];
-    int     n = 0;
-    time_t  rawtime;
-    struct tm   *p_time_info;
+    char buf[LOG_PRNT_BUF_SIZE];
+    int n = 0;
+    time_t raw_tm;
+    struct tm tm_info;
 
     va_list args;
     va_start(args, p_fmt);
 
-#define I_LOG_SNPRINTF(fd, type) \
-    time(&rawtime); \
-    p_time_info = localtime(&rawtime); \
+#define i_prnt(fd, type) \
+    time(&raw_tm); \
+    localtime_r(&raw_tm, &tm_info); \
     n = snprintf(buf, sizeof(buf), \
-    "%s [%02d:%02d:%02d " #type " %s %lu] ", \
-        p_color, \
-        p_time_info->tm_hour, p_time_info->tm_min, p_time_info->tm_sec, \
-        p_module, syscall(__NR_gettid)); \
-    n += vsnprintf(buf + n, sizeof(buf) - n, p_fmt, args); \
-    while (atomic_flag_test_and_set(&(g_h.atomic_lock))); \
-    sirius_write_fd(fd, buf, strlen(buf)); \
-    atomic_flag_clear(&(g_h.atomic_lock));
+        "%s[%02d:%02d:%02d " #type " %s %lu " \
+        "%s (%s|%d)] ", \
+            p_color, \
+            tm_info.tm_hour, \
+            tm_info.tm_min, \
+            tm_info.tm_sec, \
+            p_mod, syscall(__NR_gettid), \
+            p_file, p_func, line); \
+    n += vsnprintf( \
+        buf + n, sizeof(buf) - n, p_fmt, args); \
+    n += snprintf(buf + n, sizeof(buf) - n, LOG_NONE); \
+    i_atomic_set(); \
+    write(fd, buf, n + 1); \
+    i_atomic_clear();
 
-    switch (log_level) {
-        case SIRIUS_LOG_LEVEL_0:
+    switch (log_lv) {
+        case SIRIUS_LOG_LV_0:
             return 0;
-        case SIRIUS_LOG_LEVEL_DEFAULT:
-            I_LOG_SNPRINTF(STDOUT_FILENO, prnt);
+        case SIRIUS_LOG_LV_DEFAULT:
+            i_prnt(STDOUT_FILENO, prnt)
             break;
-        case SIRIUS_LOG_LEVEL_ERROR:
-            I_LOG_SNPRINTF(STDERR_FILENO, erro);
+        case SIRIUS_LOG_LV_ERROR:
+            i_prnt(STDERR_FILENO, error)
             break;
-        case SIRIUS_LOG_LEVEL_WARN:
-            I_LOG_SNPRINTF(STDERR_FILENO, warn);
+        case SIRIUS_LOG_LV_WARN:
+            i_prnt(STDERR_FILENO, warn)
             break;
-        case SIRIUS_LOG_LEVEL_INFO:
-            I_LOG_SNPRINTF(STDOUT_FILENO, info);
+        case SIRIUS_LOG_LV_INFO:
+            i_prnt(STDOUT_FILENO, info)
             break;
-        case SIRIUS_LOG_LEVEL_DEBUG_1:
-            I_LOG_SNPRINTF(STDOUT_FILENO, dbg1);
-            break;
-        case SIRIUS_LOG_LEVEL_DEBUG_2:
-            I_LOG_SNPRINTF(STDOUT_FILENO, dbg2);
-            break;
-        case SIRIUS_LOG_LEVEL_DEBUG_3:
-            I_LOG_SNPRINTF(STDOUT_FILENO, dbg3);
+        case SIRIUS_LOG_LV_DEBG:
+            i_prnt(STDOUT_FILENO, debg)
             break;
         default:
-            I_LOG_ERROR("Unsupported log level: %d\n", log_level);
+            I_WARN("invalid log level: %d\n", log_lv);
             return 0;
     }
 
     va_end(args);
 
-#undef I_LOG_SNPRINTF
+#undef i_prnt
     return n;
 }
 
-int sirius_log_deinit()
+void
+sirius_log_deinit()
 {
-    if (unlikely(!(g_h.is_init))) {
-        I_LOG_WARN("The log module is not initialized\n");
-        return SIRIUS_ERR_NOT_INIT;
+    if (!(g_h.is_init)) {
+        return;
     }
 
-    i_log_pipe_destory();
+    i_pipe_destory();
 
-    if (g_h.p_g_thread) {
-        free(g_h.p_g_thread);
-        g_h.p_g_thread = NULL;
+    if (g_h.p_thd) {
+        free(g_h.p_thd);
+        g_h.p_thd = NULL;
     }
 
     memset(&g_h, 0, sizeof(i_log_t));
-
-    I_LOG_INFO("The deinitialization of the log module is complete\n");
-    return SIRIUS_OK;
 }
 
-int sirius_log_init(const sirius_log_create_t *p_handle)
+int
+sirius_log_init(const sirius_log_cr_t *p_cr)
 {
-    int ret = SIRIUS_ERR;
-
-    if (unlikely(g_h.is_init)) {
-        I_LOG_WARN("The log module is initialized repeatedly\n");
-        return SIRIUS_ERR_INIT_REPEATED;
+    if (g_h.is_init) {
+        SIRIUS_DEBG("repeat initialization\n");
+        return SIRIUS_OK;
     }
 
-    if (unlikely(!(p_handle))) {
-        I_LOG_ERROR("Null pointer\n");
-        return SIRIUS_ERR_NULL_POINTER;
+    if (!(p_cr)) {
+        I_ERROR("null pointer\n");
+        return SIRIUS_ERR_INVALID_ENTRY;
     }
 
-    g_h.p_g_thread = (i_log_thread_t *)calloc(1, sizeof(i_log_thread_t));
-    if (!(g_h.p_g_thread)) {
-        I_LOG_ERROR("calloc failed\n");
+    g_h.p_thd = (i_thd_t *)calloc(1, sizeof(i_thd_t));
+    if (!(g_h.p_thd)) {
+        I_ERROR("calloc\n");
         return SIRIUS_ERR_MEMORY_ALLOC;
     }
 
-    strncpy(g_h.p_g_thread->th_pipe_path, p_handle->p_pipe_path,
-        I_LOG_FIFO_PATH_SIZE - 1);
-    ret = i_log_pipe_create(g_h.p_g_thread->th_pipe_path);
-    if (ret) {
-        I_LOG_ERROR("i_log_pipe_create failed with [%d]\n", ret);
-        return ret;
-    }
+    strncpy(g_h.p_thd->pipe_path, p_cr->p_pipe,
+        I_FIFO_PATH_SIZE - 1);
+    int ret = i_pipe_create(g_h.p_thd->pipe_path);
+    if (ret) return SIRIUS_ERR_RESOURCE_REQUEST;
 
-    i_log_parameter_init(p_handle);
+    i_param_init(p_cr);
 
-    I_LOG_INFO("The initialization of the log module is complete\n");
     return SIRIUS_OK;
 }

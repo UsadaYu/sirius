@@ -1,116 +1,92 @@
-/********************************************************************************************
- * @name    sirius_math.h
+/**
+ * @name sirius_math.h
  * 
- * @author  胡益华
+ * @author 胡益华
  * 
- * @date    2024-03-29
+ * @date 2024-03-29
  * 
- * @brief   常用的基础计算
-********************************************************************************************/
+ * @brief common calculations
+ */
 
 #ifndef __SIRIUS_MATH_H__
 #define __SIRIUS_MATH_H__
 
-/********************************************************************************************
- * @brief   返回若干个整型数字中的最大值
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @param[in] args_num: the total number of integer numbers
+ * @param[in] args: a number of integer numbers
  * 
- * @param   args_num: 整型数字的总个数
- * @param   ...: 若干的整型数字
+ * @note: the parameter must be of integer type
  * 
- * @note    (1) args_num为必填项
- *          (2) 举例：若传入整型数字总数为8，那么args_num填写8即可；
- *          args_num填写大于8，如10，那么会比较8个整型数字；
- *          args_num填写小于8，如6，那么会比较前6个整型数字
- *          (3) 函数基于可变参数列表编写。
- *          va_arg宏读取参数时会根据传入参数类型大小的偏移读取，故传参时必须传递整型类型
-********************************************************************************************/
+ * @return the maximum value in the input parameters
+ */
 int sirius_math_max_int(unsigned int args_num, ...);
 
-/********************************************************************************************
- * @brief   返回若干个整型数字中的最小值
+/**
+ * @param[in] args_num: the total number of integer numbers
+ * @param[in] args: a number of integer numbers
  * 
- * @param   args_num: 整型数字的总个数
- * @param   ...: 若干的整型数字
+ * @note: the parameter must be of integer type
  * 
- * @note    (1) args_num为必填项
- *          (2) 举例：若传入整型数字总数为8，那么args_num填写8即可；
- *          args_num填写大于8，如10，那么会比较8个整型数字；
- *          args_num填写小于8，如6，那么会比较前6个整型数字
- *          (3) 函数基于可变参数列表编写。
- *          va_arg宏读取参数时会根据传入参数类型大小的偏移读取，故传参时必须传递整型
-********************************************************************************************/
+ * @return the minimum value in the input parameters
+ */
 int sirius_math_min_int(unsigned int args_num, ...);
 
-/********************************************************************************************
- * @brief   返回若干个双精度浮点型数字中的最大值
+/**
+ * @param[in] args_num: the total number of double-type numbers
+ * @param[in] args: a number of double-type numbers
  * 
- * @param   args_num: 双精度浮点型数字的总个数
- * @param   ...: 若干的双精度浮点型数字
+ * @note: the parameter must be of double-type type
  * 
- * @note    (1) args_num为必填项；
- *          (2) 举例：若传入双精度浮点型数字总数为8，那么args_num填写8即可；
- *          args_num填写大于8，如10，那么会比较8个双精度浮点型数字；
- *          args_num填写小于8，如6，那么会比较前6个双精度浮点型数字
- *          (3) 函数基于可变参数列表编写。
- *          对于浮点型，va_arg宏只能以double类型读取而不能以float类型读取；
- *          va_arg宏读取参数时会根据传入参数类型大小的偏移读取，故传参时必须传递浮点型
-********************************************************************************************/
+ * @return the maximum value in the input argument
+ */
 double sirius_math_max_dbl(unsigned int args_num, ...);
 
-/********************************************************************************************
- * @brief   返回若干个双精度浮点型数字中的最小值
+/**
+ * @param[in] args_num: the total number of double-type numbers
+ * @param[in] args: a number of double-type numbers
  * 
- * @param   args_num: 双精度浮点型数字的总个数
- * @param   ...: 若干的双精度浮点型数字
+ * @note: the parameter must be of double-type type
  * 
- * @note    (1) args_num为必填项；
- *          (2) 举例：若传入双精度浮点型数字总数为8，那么args_num填写8即可；
- *          args_num填写大于8，如10，那么会比较8个双精度浮点型数字；
- *          args_num填写小于8，如6，那么会比较前6个双精度浮点型数字
- *          (3) 函数基于可变参数列表编写。
- *          对于浮点型，va_arg宏只能以double类型读取而不能以float类型读取；
- *          va_arg宏读取参数时会根据传入参数类型大小的偏移读取，故传参时必须传递浮点型
-********************************************************************************************/
+ * @return the minimum value in the input parameters
+ */
 double sirius_math_min_dbl(unsigned int args_num, ...);
 
-/********************************************************************************************
- * @brief   返回两个数中较大的数
- * 
- * @param   num1: 参数1
- * @param   num1: 参数2
- * 
- * @note    两个数比较时用此宏，资源开销较小
-********************************************************************************************/
+/**
+ * @brief gets the greater of the two numbers
+ */
 #ifndef SIRIUS_MAX_T
 #define SIRIUS_MAX_T(num1, num2)    ((num1) > (num2) ? (num1) : (num2))
-#endif  // SIRIUS_MAX_T
+#endif // SIRIUS_MAX_T
 
-/********************************************************************************************
- * @brief   返回两个数中较小的数
- * 
- * @param   num1: 参数1
- * @param   num1: 参数2
- * 
- * @note    两个数比较时用此宏，资源开销较小
-********************************************************************************************/
+/**
+ * @brief gets the lesser of the two numbers
+ */
 #ifndef SIRIUS_MIN_T
 #define SIRIUS_MIN_T(num1, num2)        ((num1) < (num2) ? (num1) : (num2))
-#endif  // SIRIUS_MIN_T
+#endif // SIRIUS_MIN_T
 
 #ifndef SIRIUS_MAX_INT
 #define SIRIUS_MAX_INT(args_num, ...)   sirius_math_max_int(args_num, __VA_ARGS__)
-#endif  // SIRIUS_MAX_INT
+#endif // SIRIUS_MAX_INT
 
 #ifndef SIRIUS_MIN_INT
 #define SIRIUS_MIN_INT(args_num, ...)   sirius_math_min_int(args_num, __VA_ARGS__)
-#endif  // SIRIUS_MIN_INT
+#endif // SIRIUS_MIN_INT
 
 #ifndef SIRIUS_MAX_DBL
 #define SIRIUS_MAX_DBL(args_num, ...)   sirius_math_max_dbl(args_num, __VA_ARGS__)
-#endif  // SIRIUS_MAX_DBL
+#endif // SIRIUS_MAX_DBL
 
 #ifndef SIRIUS_MIN_DBL
 #define SIRIUS_MIN_DBL(args_num, ...)   sirius_math_min_dbl(args_num, __VA_ARGS__)
-#endif  // SIRIUS_MIN_DBL
+#endif // SIRIUS_MIN_DBL
 
-#endif  // __SIRIUS_MATH_H__
+#ifdef __cplusplus
+}
+#endif
+
+#endif // __SIRIUS_MATH_H__
