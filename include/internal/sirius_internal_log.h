@@ -1,41 +1,37 @@
 #ifndef __SIRIUS_INTERNAL_LOG_H__
 #define __SIRIUS_INTERNAL_LOG_H__
 
-#include "../sirius_sys.h"
+#include "sirius_internal_sys.h"
 
-// 单次打印最大缓存
-#define LOG_PRINT_BUFFER_SIZE   (4096)
+#include "sirius_log.h"
 
-static inline ssize_t sirius_write_fd(int fd, const void *buf, size_t count)
-{
-    ssize_t result;
+#ifndef STDIN_FILENO
+/* 标准输入文件描述符 */
+#define STDIN_FILENO    (0)
+#endif
 
-    size_t bytes_written = 0;
-    do {
-        result = write(fd, &((const char *)buf)[bytes_written],
-            count - bytes_written);
-        if (result < 0) {
-            return result;
-        }
-        bytes_written += result;
-    } while (bytes_written < count);
-    return bytes_written;
-}
+#ifndef STDOUT_FILENO
+/* 标准输出文件描述符 */
+#define STDOUT_FILENO   (1)
+#endif
 
-static inline ssize_t sirius_read_fd(int fd, void *buf, size_t count) {
-    ssize_t result;
+#ifndef STDERR_FILENO
+/* 标准错误输出文件描述符 */
+#define STDERR_FILENO   (2)
+#endif
 
-    size_t bytes_read = 0;
-    do {
-        result = read(fd, &((char *)buf)[bytes_read], count - bytes_read);
-        if (result < 0) {
-            return result;
-        } else if (result == 0) {
-            break;
-        }
-        bytes_read += result;
-    } while (bytes_read < count);
-    return bytes_read;
-}
+typedef struct {
+    /* default log level */
+    sirius_log_lv_t log_lv;
 
-#endif  // __SIRIUS_INTERNAL_LOG_H__
+    /* pipe path */
+    char *p_pipe;
+} sirius_log_cr_t;
+
+void
+sirius_log_deinit();
+
+int
+sirius_log_init(const sirius_log_cr_t *p_cr);
+
+#endif // __SIRIUS_INTERNAL_LOG_H__

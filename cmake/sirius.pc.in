@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: @USER_TARGET_PREFIX@
+Description: sirius
+Version: @SIRIUS_VERSION@
+URL: https://github.com/UsadaYu/sirius
+Libs: -L${libdir} -l@USER_TARGET_PREFIX@ -lpthread
+Cflags: -I${includedir}
