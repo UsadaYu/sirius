@@ -3,8 +3,9 @@
  *
  * @author UsadaYu
  *
- * @date create: 2024-09-12
- * @date update: 2025-02-10
+ * @date
+ *  Create: 2024-09-12
+ *  Update: 2025-02-10
  *
  * @brief Queue.
  */

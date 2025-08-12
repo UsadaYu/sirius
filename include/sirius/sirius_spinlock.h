@@ -3,8 +3,9 @@
  *
  * @author UsadaYu
  *
- * @date create: 2025-01-11
- * @date update: 2025-03-04
+ * @date
+ *  Create: 2025-01-11
+ *  Update: 2025-03-04
  *
  * @brief Spin lock.
  *

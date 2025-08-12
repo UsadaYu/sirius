@@ -1,5 +1,5 @@
-#include "sirius_sem.h"
-#include "sirius_thread.h"
+#include "sirius/sirius_sem.h"
+#include "sirius/sirius_thread.h"
 #include "test.h"
 
 static bool g_exit = false;

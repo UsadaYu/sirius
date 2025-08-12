@@ -1,5 +1,5 @@
-#include "sirius_thread.h"
-#include "sirius_time.h"
+#include "sirius/sirius_thread.h"
+#include "sirius/sirius_time.h"
 #include "test.h"
 
 #if 0

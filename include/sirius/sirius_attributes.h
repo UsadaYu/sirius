@@ -3,8 +3,9 @@
  *
  * @author UsadaYu
  *
- * @date create: 2024-09-25
- * @date update: 2025-01-06
+ * @date
+ *  Create: 2024-09-25
+ *  Update: 2025-01-06
  *
  * @brief Attribute class macro definition.
  */

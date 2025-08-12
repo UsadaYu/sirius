@@ -1,11 +1,14 @@
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <time.h>
 
-#include "sirius_log.h"
-#include "sirius_mutex.h"
-#include "sirius_thread.h"
+#include "sirius/sirius_log.h"
+#include "sirius/sirius_mutex.h"
+#include "sirius/sirius_thread.h"
 #include "test.h"
+
+#ifdef _WIN32
+#include <share.h>
+#endif
 
 #define THREAD_CNT (16)
 

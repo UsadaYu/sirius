@@ -3,8 +3,9 @@
  *
  * @author UsadaYu
  *
- * @date create: 2024-07-30
- * @date update: 2025-02-17
+ * @date
+ *  Create: 2024-07-30
+ *  Update: 2025-07-10
  *
  * @brief Common macro definitions.
  */
@@ -12,21 +13,11 @@
 #ifndef __SIRIUS_MACRO_H__
 #define __SIRIUS_MACRO_H__
 
-#ifndef sirius_timeout_none
 /* Timeout, no waiting. */
 #define sirius_timeout_none (0)
-#else
-#undef sirius_timeout_none
-#define sirius_timeout_none (0)
-#endif
 
-#ifndef sirius_timeout_infinite
 /* Timeout, infinite wait. */
 #define sirius_timeout_infinite (~0U)
-#else
-#undef sirius_timeout_infinite
-#define sirius_timeout_infinite (~0U)
-#endif
 
 #ifndef container_of
 #ifdef offsetof
@@ -56,7 +47,6 @@
   })
 #endif  // container_of
 
-#ifndef sirius_pointer_align8
 #if defined(__GNUC__) || defined(__clang__)
 /**
  * @brief Struct pointer variable aligned to 8 bytes.
@@ -69,6 +59,5 @@
 #else
 #define sirius_pointer_align8(N)
 #endif
-#endif  // sirius_pointer_align8
 
 #endif  // __SIRIUS_MACRO_H__

@@ -1,4 +1,4 @@
-#include "sirius_thread.h"
+#include "sirius/sirius_thread.h"
 #include "test.h"
 
 #define N (32)

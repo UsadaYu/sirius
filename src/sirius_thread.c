@@ -481,7 +481,7 @@ int sirius_thread_setschedparam(
       internal_error(
           "Invalid argument: [sched_policy: %d]\n",
           param->sched_policy);
-      return sirius_err_param;
+      return sirius_err_args;
   }
 #undef E
 

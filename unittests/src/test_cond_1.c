@@ -1,5 +1,5 @@
-#include "sirius_cond.h"
-#include "sirius_thread.h"
+#include "sirius/sirius_cond.h"
+#include "sirius/sirius_thread.h"
 #include "test.h"
 
 #define BROAD_M 1

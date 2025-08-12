@@ -3,8 +3,9 @@
  *
  * @author UsadaYu
  *
- * @date create: 2025-01-06
- * @date update: 2025-01-21
+ * @date
+ *  Create: 2025-01-06
+ *  Update: 2025-01-21
  *
  * @brief Mutex.
  */

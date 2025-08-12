@@ -3,8 +3,9 @@
  *
  * @author UsadaYu
  *
- * @date create: 2024-07-30
- * @date update: 2025-03-04
+ * @date
+ *  Create: 2024-07-30
+ *  Update: 2025-07-10
  *
  * @brief Log print.
  */
@@ -12,11 +13,12 @@
 #ifndef __SIRIUS_LOG_H__
 #define __SIRIUS_LOG_H__
 
+#include "custom/custom_log.h"
+#include "custom/custom_macro.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "sirius_attributes.h"
 
 /**
  * @brief Custom log module name.
@@ -66,18 +68,7 @@ extern "C" {
  *  Therefore, implicitly converting a `const char *` type
  *  to a `char *` type may result in a compilation warning.
  */
-#ifdef sirius_file
-#undef sirius_file
-#endif
-#include <string.h>
-static force_inline const char *_sirius_basename(
-    const char *path) {
-  const char *slash = strrchr(path, '/');
-  const char *backslash = strrchr(path, '\\');
-  const char *f = slash > backslash ? slash : backslash;
-  return f ? f + 1 : path;
-}
-#define sirius_file (_sirius_basename(__FILE__))
+#define sirius_file (_custom_basename(__FILE__))
 
 /**
  * @brief Log color.
@@ -161,8 +152,9 @@ void sirius_logsp(int log_level, const char *color,
   _LOG_WRITE(sirius_log_level_error, log_red, fmt, \
              ##__VA_ARGS__)
 #else
-#define _ERROR(fmt, ...) \
-  do {                   \
+#define _ERROR(fmt, ...)          \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
 #endif
 
@@ -174,11 +166,13 @@ void sirius_logsp(int log_level, const char *color,
   _LOG_WRITESP(sirius_log_level_warn, log_yellow, fmt, \
                ##__VA_ARGS__)
 #else
-#define _WARN(fmt, ...) \
-  do {                  \
+#define _WARN(fmt, ...)           \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
-#define _WARNSP(fmt, ...) \
-  do {                    \
+#define _WARNSP(fmt, ...)         \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
 #endif
 
@@ -190,11 +184,13 @@ void sirius_logsp(int log_level, const char *color,
   _LOG_WRITESP(sirius_log_level_info, log_green, fmt, \
                ##__VA_ARGS__)
 #else
-#define _INFO(fmt, ...) \
-  do {                  \
+#define _INFO(fmt, ...)           \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
-#define _INFOSP(fmt, ...) \
-  do {                    \
+#define _INFOSP(fmt, ...)         \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
 #endif
 
@@ -206,11 +202,13 @@ void sirius_logsp(int log_level, const char *color,
   _LOG_WRITESP(sirius_log_level_debg, log_color_none, \
                fmt, ##__VA_ARGS__)
 #else
-#define _DEBG(fmt, ...) \
-  do {                  \
+#define _DEBG(fmt, ...)           \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
-#define _DEBGSP(fmt, ...) \
-  do {                    \
+#define _DEBGSP(fmt, ...)         \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
 #endif
 

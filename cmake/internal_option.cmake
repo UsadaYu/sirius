@@ -95,5 +95,35 @@ target_compile_definitions(
 
 target_include_directories(
   ${SIRIUS_TARGET_NAME}
-  PRIVATE ${PROJECT_SOURCE_DIR}/include
+  PRIVATE "${PROJECT_SOURCE_DIR}/include"
+)
+target_include_directories(
+  ${SIRIUS_TARGET_NAME}
+  PRIVATE "${PROJECT_SOURCE_DIR}/include/sirius"
+)
+
+# cmake interface
+if(BUILD_SHARED_LIBS)
+  target_link_directories(
+    ${SIRIUS_TARGET_NAME}
+    PUBLIC ${ITFC_LINK_DIR_LIST}
+  )
+  target_link_libraries(
+    ${SIRIUS_TARGET_NAME}
+    PUBLIC ${EXTRA_LINK_LIBS_LIST}
+  )
+else()
+  target_link_directories(
+    ${SIRIUS_TARGET_NAME}
+    INTERFACE ${ITFC_LINK_DIR_LIST}
+  )
+  target_link_libraries(
+    ${SIRIUS_TARGET_NAME}
+    INTERFACE ${ITFC_LINK_LIBS_LIST}
+  )
+endif()
+
+target_include_directories(
+  ${SIRIUS_TARGET_NAME}
+  INTERFACE ${ITFC_INCLUDE_DIR}
 )

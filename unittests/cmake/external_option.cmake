@@ -8,13 +8,13 @@ endif()
 set(
   SIRIUS_TEST_EXTRA_LINK_DIR
   "" CACHE STRING
-  "The link library file path in the test, e.g., `/path/lib1;/path/lib2`"
+  "The directory of `libs` that require additional links to the `sirius test`, e.g., `/path/lib1;/path/lib2`"
 )
 
 set(
   SIRIUS_TEST_EXTRA_LINK_LIBRARIES
   "" CACHE STRING
-  "The link library file name in the test, e.g., `pthread;stdc++`"
+  "The name of `libs` that require additional links to the `sirius test`, e.g., `pthread;stdc++`"
 )
 
 set(

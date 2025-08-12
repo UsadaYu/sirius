@@ -32,16 +32,16 @@ typedef struct {
   sirius_cond_handle cond_non_empty;
   /* Condition variable for non-full queue. */
   sirius_cond_handle cond_non_full;
-} i_queue_t;
+} que_t;
 
-#define q_lock(type, mtx)              \
+#define que_lock(type, mtx)            \
   do {                                 \
     if (sirius_que_type_mtx == type) { \
       sirius_mutex_lock(&mtx);         \
     }                                  \
   } while (0)
 
-#define q_unlock(type, mtx)            \
+#define que_unlock(type, mtx)          \
   do {                                 \
     if (sirius_que_type_mtx == type) { \
       sirius_mutex_unlock(&mtx);       \
@@ -56,7 +56,7 @@ int sirius_que_alloc(sirius_que_t *cr,
   }
 
   int ret;
-  i_queue_t *q = (i_queue_t *)calloc(1, sizeof(i_queue_t));
+  que_t *q = (que_t *)calloc(1, sizeof(que_t));
   if (!q) {
     internal_error("calloc\n");
     return sirius_err_memory_alloc;
@@ -109,7 +109,7 @@ int sirius_que_free(sirius_que_handle handle) {
     return sirius_err_entry;
   }
 
-  i_queue_t *q = (i_queue_t *)handle;
+  que_t *q = (que_t *)handle;
 
   if (q->type == sirius_que_type_mtx) {
     sirius_cond_destroy(&q->cond_non_full);
@@ -170,7 +170,7 @@ int sirius_que_free(sirius_que_handle handle) {
         V break;                                          \
       default:                                            \
         internal_error("Invalid queue type: %d\n", type); \
-        ret = sirius_err_param;                           \
+        ret = sirius_err_args;                           \
         break;                                            \
     }                                                     \
   } while (0)
@@ -182,7 +182,7 @@ int sirius_que_get(sirius_que_handle handle, size_t *value,
     return sirius_err_entry;
   }
 
-  i_queue_t *q = (i_queue_t *)handle;
+  que_t *q = (que_t *)handle;
 
   int ret;
 #define V                                  \
@@ -207,7 +207,7 @@ int sirius_que_put(sirius_que_handle handle, size_t value,
     return sirius_err_entry;
   }
 
-  i_queue_t *q = (i_queue_t *)handle;
+  que_t *q = (que_t *)handle;
 
   int ret;
 #define V                                \
@@ -232,15 +232,15 @@ int sirius_que_reset(sirius_que_handle handle) {
     return sirius_err_entry;
   }
 
-  i_queue_t *q = (i_queue_t *)handle;
+  que_t *q = (que_t *)handle;
 
-  q_lock(q->type, q->mtx);
+  que_lock(q->type, q->mtx);
 
   q->front = 0;
   q->rear = 0;
   q->elem_nr = 0;
 
-  q_unlock(q->type, q->mtx);
+  que_unlock(q->type, q->mtx);
 
   return 0;
 }
@@ -254,13 +254,13 @@ int sirius_que_get_cache_nr(sirius_que_handle handle,
     return sirius_err_entry;
   }
 
-  i_queue_t *q = (i_queue_t *)handle;
+  que_t *q = (que_t *)handle;
 
-  q_lock(q->type, q->mtx);
+  que_lock(q->type, q->mtx);
 
   *nr = q->elem_nr;
 
-  q_unlock(q->type, q->mtx);
+  que_unlock(q->type, q->mtx);
 
   return 0;
 }

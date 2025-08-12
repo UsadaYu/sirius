@@ -1,13 +1,14 @@
 add_subdirectory(cmake)
 
 set(_artifact_path "${CMAKE_CURRENT_BINARY_DIR}/artifact")
-set(_artifact_inc_path "${_artifact_path}/include/sirius")
+set(_artifact_inc_path "${_artifact_path}/include")
 set(_artifact_bin_path "${_artifact_path}/bin")
 
-file(GLOB _header_list "${PROJECT_SOURCE_DIR}/include/*.h")
-foreach(file ${_header_list})
-  file(COPY ${file} DESTINATION ${_artifact_inc_path})
-endforeach()
+file(GLOB _header_list "${PROJECT_SOURCE_DIR}/include/sirius/*.h")
+file(COPY ${_header_list} DESTINATION "${_artifact_inc_path}/sirius")
+
+file(GLOB _header_custom_list "${PROJECT_SOURCE_DIR}/include/sirius/custom/*.h")
+file(COPY ${_header_custom_list} DESTINATION "${_artifact_inc_path}/sirius/custom")
 
 set(_src_dir "${CMAKE_CURRENT_SOURCE_DIR}/src")
 file(GLOB _src_list "${_src_dir}/*.cpp" "${_src_dir}/*.c")

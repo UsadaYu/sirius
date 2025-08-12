@@ -38,3 +38,15 @@ else()
     "Internal log level: 0: disable the log; 1: error; 2: warn; 3: info; 4: debug"
   )
 endif()
+
+set(
+  SIRIUS_EXTRA_LINK_DIR
+  "" CACHE STRING
+  "The directory of `libs` that require additional links to the `sirius`, e.g., `/path/lib1;/path/lib2`"
+)
+
+set(
+  SIRIUS_EXTRA_LINK_LIBRARIES
+  "" CACHE STRING
+  "The name of `libs` that require additional links to the `sirius`, e.g., `pthread;stdc++`"
+)

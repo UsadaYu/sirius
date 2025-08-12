@@ -74,8 +74,9 @@ void internal_log(int level, const char *color,
                  fmt, ##__VA_ARGS__);                    \
   } while (0)
 #else
-#define internal_error(fmt, ...) \
-  do {                           \
+#define internal_error(fmt, ...)  \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
 #endif
 
@@ -87,8 +88,9 @@ void internal_log(int level, const char *color,
                  fmt, ##__VA_ARGS__);                    \
   } while (0)
 #else
-#define internal_warn(fmt, ...) \
-  do {                          \
+#define internal_warn(fmt, ...)   \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
 #endif
 
@@ -100,21 +102,23 @@ void internal_log(int level, const char *color,
                  fmt, ##__VA_ARGS__);                    \
   } while (0)
 #else
-#define internal_info(fmt, ...) \
-  do {                          \
+#define internal_info(fmt, ...)   \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
 #endif
 
 #if (INTERNAL_LOG_LEVEL >= sirius_log_level_debg)
 #define internal_debg(fmt, ...)                          \
   do {                                                   \
-    internal_log(sirius_log_level_debg, log_color_none,        \
+    internal_log(sirius_log_level_debg, log_color_none,  \
                  log_module_name, sirius_file, __LINE__, \
                  fmt, ##__VA_ARGS__);                    \
   } while (0)
 #else
-#define internal_debg(fmt, ...) \
-  do {                          \
+#define internal_debg(fmt, ...)   \
+  do {                            \
+    _custom_swallow(__VA_ARGS__); \
   } while (0)
 #endif
 

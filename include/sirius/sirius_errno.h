@@ -3,8 +3,9 @@
  *
  * @author UsadaYu
  *
- * @date create: 2024-07-30
- * @data update: 2025-01-06
+ * @date
+ *  Create: 2024-07-30
+ *  Update: 2025-01-06
  *
  * @brief Error code.
  */
@@ -22,8 +23,8 @@
 /* Null pointer. */
 #define sirius_err_null_pointer (-10001)
 
-/* Invalid parameter. */
-#define sirius_err_param (-10002)
+/* Invalid arguments. */
+#define sirius_err_args (-10002)
 
 /**
  * @brief Function error.
@@ -70,4 +71,4 @@
 /* The file is read to the end. */
 #define sirius_err_file_read_end (-13201)
 
-#endif // __SIRIUS_ERRNO_H__
+#endif  // __SIRIUS_ERRNO_H__

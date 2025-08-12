@@ -2,9 +2,10 @@
  * @name sirius_common.h
  *
  * @author UsadaYu
- *
- * @date create: 2024-07-30
- * @date update: 2025-01-20
+ * 
+ * @date
+ *  Create: 2024-07-30
+ *  Update: 2025-01-20
  */
 
 #ifndef __SIRIUS_COMMON_H__
@@ -16,11 +17,11 @@
 
 #define SIRIUS_VERSION "@SIRIUS_VERSION@"
 
-#if defined(_WIN32)
+#ifdef _WIN32
 #include <Windows.h>
 #endif
 
-#if !defined(_MSC_VER)
+#ifndef _MSC_VER
 #include <pthread.h>
 #endif
 

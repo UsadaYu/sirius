@@ -1,7 +1,7 @@
-#include "sirius_errno.h"
-#include "sirius_mutex.h"
-#include "sirius_queue.h"
-#include "sirius_thread.h"
+#include "sirius/sirius_errno.h"
+#include "sirius/sirius_mutex.h"
+#include "sirius/sirius_queue.h"
+#include "sirius/sirius_thread.h"
 #include "test.h"
 
 #define THREAD_CNT (32)

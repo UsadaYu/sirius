@@ -11,8 +11,8 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
-#include "sirius_log.h"
-#include "sirius_time.h"
+#include "sirius/sirius_log.h"
+#include "sirius/sirius_time.h"
 
 #ifdef _WIN32
 #include <Windows.h>

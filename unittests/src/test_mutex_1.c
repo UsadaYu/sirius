@@ -1,7 +1,6 @@
-#include "sirius_mutex.h"
-#include "sirius_spinlock.h"
-#include "sirius_thread.h"
-#include "sirius_time.h"
+#include "sirius/sirius_mutex.h"
+#include "sirius/sirius_spinlock.h"
+#include "sirius/sirius_thread.h"
 #include "test.h"
 
 /**
