@@ -9,4 +9,4 @@ Version: @SIRIUS_VERSION@
 URL: https://github.com/UsadaYu/sirius
 Libs: -L${libdir} @_pkg_interface_link_dir@ @_pkg_interface_link_libraries@
 Libs.private: @_pkg_interface_private_link_dir@ @_pkg_interface_private_link_libraries@
-Cflags: -I${includedir}
+Cflags: -I${includedir} @_pkg_interface_cflags@

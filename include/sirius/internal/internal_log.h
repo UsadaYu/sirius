@@ -1,5 +1,5 @@
-#ifndef __INTERNAL_LOG_H__
-#define __INTERNAL_LOG_H__
+#ifndef INTERNAL_LOG_H
+#define INTERNAL_LOG_H
 
 #include "internal_init.h"
 #include "sirius_log.h"
@@ -159,9 +159,9 @@ void internal_log(int level, const char *color,
     DWORD flags = FORMAT_MESSAGE_FROM_SYSTEM |        \
                   FORMAT_MESSAGE_IGNORE_INSERTS;      \
     DWORD size = FormatMessage(                       \
-        flags, NULL, err_c,                           \
+        flags, nullptr, err_c,                        \
         MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), e, \
-        sizeof(e) / sizeof(TCHAR), NULL);             \
+        sizeof(e) / sizeof(TCHAR), nullptr);          \
     if (unlikely(size == 0)) {                        \
       internal_error(fun ": %d\n", err_c);            \
     } else {                                          \
@@ -175,9 +175,9 @@ void internal_log(int level, const char *color,
     DWORD flags = FORMAT_MESSAGE_FROM_SYSTEM |        \
                   FORMAT_MESSAGE_IGNORE_INSERTS;      \
     DWORD size = FormatMessage(                       \
-        flags, NULL, err_c,                           \
+        flags, nullptr, err_c,                        \
         MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), e, \
-        sizeof(e) / sizeof(TCHAR), NULL);             \
+        sizeof(e) / sizeof(TCHAR), nullptr);          \
     if (unlikely(size == 0)) {                        \
       internal_warn(fun ": %d\n", err_c);             \
     } else {                                          \
@@ -186,4 +186,4 @@ void internal_log(int level, const char *color,
   } while (0)
 #endif
 
-#endif  // __INTERNAL_LOG_H__
+#endif  // INTERNAL_LOG_H

@@ -15,14 +15,14 @@ void thread_func() {
   }
 
   char r[64] = {0};
-  t_dprintf(1, "[%s] sub thread id: %llu\n", __FUNCTION__,
-          sirius_thread_id);
+  t_dprintf(1, "[%s] sub thread id: %llu\n", __func__,
+            sirius_thread_id);
 #ifndef _WIN32
-  t_dprintf(1, "[%s] sub thread self-id: %lu\n",
-          __FUNCTION__, sirius_thread_self());
+  t_dprintf(1, "[%s] sub thread self-id: %lu\n", __func__,
+            sirius_thread_self());
 #endif
-  t_dprintf(1, "%s: idx=%d\n", __FUNCTION__, ++idx);
-  snprintf(r, sizeof(r), "%s-%d", __FUNCTION__, idx);
+  t_dprintf(1, "%s: idx=%d\n", __func__, ++idx);
+  snprintf(r, sizeof(r), "%s-%d", __func__, idx);
 #ifndef _WIN32
   strncpy(g_retval[idx], r, sizeof(g_retval[idx]) - 1);
   sirius_thread_exit((void *)g_retval[idx]);
@@ -51,9 +51,9 @@ int main() {
       sirius_thread_self());
   priority_max = sirius_thread_sched_get_priority_max(
       sirius_thread_self());
-  t_dprintf(1,
-          "current thread priority: [min: %d][max: %d]\n",
-          priority_min, priority_max);
+  t_dprintf(
+      1, "current thread priority: [min: %d][max: %d]\n",
+      priority_min, priority_max);
   SLEEP
   t_dprintf(1, "============ group1 ============\n\n");
 
@@ -61,17 +61,17 @@ int main() {
   sirius_thread_handle thread_handle;
   t_assert(!sirius_thread_create(
       &thread_handle, NULL, thread_func_wrapper, NULL));
-  t_dprintf(1, "[%s] main thread id: %llu\n", __FUNCTION__,
-          sirius_thread_id);
+  t_dprintf(1, "[%s] main thread id: %llu\n", __func__,
+            sirius_thread_id);
 #ifndef _WIN32
-  t_dprintf(1, "[%s] sub thread self-id: %lu\n",
-          __FUNCTION__, thread_handle);
+  t_dprintf(1, "[%s] sub thread self-id: %lu\n", __func__,
+            thread_handle);
 #endif
   void *retval = NULL;
   t_assert(!sirius_thread_join(thread_handle, &retval));
 #ifndef _WIN32
-  t_dprintf(1, "[%s] retval: %s\n", __FUNCTION__,
-          (char *)retval);
+  t_dprintf(1, "[%s] retval: %s\n", __func__,
+            (char *)retval);
 #endif
   SLEEP
   t_dprintf(1, "============ group2 ============\n\n");

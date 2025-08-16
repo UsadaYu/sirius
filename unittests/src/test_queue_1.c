@@ -25,15 +25,15 @@ void thread_exit() {
 
   if (unlikely(idx == THREAD_CNT)) {
     /**
-     * wait for the consumer thread to finish fetching the
-     * result in the queue
+     * Wait for the consumer thread to finish fetching the
+     * result in the queue.
      */
     sirius_usleep(500 * 1000);
 
     g_thd_exit = true;
-    unsigned short nr = 0;
-    t_assert(!sirius_que_get_cache_nr(g_que_result, &nr));
-    if (0 == nr) {
+    size_t num = 0;
+    t_assert(!sirius_que_cache_num(g_que_result, &num));
+    if (0 == num) {
       char *q_str;
       t_assert(!sirius_que_get(g_que_free,
                                (size_t *)&q_str, 0));

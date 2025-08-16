@@ -10,11 +10,12 @@
  * @brief Log print.
  */
 
-#ifndef __SIRIUS_LOG_H__
-#define __SIRIUS_LOG_H__
+#ifndef SIRIUS_LOG_H
+#define SIRIUS_LOG_H
 
 #include "custom/custom_log.h"
 #include "custom/custom_macro.h"
+#include "sirius_attributes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,7 +29,7 @@ extern "C" {
  */
 #ifndef log_module_name
 #define log_module_name "unknown"
-#endif  // log_module_name
+#endif
 
 /**
  * @brief Log print levels.
@@ -73,8 +74,7 @@ extern "C" {
 /**
  * @brief Log color.
  *
- * @note Some terminals may not support `ANSI` color
- *  printing.
+ * @note Only color printing under ANSI is supported.
  */
 #define log_color_none "\033[m"
 #define log_red "\033[0;32;31m"
@@ -103,7 +103,7 @@ typedef struct {
   int *fd_out;
 } sirius_log_config_t;
 
-void sirius_log_config(sirius_log_config_t cfg);
+sirius_api void sirius_log_config(sirius_log_config_t cfg);
 
 /**
  * @brief Print log.
@@ -116,10 +116,12 @@ void sirius_log_config(sirius_log_config_t cfg);
  * @param[in] line: Line.
  * @param[in] fmt: User's message.
  */
-void sirius_log(int log_level, const char *color,
-                const char *module, const char *file,
-                const char *func, int line,
-                const char *fmt, ...);
+sirius_api void sirius_log(int log_level,
+                           const char *color,
+                           const char *module,
+                           const char *file,
+                           const char *func, int line,
+                           const char *fmt, ...);
 
 /**
  * @brief Print log, but hide the file information and
@@ -130,15 +132,16 @@ void sirius_log(int log_level, const char *color,
  * @param[in] module: Module name.
  * @param[in] fmt: User's message.
  */
-void sirius_logsp(int log_level, const char *color,
-                  const char *module, const char *fmt,
-                  ...);
+sirius_api void sirius_logsp(int log_level,
+                             const char *color,
+                             const char *module,
+                             const char *fmt, ...);
 
-#define _LOG_WRITE(level, color, fmt, ...)               \
-  do {                                                   \
-    sirius_log(level, color, log_module_name,            \
-               sirius_file, __FUNCTION__, __LINE__, fmt, \
-               ##__VA_ARGS__);                           \
+#define _LOG_WRITE(level, color, fmt, ...)           \
+  do {                                               \
+    sirius_log(level, color, log_module_name,        \
+               sirius_file, __func__, __LINE__, fmt, \
+               ##__VA_ARGS__);                       \
   } while (0)
 
 #define _LOG_WRITESP(level, color, fmt, ...)         \
@@ -229,4 +232,4 @@ void sirius_logsp(int log_level, const char *color,
 }
 #endif
 
-#endif  // __SIRIUS_LOG_H__
+#endif  // SIRIUS_LOG_H

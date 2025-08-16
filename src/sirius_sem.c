@@ -4,8 +4,9 @@
 #include "internal/internal_sys.h"
 #include "sirius_errno.h"
 
-int sirius_sem_init(sirius_sem_handle *handle, int pshared,
-                    unsigned int value) {
+sirius_api int sirius_sem_init(sirius_sem_handle *handle,
+                               int pshared,
+                               unsigned int value) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -17,7 +18,8 @@ int sirius_sem_init(sirius_sem_handle *handle, int pshared,
                   pshared);
   }
 
-  *handle = CreateSemaphore(NULL, value, LONG_MAX, NULL);
+  *handle =
+      CreateSemaphore(nullptr, value, LONG_MAX, nullptr);
   if (!*handle) {
     internal_win_fmt_error(GetLastError(),
                            "CreateSemaphore");
@@ -35,7 +37,8 @@ int sirius_sem_init(sirius_sem_handle *handle, int pshared,
   return 0;
 }
 
-int sirius_sem_destroy(sirius_sem_handle *handle) {
+sirius_api int sirius_sem_destroy(
+    sirius_sem_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -58,7 +61,7 @@ int sirius_sem_destroy(sirius_sem_handle *handle) {
   return 0;
 }
 
-int sirius_sem_wait(sirius_sem_handle *handle) {
+sirius_api int sirius_sem_wait(sirius_sem_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -86,7 +89,8 @@ int sirius_sem_wait(sirius_sem_handle *handle) {
   return 0;
 }
 
-int sirius_sem_trywait(sirius_sem_handle *handle) {
+sirius_api int sirius_sem_trywait(
+    sirius_sem_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -120,8 +124,9 @@ int sirius_sem_trywait(sirius_sem_handle *handle) {
   return 0;
 }
 
-int sirius_sem_timedwait(sirius_sem_handle *handle,
-                         unsigned long int milliseconds) {
+sirius_api int sirius_sem_timedwait(
+    sirius_sem_handle *handle,
+    unsigned long int milliseconds) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -164,14 +169,14 @@ int sirius_sem_timedwait(sirius_sem_handle *handle,
   return 0;
 }
 
-int sirius_sem_post(sirius_sem_handle *handle) {
+sirius_api int sirius_sem_post(sirius_sem_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
   }
 
 #ifdef _WIN32
-  if (!ReleaseSemaphore(*handle, 1, NULL)) {
+  if (!ReleaseSemaphore(*handle, 1, nullptr)) {
     internal_win_fmt_error(GetLastError(),
                            "ReleaseSemaphore");
     return -1;
@@ -189,8 +194,8 @@ int sirius_sem_post(sirius_sem_handle *handle) {
 }
 
 #ifndef _WIN32
-int sirius_sem_getvalue(sirius_sem_handle *handle,
-                        int *sval) {
+sirius_api int sirius_sem_getvalue(
+    sirius_sem_handle *handle, int *sval) {
   if (unlikely(!handle) || unlikely(!sval)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;

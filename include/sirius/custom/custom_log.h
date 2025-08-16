@@ -1,15 +1,13 @@
-#ifndef __CUSTOM_LOG_H__
-#define __CUSTOM_LOG_H__
+#ifndef CUSTOM_LOG_H
+#define CUSTOM_LOG_H
 
 #include <string.h>
-
-#include "sirius/sirius_attributes.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static force_inline const char *_custom_basename(
+static inline const char *_custom_basename(
     const char *path) {
   const char *slash = strrchr(path, '/');
   const char *backslash = strrchr(path, '\\');
@@ -21,4 +19,4 @@ static force_inline const char *_custom_basename(
 }
 #endif
 
-#endif  // __CUSTOM_LOG_H__
+#endif  // CUSTOM_LOG_H

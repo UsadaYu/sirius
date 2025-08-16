@@ -10,9 +10,10 @@
  * @brief Condition.
  */
 
-#ifndef __SIRIUS_COND_H__
-#define __SIRIUS_COND_H__
+#ifndef SIRIUS_COND_H
+#define SIRIUS_COND_H
 
+#include "sirius_attributes.h"
 #include "sirius_common.h"
 #include "sirius_mutex.h"
 
@@ -39,6 +40,8 @@ typedef enum {
    * @note Only supported under POSIX system.
    */
   sirius_cond_process_shared = 1,
+#else
+  sirius_cond_process_shared = sirius_cond_process_private,
 #endif
 } sirius_cond_attr_t;
 
@@ -52,13 +55,15 @@ typedef enum {
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_cond_init(sirius_cond_handle *handle,
-                     const sirius_cond_attr_t *attr);
+sirius_api int sirius_cond_init(
+    sirius_cond_handle *handle,
+    const sirius_cond_attr_t *attr);
 
 /**
  * @brief Destroy the condition handle.
  */
-int sirius_cond_destroy(sirius_cond_handle *handle);
+sirius_api int sirius_cond_destroy(
+    sirius_cond_handle *handle);
 
 /**
  * @brief Block the current thread until another thread
@@ -69,8 +74,9 @@ int sirius_cond_destroy(sirius_cond_handle *handle);
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_cond_wait(sirius_cond_handle *handle,
-                     sirius_mutex_handle *mutex);
+sirius_api int sirius_cond_wait(
+    sirius_cond_handle *handle,
+    sirius_mutex_handle *mutex);
 
 /**
  * @brief Block the current thread until another thread
@@ -80,15 +86,16 @@ int sirius_cond_wait(sirius_cond_handle *handle,
  * @param[in] mutex: The mutex handle.
  * @param[in] milliseconds: Timeout duration, unit: ms.
  *
- * @return 0 on success;
+ * @return
+ *  - (1) 0 on success;
  *
- *  `sirius_err_timeout` indicates a timeout;
+ *  - (2) `sirius_err_timeout` indicates a timeout;
  *
- *  error code otherwise.
+ *  - (3) error code otherwise.
  */
-int sirius_cond_timedwait(sirius_cond_handle *handle,
-                          sirius_mutex_handle *mutex,
-                          unsigned long int milliseconds);
+sirius_api int sirius_cond_timedwait(
+    sirius_cond_handle *handle, sirius_mutex_handle *mutex,
+    unsigned long int milliseconds);
 
 /**
  * @brief Wake up a blocked thread.
@@ -97,7 +104,8 @@ int sirius_cond_timedwait(sirius_cond_handle *handle,
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_cond_signal(sirius_cond_handle *handle);
+sirius_api int sirius_cond_signal(
+    sirius_cond_handle *handle);
 
 /**
  * @brief Wake up all blocked threads.
@@ -106,10 +114,11 @@ int sirius_cond_signal(sirius_cond_handle *handle);
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_cond_broadcast(sirius_cond_handle *handle);
+sirius_api int sirius_cond_broadcast(
+    sirius_cond_handle *handle);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // __SIRIUS_COND_H__
+#endif  // SIRIUS_COND_H

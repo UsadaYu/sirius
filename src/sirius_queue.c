@@ -10,14 +10,14 @@ typedef struct {
   /* Queue elements. */
   size_t *elements;
   /* The number of elements in the queue. */
-  unsigned short elem_nr;
+  size_t elem_nr;
   /* Queue capacity. */
-  unsigned short capacity;
+  size_t capacity;
 
   /* Queue header. */
-  unsigned short front;
+  size_t front;
   /* Queue tail. */
-  unsigned short rear;
+  size_t rear;
 
   /* Mechanism in the queue, refer `sirius_que_type_t`. */
   sirius_que_type_t type;
@@ -48,8 +48,8 @@ typedef struct {
     }                                  \
   } while (0)
 
-int sirius_que_alloc(sirius_que_t *cr,
-                     sirius_que_handle *handle) {
+sirius_api int sirius_que_alloc(
+    sirius_que_t *cr, sirius_que_handle *handle) {
   if (unlikely(!cr || !handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -78,10 +78,11 @@ int sirius_que_alloc(sirius_que_t *cr,
 
   if (q->type == sirius_que_type_mtx) {
     ret = sirius_err_resource_alloc;
-    if (sirius_mutex_init(&q->mtx, NULL)) goto label_free2;
-    if (sirius_cond_init(&q->cond_non_empty, NULL))
+    if (sirius_mutex_init(&q->mtx, nullptr))
+      goto label_free2;
+    if (sirius_cond_init(&q->cond_non_empty, nullptr))
       goto label_free3;
-    if (sirius_cond_init(&q->cond_non_full, NULL))
+    if (sirius_cond_init(&q->cond_non_full, nullptr))
       goto label_free4;
   }
 
@@ -103,7 +104,7 @@ label_free1:
   return ret;
 }
 
-int sirius_que_free(sirius_que_handle handle) {
+sirius_api int sirius_que_free(sirius_que_handle handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -119,7 +120,7 @@ int sirius_que_free(sirius_que_handle handle) {
 
   if (q->elements) {
     free(q->elements);
-    q->elements = NULL;
+    q->elements = nullptr;
   }
   free(q);
 
@@ -170,14 +171,15 @@ int sirius_que_free(sirius_que_handle handle) {
         V break;                                          \
       default:                                            \
         internal_error("Invalid queue type: %d\n", type); \
-        ret = sirius_err_args;                           \
+        ret = sirius_err_args;                            \
         break;                                            \
     }                                                     \
   } while (0)
 
-int sirius_que_get(sirius_que_handle handle, size_t *value,
-                   unsigned long int milliseconds) {
-  if (unlikely(!handle || !value)) {
+sirius_api int sirius_que_get(
+    sirius_que_handle handle, size_t *ptr,
+    unsigned long int milliseconds) {
+  if (unlikely(!handle || !ptr)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
   }
@@ -186,7 +188,7 @@ int sirius_que_get(sirius_que_handle handle, size_t *value,
 
   int ret;
 #define V                                  \
-  *value = q->elements[q->front];          \
+  *ptr = q->elements[q->front];            \
   q->front = (q->front + 1) % q->capacity; \
   (q->elem_nr)--;
 
@@ -200,8 +202,9 @@ int sirius_que_get(sirius_que_handle handle, size_t *value,
 #undef V
 }
 
-int sirius_que_put(sirius_que_handle handle, size_t value,
-                   unsigned long int milliseconds) {
+sirius_api int sirius_que_put(
+    sirius_que_handle handle, size_t ptr,
+    unsigned long int milliseconds) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -211,7 +214,7 @@ int sirius_que_put(sirius_que_handle handle, size_t value,
 
   int ret;
 #define V                                \
-  q->elements[q->rear] = value;          \
+  q->elements[q->rear] = ptr;            \
   q->rear = (q->rear + 1) % q->capacity; \
   (q->elem_nr)++;
 
@@ -226,7 +229,7 @@ int sirius_que_put(sirius_que_handle handle, size_t value,
 #undef V
 }
 
-int sirius_que_reset(sirius_que_handle handle) {
+sirius_api int sirius_que_reset(sirius_que_handle handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -245,9 +248,9 @@ int sirius_que_reset(sirius_que_handle handle) {
   return 0;
 }
 
-int sirius_que_get_cache_nr(sirius_que_handle handle,
-                            unsigned short *nr) {
-  *nr = 0;
+sirius_api int sirius_que_cache_num(
+    sirius_que_handle handle, size_t *num) {
+  *num = 0;
 
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
@@ -258,7 +261,7 @@ int sirius_que_get_cache_nr(sirius_que_handle handle,
 
   que_lock(q->type, q->mtx);
 
-  *nr = q->elem_nr;
+  *num = q->elem_nr;
 
   que_unlock(q->type, q->mtx);
 

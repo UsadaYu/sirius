@@ -10,10 +10,11 @@
  * @brief Thread.
  */
 
-#ifndef __SIRIUS_THREAD_H__
-#define __SIRIUS_THREAD_H__
+#ifndef SIRIUS_THREAD_H
+#define SIRIUS_THREAD_H
 
 #include "custom/custom_thread.h"
+#include "sirius_attributes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,10 +27,10 @@ extern "C" {
 #define sirius_thread_id (_custom_thread_id())
 
 /* Minimum thread priority. */
-#define SIRIUS_THREAD_PRIORITY_MIN (0)
+#define sirius_thread_priority_min (0)
 
 /* Maximum thread priority. */
-#define SIRIUS_THREAD_PRIORITY_MAX (31)
+#define sirius_thread_priority_max (31)
 
 #ifdef _WIN32
 typedef HANDLE sirius_thread_handle;
@@ -38,6 +39,9 @@ typedef pthread_t sirius_thread_handle;
 #endif
 
 typedef enum {
+  sirius_thread_detach_none = -1,
+
+#ifndef _WIN32
   /**
    * @brief The thread can be synchronized using the
    *  `sirius_thread_join` function.
@@ -49,57 +53,71 @@ typedef enum {
    *  `sirius_thread_join` function.
    */
   sirius_thread_detached = 1,
+#else
+  sirius_thread_joinable = sirius_thread_detach_none,
+  sirius_thread_detached = sirius_thread_detach_none,
+#endif
 } sirius_thread_detach_state_t;
 
 typedef enum {
+  sirius_thread_sched_none = -1,
+
+#ifndef _WIN32
   /**
    * @brief Not real-time.
    */
-  SIRIUS_THREAD_SCHED_OTHER = 0,
+  sirius_thread_sched_other = 0,
 
   /**
    * @brief Real-time, rotational method, system
    *  permissions may be required.
    */
-  SIRIUS_THREAD_SCHED_FIFO = 1,
+  sirius_thread_sched_fifo = 1,
 
   /**
    * @brief Real-time, first-in, first-out, system
    *  permissions may be required.
    */
-  SIRIUS_THREAD_SCHED_RR = 2,
+  sirius_thread_sched_rr = 2,
+#else
+  sirius_thread_sched_other = sirius_thread_sched_none,
+  sirius_thread_sched_fifo = sirius_thread_sched_none,
+  sirius_thread_sched_rr = sirius_thread_sched_none,
+#endif
 } sirius_thread_sched_policy_t;
 
 typedef struct {
-#ifndef _WIN32
-  /* Thread rotation policy. */
+  /**
+   * @brief Thread rotation policy.
+   *
+   * @note Only takes effect in POSIX system.
+   */
   sirius_thread_sched_policy_t sched_policy;
-#endif
 
   /**
    * @brief Thread priority.
    *
    * @note This parameters usually range from
-   *  `SIRIUS_THREAD_PRIORITY_MIN` to
-   *  `SIRIUS_THREAD_PRIORITY_MAX`, and it only affects the
+   *  `sirius_thread_priority_min` to
+   *  `sirius_thread_priority_max`, and it only affects the
    *  thread priority, not the process priority.
    *
    *  In POSIX system, like pthread, this parameter needs
    *  to be used in conjunction with the `sched_policy`
    *  parameter.
    *  When parameter `sched_policy` is set to
-   *  `SIRIUS_THREAD_SCHED_FIFO` or
-   *  `SIRIUS_THREAD_SCHED_RR`, this parameter ranges from
+   *  `sirius_thread_sched_fifo` or
+   *  `sirius_thread_sched_rr`, this parameter ranges from
    *  1 to 31, corresponding to the priority of pthread
    *  threads from 1 to 99;
    *  when parameter `sched_policy` is configured to
-   *  `SIRIUS_THREAD_SCHED_OTHER`, this parameter has a
+   *  `sirius_thread_sched_other`, this parameter has a
    *  value of 0.
    *
    *  In Windows MSVC system, this parameter is valid
    *  regardless of the `sched_policy` parameter. any
-   *  configuration between `SIRIUS_THREAD_PRIORITY_MIN`
-   *  and `SIRIUS_THREAD_PRIORITY_MAX` is converted to a
+   *  configuration between `sirius_thread_priority_min`
+   *  and `sirius_thread_priority_max` is converted to a
    *  specific priority.
    *  In fact, the priority of threads in Windows is also
    *  related to the process. the thread priority is
@@ -118,53 +136,79 @@ typedef struct {
 } sirius_thread_sched_param_t;
 
 typedef enum {
+  sirius_thread_inherit_none = -1,
+
+#ifndef _WIN32
   /**
    * @brief Inherits the scheduling policy and scheduling
    *  parameters of the caller thread.
    */
-  SIRIUS_THREAD_INHERIT_SCHED = 0,
+  sirius_thread_inherit_sched = 0,
 
   /**
    * @brief Explicitly specifies the scheduling policy and
    *  scheduling parameters for the thread.
    */
-  SIRIUS_THREAD_EXPLICIT_SCHED = 1,
+  sirius_thread_explicit_sched = 1,
+#else
+  sirius_thread_inherit_sched = sirius_thread_inherit_none,
+  sirius_thread_explicit_sched =
+      sirius_thread_inherit_none,
+#endif
 } sirius_thread_inherit_t;
 
 typedef enum {
+  sirius_thread_scope_none = -1,
+
+#ifndef _WIN32
   /**
    * @brief Compete with all threads in the system for the
    *  CPU time.
    */
-  SIRIUS_THREAD_SCOPE_SYSTEM = 0,
+  sirius_thread_scope_system = 0,
 
   /**
    * @brief Only compete with the thread in current process
    *  for the CPU time, system permissions may be required.
    */
-  SIRIUS_THREAD_SCOPE_PROCESS = 1,
+  sirius_thread_scope_process = 1,
+#else
+  sirius_thread_scope_system = sirius_thread_scope_none,
+  sirius_thread_scope_process = sirius_thread_scope_none,
+#endif
 } sirius_thread_scope_t;
 
 typedef struct {
-#ifndef _WIN32
+  /**
+   * @note Only takes effect in POSIX system.
+   */
   sirius_thread_detach_state_t detach_state;
 
+  /**
+   * @note Only takes effect in POSIX system.
+   */
   sirius_thread_inherit_t inherit_sched;
 
+  /**
+   * @note Only takes effect in POSIX system.
+   */
   sirius_thread_scope_t scope;
 
   /**
    * @brief Specifies the starting address of the thread
    *  stack.
+   *
+   * @note Only takes effect in POSIX system.
    */
   void *stackaddr;
 
   /**
    * @brief Alert buffer size at the end of the thread
    *  stack.
+   *
+   * @note Only takes effect in POSIX system.
    */
   size_t guardsize;
-#endif
 
   sirius_thread_sched_param_t sched_param;
 
@@ -190,12 +234,12 @@ typedef struct {
  *
  * @note If the thread is created successfully, but
  *  attributes setting fails, the function will still
- * return success.
+ *  return success.
  */
-int sirius_thread_create(sirius_thread_handle *handle,
-                         const sirius_thread_attr_t *attr,
-                         void *(*start_routine)(void *),
-                         void *arg);
+sirius_api int sirius_thread_create(
+    sirius_thread_handle *handle,
+    const sirius_thread_attr_t *attr,
+    void *(*start_routine)(void *), void *arg);
 
 /**
  * @brief Reclaim the resources of the thread.
@@ -206,14 +250,14 @@ int sirius_thread_create(sirius_thread_handle *handle,
  *  Windows MSVC environment.
  *
  * @param[in] handle: Thread handle.
- * @param[out] retval: Data returned by the thread.
- *  this parameter is valid only in POSIX system, but not
- *  in Windows MSVC environment.
+ * @param[out] retval: Data returned by the thread. This
+ *  parameter only takes effect in POSIX system, but not in
+ *  Windows MSVC environment.
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_thread_join(sirius_thread_handle handle,
-                       void **retval);
+sirius_api int sirius_thread_join(
+    sirius_thread_handle handle, void **retval);
 
 #ifndef _WIN32
 /**
@@ -225,7 +269,8 @@ int sirius_thread_join(sirius_thread_handle handle,
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_thread_detach(sirius_thread_handle handle);
+sirius_api int sirius_thread_detach(
+    sirius_thread_handle handle);
 #else
 #define sirius_thread_detach(handle) (0)
 #endif
@@ -247,7 +292,7 @@ int sirius_thread_detach(sirius_thread_handle handle);
  *  In Windows MSVC environment, this parameter can point
  *  to a temporary memory address.
  */
-void sirius_thread_exit(
+sirius_api void sirius_thread_exit(
 #ifdef _WIN32
     DWORD *
 #else
@@ -266,7 +311,8 @@ void sirius_thread_exit(
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_thread_cancel(sirius_thread_handle handle);
+sirius_api int sirius_thread_cancel(
+    sirius_thread_handle handle);
 
 /**
  * @brief Get the thread handle.
@@ -277,7 +323,7 @@ int sirius_thread_cancel(sirius_thread_handle handle);
  *
  * @return The thread handle.
  */
-sirius_thread_handle sirius_thread_self();
+sirius_api sirius_thread_handle sirius_thread_self();
 
 /**
  * @brief Get the maximum thread priority.
@@ -288,7 +334,7 @@ sirius_thread_handle sirius_thread_self();
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_thread_sched_get_priority_max(
+sirius_api int sirius_thread_sched_get_priority_max(
     sirius_thread_handle handle);
 
 /**
@@ -300,7 +346,7 @@ int sirius_thread_sched_get_priority_max(
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_thread_sched_get_priority_min(
+sirius_api int sirius_thread_sched_get_priority_min(
     sirius_thread_handle handle);
 
 /**
@@ -311,7 +357,7 @@ int sirius_thread_sched_get_priority_min(
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_thread_setschedparam(
+sirius_api int sirius_thread_setschedparam(
     sirius_thread_handle handle,
     const sirius_thread_sched_param_t *param);
 
@@ -323,7 +369,7 @@ int sirius_thread_setschedparam(
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_thread_getschedparam(
+sirius_api int sirius_thread_getschedparam(
     sirius_thread_handle handle,
     sirius_thread_sched_param_t *param);
 
@@ -331,4 +377,4 @@ int sirius_thread_getschedparam(
 }
 #endif
 
-#endif  // __SIRIUS_THREAD_H__
+#endif  // SIRIUS_THREAD_H

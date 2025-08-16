@@ -4,10 +4,10 @@
 #include "internal/internal_sys.h"
 #include "sirius_errno.h"
 
-int sirius_thread_create(sirius_thread_handle *handle,
-                         const sirius_thread_attr_t *attr,
-                         void *(*start_routine)(void *),
-                         void *arg) {
+sirius_api int sirius_thread_create(
+    sirius_thread_handle *handle,
+    const sirius_thread_attr_t *attr,
+    void *(*start_routine)(void *), void *arg) {
   if (unlikely(!handle) || unlikely(!start_routine)) {
     internal_error("null pointer\n");
     return sirius_err_entry;
@@ -21,9 +21,10 @@ int sirius_thread_create(sirius_thread_handle *handle,
 #ifdef _WIN32
   DWORD thread_id;
 
-  *handle = CreateThread(
-      NULL, s_stack, (LPTHREAD_START_ROUTINE)start_routine,
-      arg, 0, &thread_id);
+  *handle =
+      CreateThread(nullptr, s_stack,
+                   (LPTHREAD_START_ROUTINE)start_routine,
+                   arg, 0, &thread_id);
   if (!*handle) {
     internal_win_fmt_error(GetLastError(), "CreateThread");
     return sirius_err_resource_alloc;
@@ -33,7 +34,7 @@ int sirius_thread_create(sirius_thread_handle *handle,
   pthread_attr_t thread_attr;
   pthread_attr_init(&thread_attr);
 
-#define E(f)                 \
+#define E(f)                    \
   internal_str_error(errno, f); \
   attr_ret |= -1;
   if (attr) {
@@ -48,7 +49,7 @@ int sirius_thread_create(sirius_thread_handle *handle,
     if (pthread_attr_setinheritsched(
             &thread_attr,
             attr->inherit_sched ==
-                    SIRIUS_THREAD_EXPLICIT_SCHED
+                    sirius_thread_explicit_sched
                 ? PTHREAD_EXPLICIT_SCHED
                 : PTHREAD_INHERIT_SCHED)) {
       E("pthread_attr_setinheritsched")
@@ -56,7 +57,7 @@ int sirius_thread_create(sirius_thread_handle *handle,
 
     if (pthread_attr_setscope(
             &thread_attr,
-            attr->scope == SIRIUS_THREAD_SCOPE_PROCESS
+            attr->scope == sirius_thread_scope_process
                 ? PTHREAD_SCOPE_PROCESS
                 : PTHREAD_SCOPE_SYSTEM)) {
       E("pthread_attr_setscope")
@@ -110,12 +111,13 @@ int sirius_thread_create(sirius_thread_handle *handle,
   return 0;
 }
 
-int sirius_thread_join(sirius_thread_handle handle,
+sirius_api int sirius_thread_join(
+    sirius_thread_handle handle,
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4100)
 #endif
-                       void **retval
+    void **retval
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -126,7 +128,7 @@ int sirius_thread_join(sirius_thread_handle handle,
     internal_error("WaitForSingleObject: %d\n", ret);
     if (WAIT_FAILED == ret) {
       internal_win_fmt_error(GetLastError(),
-                           "WaitForSingleObject");
+                             "WaitForSingleObject");
     }
     ret = (DWORD)-1;
   }
@@ -149,7 +151,8 @@ int sirius_thread_join(sirius_thread_handle handle,
 }
 
 #ifndef _WIN32
-int sirius_thread_detach(sirius_thread_handle handle) {
+sirius_api int sirius_thread_detach(
+    sirius_thread_handle handle) {
   if (unlikely(pthread_detach(handle))) {
     internal_str_error(errno, "pthread_detach");
     return -1;
@@ -158,7 +161,7 @@ int sirius_thread_detach(sirius_thread_handle handle) {
 }
 #endif
 
-void sirius_thread_exit(
+sirius_api void sirius_thread_exit(
 #ifdef _WIN32
     DWORD *
 #else
@@ -175,11 +178,12 @@ void sirius_thread_exit(
 #endif
 }
 
-int sirius_thread_cancel(sirius_thread_handle handle) {
+sirius_api int sirius_thread_cancel(
+    sirius_thread_handle handle) {
 #ifdef _WIN32
   if (!TerminateThread(handle, (DWORD)-1)) {
     internal_win_fmt_error(GetLastError(),
-                         "TerminateThread");
+                           "TerminateThread");
     return -1;
   }
 
@@ -194,7 +198,7 @@ int sirius_thread_cancel(sirius_thread_handle handle) {
   return 0;
 }
 
-sirius_thread_handle sirius_thread_self() {
+sirius_api sirius_thread_handle sirius_thread_self() {
 #ifdef _WIN32
   return GetCurrentThread();
 
@@ -225,7 +229,7 @@ static bool get_current_policy(sirius_thread_handle handle,
 }
 #endif
 
-int sirius_thread_sched_get_priority_max(
+sirius_api int sirius_thread_sched_get_priority_max(
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4100)
@@ -244,10 +248,10 @@ int sirius_thread_sched_get_priority_max(
     case HIGH_PRIORITY_CLASS:
       return 15;
     case REALTIME_PRIORITY_CLASS:
-      return SIRIUS_THREAD_PRIORITY_MAX;
+      return sirius_thread_priority_max;
     default:
       internal_win_fmt_error(GetLastError(),
-                           "GetPriorityClass");
+                             "GetPriorityClass");
       return -1;
   }
 
@@ -258,13 +262,13 @@ int sirius_thread_sched_get_priority_max(
     case SCHED_OTHER:
       return 0;
     default:
-      return SIRIUS_THREAD_PRIORITY_MAX;
+      return sirius_thread_priority_max;
   }
 
 #endif
 }
 
-int sirius_thread_sched_get_priority_min(
+sirius_api int sirius_thread_sched_get_priority_min(
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4100)
@@ -286,7 +290,7 @@ int sirius_thread_sched_get_priority_min(
       return 16;
     default:
       internal_win_fmt_error(GetLastError(),
-                           "GetPriorityClass");
+                             "GetPriorityClass");
       return -1;
   }
 
@@ -413,13 +417,13 @@ static bool set_thread_priority(
       break;
     default:
       internal_win_fmt_error(GetLastError(),
-                           "GetPriorityClass");
+                             "GetPriorityClass");
       return false;
   }
 
   if (!SetThreadPriority(handle, thread_priority)) {
     internal_win_fmt_error(GetLastError(),
-                         "SetThreadPriority");
+                           "SetThreadPriority");
     return false;
   }
 
@@ -427,7 +431,7 @@ static bool set_thread_priority(
 }
 #endif
 
-int sirius_thread_setschedparam(
+sirius_api int sirius_thread_setschedparam(
     sirius_thread_handle handle,
     const sirius_thread_sched_param_t *param) {
   if (unlikely(!param)) {
@@ -436,8 +440,8 @@ int sirius_thread_setschedparam(
   }
 
   int priority = param->priority;
-  if (priority < SIRIUS_THREAD_PRIORITY_MIN ||
-      priority > SIRIUS_THREAD_PRIORITY_MAX) {
+  if (priority < sirius_thread_priority_min ||
+      priority > sirius_thread_priority_max) {
     internal_warn("Invalid argument: [priority: %d]\n",
                   priority);
   }
@@ -455,17 +459,17 @@ int sirius_thread_setschedparam(
       "Invalid argument: [policy: %d] [sched_priority: " \
       "%d]\n",                                           \
       param->sched_policy, priority);                    \
-  internal_warn("use default argument\n");
+  internal_warn("Use default argument\n");
 
   switch (param->sched_policy) {
-    case SIRIUS_THREAD_SCHED_OTHER:
+    case sirius_thread_sched_other:
       if (0 != sched_param.sched_priority) {
         E sched_param.sched_priority = 0;
       }
       policy = SCHED_OTHER;
       break;
-    case SIRIUS_THREAD_SCHED_FIFO:
-    case SIRIUS_THREAD_SCHED_RR:
+    case sirius_thread_sched_fifo:
+    case sirius_thread_sched_rr:
       if (sched_param.sched_priority < 1) {
         E sched_param.sched_priority = 1;
       }
@@ -473,7 +477,7 @@ int sirius_thread_setschedparam(
         E sched_param.sched_priority = 99;
       }
       policy =
-          SIRIUS_THREAD_SCHED_FIFO == param->sched_policy
+          sirius_thread_sched_fifo == param->sched_policy
               ? SCHED_FIFO
               : SCHED_RR;
       break;
@@ -495,7 +499,7 @@ int sirius_thread_setschedparam(
 #endif
 }
 
-int sirius_thread_getschedparam(
+sirius_api int sirius_thread_getschedparam(
     sirius_thread_handle handle,
     sirius_thread_sched_param_t *param) {
   if (unlikely(!param)) {
@@ -507,7 +511,7 @@ int sirius_thread_getschedparam(
   int thread_priority = GetThreadPriority(handle);
   if (THREAD_PRIORITY_ERROR_RETURN == thread_priority) {
     internal_win_fmt_error(GetLastError(),
-                         "GetThreadPriority");
+                           "GetThreadPriority");
     return -1;
   }
 
@@ -552,7 +556,7 @@ int sirius_thread_getschedparam(
       PP(16, 22, 23, 24, 25, 26, 31) break;
     default:
       internal_win_fmt_error(GetLastError(),
-                           "GetPriorityClass");
+                             "GetPriorityClass");
       param->priority = -1;
       return -1;
   }
@@ -566,13 +570,13 @@ int sirius_thread_getschedparam(
   if (!get_current_policy(handle, &policy)) return -1;
   switch (policy) {
     case SCHED_OTHER:
-      param->sched_policy = SIRIUS_THREAD_SCHED_OTHER;
+      param->sched_policy = sirius_thread_sched_other;
       break;
     case SCHED_FIFO:
-      param->sched_policy = SIRIUS_THREAD_SCHED_FIFO;
+      param->sched_policy = sirius_thread_sched_fifo;
       break;
     default:
-      param->sched_policy = SIRIUS_THREAD_SCHED_RR;
+      param->sched_policy = sirius_thread_sched_rr;
       break;
   }
 
@@ -581,8 +585,8 @@ int sirius_thread_getschedparam(
     param->priority =
         (int)(thread_param.sched_priority / 3);
     param->priority =
-        param->priority > SIRIUS_THREAD_PRIORITY_MAX
-            ? SIRIUS_THREAD_PRIORITY_MAX
+        param->priority > sirius_thread_priority_max
+            ? sirius_thread_priority_max
             : param->priority;
   } else {
     param->priority = -1;

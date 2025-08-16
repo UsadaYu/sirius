@@ -13,8 +13,8 @@
  *  encapsulated by a function.
  */
 
-#ifndef __SIRIUS_SPINLOCK__
-#define __SIRIUS_SPINLOCK__
+#ifndef SIRIUS_SPINLOCK
+#define SIRIUS_SPINLOCK
 
 #include "sirius_common.h"
 
@@ -64,4 +64,4 @@ typedef volatile LONG sirius_spinlock_t;
 }
 #endif
 
-#endif  // __SIRIUS_SPINLOCK__
+#endif  // SIRIUS_SPINLOCK

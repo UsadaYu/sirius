@@ -4,8 +4,9 @@
 #include "internal/internal_sys.h"
 #include "sirius_errno.h"
 
-int sirius_mutex_init(sirius_mutex_handle *handle,
-                      const sirius_mutex_attr_t *attr) {
+sirius_api int sirius_mutex_init(
+    sirius_mutex_handle *handle,
+    const sirius_mutex_attr_t *attr) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -55,7 +56,7 @@ int sirius_mutex_init(sirius_mutex_handle *handle,
   }
 
   pthread_mutexattr_t *mutex_attr_ptr =
-      ret ? NULL : &mutex_attr;
+      ret ? nullptr : &mutex_attr;
   ret = pthread_mutex_init(handle, mutex_attr_ptr);
   if (mutex_attr_ptr) {
     pthread_mutexattr_destroy(&mutex_attr);
@@ -70,7 +71,8 @@ int sirius_mutex_init(sirius_mutex_handle *handle,
   return 0;
 }
 
-int sirius_mutex_destroy(sirius_mutex_handle *handle) {
+sirius_api int sirius_mutex_destroy(
+    sirius_mutex_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -91,7 +93,8 @@ int sirius_mutex_destroy(sirius_mutex_handle *handle) {
   return 0;
 }
 
-int sirius_mutex_lock(sirius_mutex_handle *handle) {
+sirius_api int sirius_mutex_lock(
+    sirius_mutex_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -112,7 +115,8 @@ int sirius_mutex_lock(sirius_mutex_handle *handle) {
   return 0;
 }
 
-int sirius_mutex_unlock(sirius_mutex_handle *handle) {
+sirius_api int sirius_mutex_unlock(
+    sirius_mutex_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -133,7 +137,8 @@ int sirius_mutex_unlock(sirius_mutex_handle *handle) {
   return 0;
 }
 
-int sirius_mutex_trylock(sirius_mutex_handle *handle) {
+sirius_api int sirius_mutex_trylock(
+    sirius_mutex_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -142,13 +147,13 @@ int sirius_mutex_trylock(sirius_mutex_handle *handle) {
 #ifdef _WIN32
   return TryEnterCriticalSection(handle)
              ? 0
-             : sirius_err_resource_alloc;
+             : sirius_err_resource_busy;
 
 #else
   int ret = pthread_mutex_trylock(handle);
   if (ret) {
     if (EBUSY == ret) {
-      return sirius_err_resource_alloc;
+      return sirius_err_resource_busy;
     } else {
       internal_str_error(ret, "pthread_mutex_trylock");
       return -1;

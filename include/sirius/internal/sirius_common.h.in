@@ -2,14 +2,14 @@
  * @name sirius_common.h
  *
  * @author UsadaYu
- * 
+ *
  * @date
  *  Create: 2024-07-30
  *  Update: 2025-01-20
  */
 
-#ifndef __SIRIUS_COMMON_H__
-#define __SIRIUS_COMMON_H__
+#ifndef SIRIUS_COMMON_H
+#define SIRIUS_COMMON_H
 
 #define SIRIUS_VERSION_MAJOR @SIRIUS_VERSION_MAJOR@
 #define SIRIUS_VERSION_MINOR @SIRIUS_VERSION_MINOR@
@@ -33,4 +33,4 @@ extern "C" {
 }
 #endif
 
-#endif  // __SIRIUS_COMMON_H__
+#endif  // SIRIUS_COMMON_H

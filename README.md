@@ -1,12 +1,15 @@
-# 1. Author:
+# Version-1.2.0
 
-​	Name: 胡益华
+|                | gcc  | clang | msvc |
+| -------------- | ---- | ----- | ---- |
+| Linux Shared   | yes  | yes   | /    |
+| Linux Static   | yes  | yes   | /    |
+| Windows Shared | yes  | yes   | yes  |
+| Windows Static | yes  | yes   | yes  |
 
-​	Email: UsadaYu.yh@gmail.com
 
 
+# Author:
 
-
-# 2. Description
-
-​	一些简单的接口封装。
+* Name: UsadaYu
+* Email: UsadaYu.yh@gmail.com

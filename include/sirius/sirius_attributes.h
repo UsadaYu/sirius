@@ -10,8 +10,8 @@
  * @brief Attribute class macro definition.
  */
 
-#ifndef __SIRIUS_ATTRIBUTES_H__
-#define __SIRIUS_ATTRIBUTES_H__
+#ifndef SIRIUS_ATTRIBUTES_H
+#define SIRIUS_ATTRIBUTES_H
 
 /**
  * @brief Compiler version checking.
@@ -70,29 +70,31 @@
 #endif  // weak_symbol
 
 /**
- * @brief Hiding or exporting the symbol for the function.
+ * @brief Exporting the symbol for the function.
  */
-#if gcc_version_check_at_least(3, 4) || defined(__clang__)
-#ifndef export_symbol
-#define export_symbol \
-  __attribute__((visibility("default")))
-#endif
-#ifndef hide_symbol
-#define hide_symbol __attribute__((visibility("hidden")))
-#endif
-#elif defined(_MSC_VER)
-#ifndef export_symbol
-#define export_symbol __declspec(dllexport)
-#endif
-#ifndef hide_symbol
-#define hide_symbol __declspec(dllimport)
+#ifdef _WIN32
+#ifndef sirius_api
+#ifdef SIRIUS_BUILDING
+#ifdef SIRIUS_WIN_DLL
+#define sirius_api __declspec(dllexport)
+#else
+#define sirius_api
 #endif
 #else
-#ifndef export_symbol
-#define export_symbol
+#ifdef SIRIUS_WIN_DLL
+#define sirius_api __declspec(dllimport)
+#else
+#define sirius_api
 #endif
-#ifndef hide_symbol
-#define hide_symbol
+#endif
+#endif
+#else
+#ifndef sirius_api
+#if gcc_version_check_at_least(4, 0) || defined(__clang__)
+#define sirius_api __attribute__((visibility("default")))
+#else
+#define sirius_api
+#endif
 #endif
 #endif
 
@@ -126,4 +128,4 @@
 #define sirius_warn_unused_result
 #endif
 
-#endif  // __SIRIUS_ATTRIBUTES_H__
+#endif  // SIRIUS_ATTRIBUTES_H

@@ -84,15 +84,16 @@ int main() {
   int std_fd;
   sirius_log_config_t cfg = {0};
 
-  fd =
 #ifdef _WIN32
-      _sopen(g_file_name, _O_RDWR | _O_CREAT | _O_TRUNC,
-             _SH_DENYNO, _S_IREAD | _S_IWRITE);
+  errno_t err = _sopen_s(&fd, g_file_name,
+                         _O_RDWR | _O_CREAT | _O_TRUNC,
+                         _SH_DENYNO, _S_IREAD | _S_IWRITE);
+  t_assert(err == 0);
 #else
-      open(g_file_name, O_RDWR | O_CREAT | O_TRUNC,
-           S_IRUSR | S_IWUSR);
-#endif
+  fd = open(g_file_name, O_RDWR | O_CREAT | O_TRUNC,
+            S_IRUSR | S_IWUSR);
   t_assert(-1 != fd);
+#endif
 
   cfg.fd_err = &fd;
   cfg.fd_out = &fd;

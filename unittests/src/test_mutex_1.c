@@ -30,22 +30,23 @@ typedef enum {
   l_type_spin = 1,
 } l_type_t;
 
-#define LL_S(type)                                       \
-  do {                                                   \
-    switch (type) {                                      \
-      case l_type_mutex:                                 \
-        ll_mutex();                                      \
-        break;                                           \
-      case l_type_spin:                                  \
-        ll_spin();                                       \
-        break;                                           \
-      default:                                           \
-        t_dprintf(2,                                       \
-                "[error: invalid argument] [lock type: " \
-                "%d]\n",                                 \
-                type);                                   \
-        break;                                           \
-    }                                                    \
+#define LL_S(type)                                   \
+  do {                                               \
+    switch (type) {                                  \
+      case l_type_mutex:                             \
+        ll_mutex();                                  \
+        break;                                       \
+      case l_type_spin:                              \
+        ll_spin();                                   \
+        break;                                       \
+      default:                                       \
+        t_dprintf(                                   \
+            2,                                       \
+            "[error: invalid argument] [lock type: " \
+            "%d]\n",                                 \
+            type);                                   \
+        break;                                       \
+    }                                                \
   } while (0)
 
 static void ll_init(l_type_t type) {

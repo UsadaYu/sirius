@@ -16,15 +16,13 @@
  *  type `unsigned long`.
  */
 
-#ifndef __CUSTOM_TIME_H__
-#define __CUSTOM_TIME_H__
+#ifndef CUSTOM_TIME_H
+#define CUSTOM_TIME_H
 
 /* The header file `Windows.h` must be included first. */
 #ifdef _WIN32
 #include <Windows.h>
 #endif
-
-#include "sirius/sirius_attributes.h"
 
 #ifdef _WIN32
 #include <limits.h>
@@ -39,7 +37,7 @@
 extern "C" {
 #endif
 
-static force_inline void _custom_usleep(
+static inline void _custom_usleep(
     unsigned long long usec) {
   if (usec == 0) {
     return;
@@ -110,7 +108,7 @@ static force_inline void _custom_usleep(
 #endif
 }
 
-static force_inline void _custom_nsleep(
+static inline void _custom_nsleep(
     unsigned long long nsec) {
   if (nsec == 0) {
     return;
@@ -182,10 +180,9 @@ static force_inline void _custom_nsleep(
 #endif
 }
 
-static force_inline unsigned long long _custom_get_time_us(
+static inline unsigned long long _custom_get_time_us(
     void) {
 #ifdef _WIN32
-  static LARGE_INTEGER frequency = {0};
   static LARGE_INTEGER qpc_frequency_us = {0};
   LARGE_INTEGER counter;
 
@@ -221,8 +218,7 @@ static force_inline unsigned long long _custom_get_time_us(
 #endif
 }
 
-static force_inline unsigned long long
-_custom_get_time_ns() {
+static inline unsigned long long _custom_get_time_ns() {
 #ifdef _WIN32
   static LARGE_INTEGER frequency = {0};
   LARGE_INTEGER counter;
@@ -263,4 +259,4 @@ _custom_get_time_ns() {
 }
 #endif
 
-#endif  // __CUSTOM_TIME_H__
+#endif  // CUSTOM_TIME_H
