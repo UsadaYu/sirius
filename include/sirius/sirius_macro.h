@@ -10,8 +10,8 @@
  * @brief Common macro definitions.
  */
 
-#ifndef __SIRIUS_MACRO_H__
-#define __SIRIUS_MACRO_H__
+#ifndef SIRIUS_MACRO_H
+#define SIRIUS_MACRO_H
 
 /* Timeout, no waiting. */
 #define sirius_timeout_none (0)
@@ -60,4 +60,4 @@
 #define sirius_pointer_align8(N)
 #endif
 
-#endif  // __SIRIUS_MACRO_H__
+#endif  // SIRIUS_MACRO_H

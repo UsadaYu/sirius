@@ -10,9 +10,10 @@
  * @brief Semaphore.
  */
 
-#ifndef __SIRIUS_SEM_H__
-#define __SIRIUS_SEM_H__
+#ifndef SIRIUS_SEM_H
+#define SIRIUS_SEM_H
 
+#include "sirius_attributes.h"
 #include "sirius_common.h"
 
 #ifdef __cplusplus
@@ -32,9 +33,8 @@ typedef sem_t sirius_sem_handle;
  * @param[out] handle: Semaphore handle.
  * @param[in] pshared:
  *  In Windows system, this parameter should be set to 0.
- *  In POSIX system, if `pshared` has the value 0, then
- *  the semaphore is shared between the threads of a
- *  process;
+ *  In POSIX system, if `pshared` has the value 0, then the
+ *  semaphore is shared between the threads of a process;
  *  if `pshared` is nonzero, then the semaphore is shared
  *  between processes.
  * @param[in] value: The `value` argument specifies the
@@ -42,8 +42,9 @@ typedef sem_t sirius_sem_handle;
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_sem_init(sirius_sem_handle *handle, int pshared,
-                    unsigned int value);
+sirius_api int sirius_sem_init(sirius_sem_handle *handle,
+                               int pshared,
+                               unsigned int value);
 
 /**
  * @brief Destroy the semaphore.
@@ -52,7 +53,8 @@ int sirius_sem_init(sirius_sem_handle *handle, int pshared,
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_sem_destroy(sirius_sem_handle *handle);
+sirius_api int sirius_sem_destroy(
+    sirius_sem_handle *handle);
 
 /**
  * @brief If the semaphore's value is greater than zero,
@@ -67,7 +69,7 @@ int sirius_sem_destroy(sirius_sem_handle *handle);
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_sem_wait(sirius_sem_handle *handle);
+sirius_api int sirius_sem_wait(sirius_sem_handle *handle);
 
 /**
  * @brief This function is the same as the function
@@ -77,14 +79,16 @@ int sirius_sem_wait(sirius_sem_handle *handle);
  *
  * @param[in] handle: Semaphore handle.
  *
- * @return 0 on success;
+ * @return
+ *  - (1) 0 on success;
  *
- *  `sirius_err_timeout` indicates that obtaining semaphore
- *  fails;
+ *  - (2) `sirius_err_timeout` indicates that obtaining
+ *  semaphore fails;
  *
- *  error code otherwise.
+ *  - (3) error code otherwise.
  */
-int sirius_sem_trywait(sirius_sem_handle *handle);
+sirius_api int sirius_sem_trywait(
+    sirius_sem_handle *handle);
 
 /**
  * @brief This function is the same as the function
@@ -95,15 +99,17 @@ int sirius_sem_trywait(sirius_sem_handle *handle);
  * @param[in] handle: Semaphore handle.
  * @param[in] milliseconds: timeout duration, unit: ms.
  *
- * @return 0 on success;
+ * @return
+ *  - (1) 0 on success;
  *
- *  `sirius_err_timeout` indicates that obtaining semaphore
- *  fails;
+ *  - (2) `sirius_err_timeout` indicates that obtaining
+ *  semaphore fails;
  *
- *  error code otherwise.
+ *  - (3) error code otherwise.
  */
-int sirius_sem_timedwait(sirius_sem_handle *handle,
-                         unsigned long int milliseconds);
+sirius_api int sirius_sem_timedwait(
+    sirius_sem_handle *handle,
+    unsigned long int milliseconds);
 
 /**
  * @brief Increments the semaphore pointed to by sem.
@@ -112,7 +118,7 @@ int sirius_sem_timedwait(sirius_sem_handle *handle,
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_sem_post(sirius_sem_handle *handle);
+sirius_api int sirius_sem_post(sirius_sem_handle *handle);
 
 #ifndef _WIN32
 /**
@@ -124,8 +130,8 @@ int sirius_sem_post(sirius_sem_handle *handle);
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_sem_getvalue(sirius_sem_handle *handle,
-                        int *sval);
+sirius_api int sirius_sem_getvalue(
+    sirius_sem_handle *handle, int *sval);
 #else
 #define sirius_sem_getvalue(handle, sval) (0)
 #endif
@@ -134,4 +140,4 @@ int sirius_sem_getvalue(sirius_sem_handle *handle,
 }
 #endif
 
-#endif  // __SIRIUS_SEM_H__
+#endif  // SIRIUS_SEM_H

@@ -4,8 +4,9 @@
 #include "internal/internal_sys.h"
 #include "sirius_errno.h"
 
-int sirius_cond_init(sirius_cond_handle *handle,
-                     const sirius_cond_attr_t *attr) {
+sirius_api int sirius_cond_init(
+    sirius_cond_handle *handle,
+    const sirius_cond_attr_t *attr) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -45,7 +46,7 @@ int sirius_cond_init(sirius_cond_handle *handle,
   }
 
   pthread_condattr_t *cond_attr_ptr =
-      ret ? NULL : &cond_attr;
+      ret ? nullptr : &cond_attr;
   ret = pthread_cond_init(handle, cond_attr_ptr);
   if (cond_attr_ptr) {
     pthread_condattr_destroy(&cond_attr);
@@ -60,7 +61,8 @@ int sirius_cond_init(sirius_cond_handle *handle,
   return 0;
 }
 
-int sirius_cond_destroy(sirius_cond_handle *handle) {
+sirius_api int sirius_cond_destroy(
+    sirius_cond_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -84,8 +86,9 @@ int sirius_cond_destroy(sirius_cond_handle *handle) {
   return 0;
 }
 
-int sirius_cond_wait(sirius_cond_handle *handle,
-                     sirius_mutex_handle *mutex) {
+sirius_api int sirius_cond_wait(
+    sirius_cond_handle *handle,
+    sirius_mutex_handle *mutex) {
   if (unlikely(!handle || !mutex)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -111,9 +114,9 @@ int sirius_cond_wait(sirius_cond_handle *handle,
   return 0;
 }
 
-int sirius_cond_timedwait(sirius_cond_handle *handle,
-                          sirius_mutex_handle *mutex,
-                          unsigned long int milliseconds) {
+sirius_api int sirius_cond_timedwait(
+    sirius_cond_handle *handle, sirius_mutex_handle *mutex,
+    unsigned long int milliseconds) {
   if (unlikely(!handle || !mutex || milliseconds < 0)) {
     internal_error("Invalid arguments\n");
     return sirius_err_entry;
@@ -156,7 +159,8 @@ int sirius_cond_timedwait(sirius_cond_handle *handle,
   return 0;
 }
 
-int sirius_cond_signal(sirius_cond_handle *handle) {
+sirius_api int sirius_cond_signal(
+    sirius_cond_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -177,7 +181,8 @@ int sirius_cond_signal(sirius_cond_handle *handle) {
   return 0;
 }
 
-int sirius_cond_broadcast(sirius_cond_handle *handle) {
+sirius_api int sirius_cond_broadcast(
+    sirius_cond_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;

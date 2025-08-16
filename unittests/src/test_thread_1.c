@@ -11,10 +11,9 @@ static int g_argc = 1;
 static int g_args_arr[N * 64] = {0};
 
 void thread_func(void *args) {
-  for (int i = 0; i < 200000; i++) {
-  }
-  t_dprintf(1, "%s: args=%d, idx=%d\n", __FUNCTION__,
-          *((int *)args), ++g_idx);
+  sirius_usleep(1000);
+  t_dprintf(1, "%s: args=%d, idx=%d\n", __func__,
+            *((int *)args), ++g_idx);
 }
 
 void *thread_func_wrapper(void *args) {
@@ -44,33 +43,28 @@ int main() {
     }                                                   \
   } while (0)
 
-#define SLEEP                         \
-  for (int i = 0; i < 2000000; i++) { \
-  }
-
   sirius_thread_handle thread_handle[N];
   sirius_thread_attr_t attr = {0};
 
-#ifndef _WIN32
   attr.detach_state = sirius_thread_detached;
-  attr.inherit_sched = SIRIUS_THREAD_EXPLICIT_SCHED;
+  attr.inherit_sched = sirius_thread_explicit_sched;
 #ifdef test_root
-  attr.sched_param.sched_policy = SIRIUS_THREAD_SCHED_RR;
+  attr.sched_param.sched_policy = sirius_thread_sched_rr;
 #endif
-  attr.scope = SIRIUS_THREAD_SCOPE_SYSTEM;
+  attr.scope = sirius_thread_scope_system;
   attr.sched_param.priority =
       sirius_thread_sched_get_priority_max(
           sirius_thread_self());
   attr.stacksize = 1024 * 200;
   t_dprintf(1, "============ group1 ============\n");
   THD_C(N);
-  SLEEP
+  sirius_usleep(1000 * 500);
   t_dprintf(1, "============ group1 ============\n\n");
 
   attr.detach_state = sirius_thread_joinable;
 #ifdef test_root
-  attr.sched_param.sched_policy = SIRIUS_THREAD_SCHED_FIFO;
-  attr.scope = SIRIUS_THREAD_SCOPE_PROCESS;
+  attr.sched_param.sched_policy = sirius_thread_sched_fifo;
+  attr.scope = sirius_thread_scope_process;
 #endif
   attr.sched_param.priority =
       sirius_thread_sched_get_priority_min(
@@ -79,15 +73,15 @@ int main() {
   t_dprintf(1, "============ group2 ============\n");
   THD_C(N);
   THD_J(N);
-  SLEEP
+  sirius_usleep(1000 * 500);
   t_dprintf(1, "============ group2 ============\n\n");
 
   attr.detach_state = sirius_thread_detached;
-  attr.inherit_sched = SIRIUS_THREAD_INHERIT_SCHED;
+  attr.inherit_sched = sirius_thread_inherit_sched;
   attr.stacksize = 1024 * 250;
   t_dprintf(1, "============ group3 ============\n");
   THD_C(N);
-  SLEEP
+  sirius_usleep(1000 * 500);
   t_dprintf(1, "============ group3 ============\n\n");
 
   attr.detach_state = sirius_thread_joinable;
@@ -95,36 +89,13 @@ int main() {
   attr.stackaddr = (void *)arr;
   attr.stacksize = 1024 * 500;
   t_dprintf(1, "============ group4 ============\n");
-  SLEEP SLEEP SLEEP THD_C(1);
+  sirius_usleep(1000 * 500);
+  THD_C(1);
   THD_J(1);
-  SLEEP
+  sirius_usleep(1000 * 500);
   t_dprintf(1, "============ group4 ============\n\n");
 
-#else
-  attr.sched_param.priority =
-      sirius_thread_sched_get_priority_max(
-          sirius_thread_self());
-  attr.stacksize = 1024 * 200;
-  t_dprintf(1, "============ group1 ============\n");
-  THD_C(N);
-  THD_J(N);
-  SLEEP
-  t_dprintf(1, "============ group1 ============\n\n");
-
-  attr.sched_param.priority =
-      sirius_thread_sched_get_priority_min(
-          sirius_thread_self());
-  attr.stacksize = 1024 * 300;
-  t_dprintf(1, "============ group2 ============\n");
-  THD_C(N);
-  THD_J(N);
-  SLEEP
-  t_dprintf(1, "============ group2 ============\n\n");
-
-#endif
-
   return 0;
-#undef SLEEP
 #undef THD_J
 #undef THD_C
 }

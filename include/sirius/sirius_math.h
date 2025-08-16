@@ -10,8 +10,8 @@
  * @brief Common calculations.
  */
 
-#ifndef __SIRIUS_MATH_H__
-#define __SIRIUS_MATH_H__
+#ifndef SIRIUS_MATH_H
+#define SIRIUS_MATH_H
 
 #include "custom/custom_math.h"
 
@@ -37,4 +37,4 @@ extern "C" {
 }
 #endif
 
-#endif  // __SIRIUS_MATH_H__
+#endif  // SIRIUS_MATH_H

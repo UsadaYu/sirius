@@ -10,9 +10,10 @@
  * @brief Mutex.
  */
 
-#ifndef __SIRIUS_MUTEX_H__
-#define __SIRIUS_MUTEX_H__
+#ifndef SIRIUS_MUTEX_H
+#define SIRIUS_MUTEX_H
 
+#include "sirius_attributes.h"
 #include "sirius_common.h"
 
 #ifdef __cplusplus
@@ -41,6 +42,9 @@ typedef enum {
    * @brief Error-checking mutex.
    */
   sirius_mutex_errorcheck = 2,
+#else
+  sirius_mutex_recursive = sirius_mutex_normal,
+  sirius_mutex_errorcheck = sirius_mutex_normal,
 #endif
 } sirius_mutex_attr_t;
 
@@ -52,8 +56,9 @@ typedef enum {
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_mutex_init(sirius_mutex_handle *handle,
-                      const sirius_mutex_attr_t *attr);
+sirius_api int sirius_mutex_init(
+    sirius_mutex_handle *handle,
+    const sirius_mutex_attr_t *attr);
 
 /**
  * @brief Destroy the mutex handle.
@@ -62,7 +67,8 @@ int sirius_mutex_init(sirius_mutex_handle *handle,
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_mutex_destroy(sirius_mutex_handle *handle);
+sirius_api int sirius_mutex_destroy(
+    sirius_mutex_handle *handle);
 
 /**
  * @brief Lock a mutex.
@@ -71,7 +77,8 @@ int sirius_mutex_destroy(sirius_mutex_handle *handle);
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_mutex_lock(sirius_mutex_handle *handle);
+sirius_api int sirius_mutex_lock(
+    sirius_mutex_handle *handle);
 
 /**
  * @brief Unlock a mutex.
@@ -80,25 +87,28 @@ int sirius_mutex_lock(sirius_mutex_handle *handle);
  *
  * @return 0 on success, error code otherwise.
  */
-int sirius_mutex_unlock(sirius_mutex_handle *handle);
+sirius_api int sirius_mutex_unlock(
+    sirius_mutex_handle *handle);
 
 /**
  * @brief Try to lock a mutex without blocking.
  *
  * @param[in] handle: Mutex handle.
  *
- * @return 0 on success, the `sirius_mutex_unlock` function
+ * @return
+ *  - (1) 0 on success, the `sirius_mutex_unlock` function
  *  is then called to unlock;
  *
- *  `sirius_err_resource_alloc` indicates that an attempt
- *  to obtain a lock failed;
+ *  - (2) `sirius_err_resource_busy` indicates that the
+ *  mutex lock is busy and the acquisition failed;
  *
- *  error code otherwise.
+ *  - (3) error code otherwise.
  */
-int sirius_mutex_trylock(sirius_mutex_handle *handle);
+sirius_api int sirius_mutex_trylock(
+    sirius_mutex_handle *handle);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // __SIRIUS_MUTEX_H__
+#endif  // SIRIUS_MUTEX_H

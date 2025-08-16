@@ -12,7 +12,7 @@ static bool g_exit = false;
 void thread_func() {
   while (!g_exit) {
     sirius_usleep(1000 * 100);
-    t_dprintf(1, "[%s] cnt: %d\n", __FUNCTION__, ++g_cnt);
+    t_dprintf(1, "[%s] cnt: %d\n", __func__, ++g_cnt);
   }
 
   sirius_thread_exit(NULL);
@@ -40,18 +40,18 @@ int main() {
   SLEEP
 
 #ifndef _WIN32
-#define GPP                                             \
-  do {                                                  \
-    t_dprintf(1, "[%s] priority: %d\n", __FUNCTION__,     \
-            param.priority);                            \
-    t_dprintf(1, "[%s] sched_policy: %d\n", __FUNCTION__, \
-            param.sched_policy);                        \
+#define GPP                                           \
+  do {                                                \
+    t_dprintf(1, "[%s] priority: %d\n", __func__,     \
+              param.priority);                        \
+    t_dprintf(1, "[%s] sched_policy: %d\n", __func__, \
+              param.sched_policy);                    \
   } while (0)
 #else
-#define GPP                                         \
-  do {                                              \
-    t_dprintf(1, "[%s] priority: %d\n", __FUNCTION__, \
-            param.priority);                        \
+#define GPP                                       \
+  do {                                            \
+    t_dprintf(1, "[%s] priority: %d\n", __func__, \
+              param.priority);                    \
   } while (0)
 #endif
 
@@ -69,10 +69,10 @@ int main() {
   memset(&param, 0, sizeof(sirius_thread_sched_param_t));
 #ifndef _WIN32
 #ifdef test_root
-  param.sched_policy = SIRIUS_THREAD_SCHED_FIFO;
+  param.sched_policy = sirius_thread_sched_fifo;
   param.priority = 25;
 #else
-  param.sched_policy = SIRIUS_THREAD_SCHED_OTHER;
+  param.sched_policy = sirius_thread_sched_other;
   param.priority = 0;
 #endif
 

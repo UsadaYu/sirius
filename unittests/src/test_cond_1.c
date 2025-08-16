@@ -27,7 +27,7 @@ static void cons_thread(void *args) {
 #endif
 
     t_dprintf(1, "[thread id: %llu] [var: %u]\n",
-            sirius_thread_id, g_idx);
+              sirius_thread_id, g_idx);
 
     g_prod_flag = true;
     sirius_mutex_unlock(&g_mutex);

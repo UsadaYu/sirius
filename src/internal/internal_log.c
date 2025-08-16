@@ -41,7 +41,7 @@ static void _enable_win_ansi() {
 #endif
 }
 
-bool _internal_log_init() {
+bool internal_log_init() {
   SYSTEM_INFO info;
   GetSystemInfo(&info);
   int cnt = info.dwNumberOfProcessors > 1
@@ -60,7 +60,7 @@ bool _internal_log_init() {
   return true;
 }
 
-void _internal_log_deinit() { DeleteCriticalSection(&cs); }
+void internal_log_deinit() { DeleteCriticalSection(&cs); }
 
 #else
 static pthread_mutex_t mutex;
@@ -68,8 +68,8 @@ static pthread_mutex_t mutex;
 #define MUTEX_LOCK() pthread_mutex_lock(&mutex)
 #define MUTEX_UNLOCK() pthread_mutex_unlock(&mutex)
 
-bool _internal_log_init() {
-  int ret = pthread_mutex_init(&mutex, NULL);
+bool internal_log_init() {
+  int ret = pthread_mutex_init(&mutex, nullptr);
   if (ret) {
     cst_error("pthread_mutex_init: %d\n", ret);
     return false;
@@ -77,7 +77,8 @@ bool _internal_log_init() {
 
   return true;
 }
-void _internal_log_deinit() {
+
+void internal_log_deinit() {
   int ret = pthread_mutex_destroy(&mutex);
   if (ret) {
     cst_error("pthread_mutex_destroy: %d\n", ret);

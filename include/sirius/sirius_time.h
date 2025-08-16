@@ -10,8 +10,8 @@
  * @brief Time.
  */
 
-#ifndef __SIRIUS_TIME_H__
-#define __SIRIUS_TIME_H__
+#ifndef SIRIUS_TIME_H
+#define SIRIUS_TIME_H
 
 #include "custom/custom_time.h"
 
@@ -88,4 +88,4 @@ static inline unsigned long long sirius_get_time_ns() {
 }
 #endif
 
-#endif  // __SIRIUS_TIME_H__
+#endif  // SIRIUS_TIME_H

@@ -11,15 +11,14 @@ static struct tm g_tm_info;
 static int g_size;
 static char g_buf[WRITE_SIZE];
 
-bool _log_init() {
-  return (bool)(!sirius_mutex_init(&g_mutex, NULL));
+bool log_init() {
+  return (bool)(!sirius_mutex_init(&g_mutex, nullptr));
 }
 
-void _log_deinit() {
-  (void)sirius_mutex_destroy(&g_mutex);
-}
+void log_deinit() { (void)sirius_mutex_destroy(&g_mutex); }
 
-void sirius_log_config(sirius_log_config_t cfg) {
+sirius_api void sirius_log_config(
+    sirius_log_config_t cfg) {
   sirius_mutex_lock(&g_mutex);
 
   if (cfg.fd_err) {
@@ -94,9 +93,10 @@ void sirius_log_config(sirius_log_config_t cfg) {
       break;                                     \
   }
 
-void sirius_logsp(int log_level, const char *color,
-                  const char *module, const char *fmt,
-                  ...) {
+sirius_api void sirius_logsp(int log_level,
+                             const char *color,
+                             const char *module,
+                             const char *fmt, ...) {
 #define SP(type)                                          \
   g_size =                                                \
       snprintf(g_buf, sizeof(g_buf),                      \
@@ -108,10 +108,12 @@ void sirius_logsp(int log_level, const char *color,
 #undef SP
 }
 
-void sirius_log(int log_level, const char *color,
-                const char *module, const char *file,
-                const char *func, int line,
-                const char *fmt, ...) {
+sirius_api void sirius_log(int log_level,
+                           const char *color,
+                           const char *module,
+                           const char *file,
+                           const char *func, int line,
+                           const char *fmt, ...) {
 #define SP(type)                                          \
   g_size = snprintf(                                      \
       g_buf, sizeof(g_buf),                               \

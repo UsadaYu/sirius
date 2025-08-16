@@ -1,5 +1,5 @@
-#ifndef __INTERNAL_SYS_H__
-#define __INTERNAL_SYS_H__
+#ifndef INTERNAL_SYS_H
+#define INTERNAL_SYS_H
 
 #ifdef _WIN32
 #include <windows.h>
@@ -17,10 +17,17 @@
 #include <string.h>
 #include <time.h>
 
-#if defined(__STDC_VERSION__) &&     \
-    (__STDC_VERSION__ >= 201112L) && \
+#ifdef __STDC_VERSION__
+#if (__STDC_VERSION__ >= 201112L) && \
     !defined(__STDC_NO_ATOMICS__)
 #include <stdatomic.h>
+#endif
+
+#if (__STDC_VERSION__ >= 202311L)
+#else
+#include <stdbool.h>
+#define nullptr NULL
+#endif
 #endif
 
 #if defined(_WIN32) && defined(_MSC_VER)
@@ -65,4 +72,4 @@
 
 #endif
 
-#endif  // __INTERNAL_SYS_H__
+#endif  // INTERNAL_SYS_H
