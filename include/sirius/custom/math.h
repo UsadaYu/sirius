@@ -1,5 +1,5 @@
-#ifndef CUSTOM_MATH_H
-#define CUSTOM_MATH_H
+#ifndef SIRIUS_CUSTOM_MATH_H
+#define SIRIUS_CUSTOM_MATH_H
 
 #include <float.h>
 #include <limits.h>
@@ -9,8 +9,7 @@
 extern "C" {
 #endif
 
-static inline int _custom_max_int(unsigned int args_num,
-                                  ...) {
+static inline int _custom_max_int(unsigned int args_num, ...) {
   va_list args;
   va_start(args, args_num);
 
@@ -24,8 +23,7 @@ static inline int _custom_max_int(unsigned int args_num,
   return max_val;
 }
 
-static inline int _custom_min_int(unsigned int args_num,
-                                  ...) {
+static inline int _custom_min_int(unsigned int args_num, ...) {
   va_list args;
   va_start(args, args_num);
 
@@ -39,8 +37,7 @@ static inline int _custom_min_int(unsigned int args_num,
   return min_val;
 }
 
-static inline double _custom_max_double(
-    unsigned int args_num, ...) {
+static inline double _custom_max_double(unsigned int args_num, ...) {
   va_list args;
   va_start(args, args_num);
 
@@ -54,8 +51,7 @@ static inline double _custom_max_double(
   return max_val;
 }
 
-static inline double _custom_min_double(
-    unsigned int args_num, ...) {
+static inline double _custom_min_double(unsigned int args_num, ...) {
   va_list args;
   va_start(args, args_num);
 
@@ -73,4 +69,4 @@ static inline double _custom_min_double(
 }
 #endif
 
-#endif  // CUSTOM_MATH_H
+#endif  // SIRIUS_CUSTOM_MATH_H

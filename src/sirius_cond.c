@@ -1,12 +1,11 @@
 #include "sirius_cond.h"
 
-#include "internal/internal_log.h"
-#include "internal/internal_sys.h"
+#include "internal/decls.h"
+#include "internal/log.h"
 #include "sirius_errno.h"
 
-sirius_api int sirius_cond_init(
-    sirius_cond_handle *handle,
-    const sirius_cond_attr_t *attr) {
+sirius_api int sirius_cond_init(sirius_cond_handle *handle,
+                                const sirius_cond_attr_t *attr) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -18,8 +17,7 @@ sirius_api int sirius_cond_init(
       case sirius_cond_process_private:
         break;
       default:
-        internal_warn("Invalid condition attr: %d\n",
-                      *attr);
+        internal_warn("Invalid condition attr: %d\n", *attr);
     }
   }
 
@@ -33,20 +31,18 @@ sirius_api int sirius_cond_init(
     if (ret) {
       internal_str_warn(ret, "pthread_condattr_init");
     } else {
-      ret = pthread_condattr_setpshared(
-          &cond_attr, *attr == sirius_cond_process_shared
-                          ? PTHREAD_PROCESS_SHARED
-                          : PTHREAD_PROCESS_PRIVATE);
+      ret = pthread_condattr_setpshared(&cond_attr,
+                                        *attr == sirius_cond_process_shared
+                                            ? PTHREAD_PROCESS_SHARED
+                                            : PTHREAD_PROCESS_PRIVATE);
       if (ret) {
-        internal_str_warn(ret,
-                          "pthread_condattr_setpshared");
+        internal_str_warn(ret, "pthread_condattr_setpshared");
         pthread_condattr_destroy(&cond_attr);
       }
     }
   }
 
-  pthread_condattr_t *cond_attr_ptr =
-      ret ? nullptr : &cond_attr;
+  pthread_condattr_t *cond_attr_ptr = ret ? nullptr : &cond_attr;
   ret = pthread_cond_init(handle, cond_attr_ptr);
   if (cond_attr_ptr) {
     pthread_condattr_destroy(&cond_attr);
@@ -61,8 +57,7 @@ sirius_api int sirius_cond_init(
   return 0;
 }
 
-sirius_api int sirius_cond_destroy(
-    sirius_cond_handle *handle) {
+sirius_api int sirius_cond_destroy(sirius_cond_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -70,8 +65,7 @@ sirius_api int sirius_cond_destroy(
 
 #ifdef _WIN32
   /**
-   * Windows MSVC condition variables do not require
-   * explicit destruction
+   * Windows MSVC condition variables do not require explicit destruction
    */
 
 #else
@@ -86,19 +80,16 @@ sirius_api int sirius_cond_destroy(
   return 0;
 }
 
-sirius_api int sirius_cond_wait(
-    sirius_cond_handle *handle,
-    sirius_mutex_handle *mutex) {
+sirius_api int sirius_cond_wait(sirius_cond_handle *handle,
+                                sirius_mutex_handle *mutex) {
   if (unlikely(!handle || !mutex)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
   }
 
 #ifdef _WIN32
-  if (unlikely(!SleepConditionVariableCS(handle, mutex,
-                                         INFINITE))) {
-    internal_win_fmt_error(GetLastError(),
-                           "SleepConditionVariableCS");
+  if (unlikely(!SleepConditionVariableCS(handle, mutex, INFINITE))) {
+    internal_win_fmt_error(GetLastError(), "SleepConditionVariableCS");
     return -1;
   }
 
@@ -114,25 +105,44 @@ sirius_api int sirius_cond_wait(
   return 0;
 }
 
-sirius_api int sirius_cond_timedwait(
-    sirius_cond_handle *handle, sirius_mutex_handle *mutex,
-    unsigned long int milliseconds) {
-  if (unlikely(!handle || !mutex || milliseconds < 0)) {
+sirius_api int sirius_cond_timedwait(sirius_cond_handle *handle,
+                                     sirius_mutex_handle *mutex,
+                                     uint64_t milliseconds) {
+  if (unlikely(!handle || !mutex)) {
     internal_error("Invalid arguments\n");
     return sirius_err_entry;
   }
 
 #ifdef _WIN32
-  if (!SleepConditionVariableCS(handle, mutex,
-                                milliseconds)) {
-    if (ERROR_TIMEOUT == GetLastError()) {
-      return sirius_err_timeout;
-    } else {
-      internal_win_fmt_error(GetLastError(),
-                             "SleepConditionVariableCS");
+  DWORD timeout_ms;
+  uint64_t tm_prev, tm_cur, tm_elapsed;
+
+  tm_prev = GetTickCount64();
+  while (milliseconds > 0) {
+    timeout_ms = milliseconds >= (uint64_t)(INFINITE - 1)
+                     ? INFINITE - 1
+                     : (DWORD)milliseconds;
+
+    if (SleepConditionVariableCS(handle, mutex, timeout_ms)) {
+      return 0;
     }
-    return -1;
+
+    DWORD dw_err = GetLastError();
+    if (dw_err == ERROR_TIMEOUT) {
+      tm_cur = GetTickCount64();
+      tm_elapsed = tm_cur - tm_prev;
+      if (tm_elapsed >= milliseconds) {
+        return sirius_err_timeout;
+      }
+      milliseconds -= tm_elapsed;
+      tm_prev = tm_cur;
+    } else {
+      internal_win_fmt_error(dw_err, "SleepConditionVariableCS");
+      return -1;
+    }
   }
+
+  return sirius_err_timeout;
 
 #else
   struct timespec ts;
@@ -154,13 +164,11 @@ sirius_api int sirius_cond_timedwait(
     return -1;
   }
 
-#endif
-
   return 0;
+#endif
 }
 
-sirius_api int sirius_cond_signal(
-    sirius_cond_handle *handle) {
+sirius_api int sirius_cond_signal(sirius_cond_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -181,8 +189,7 @@ sirius_api int sirius_cond_signal(
   return 0;
 }
 
-sirius_api int sirius_cond_broadcast(
-    sirius_cond_handle *handle) {
+sirius_api int sirius_cond_broadcast(sirius_cond_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;

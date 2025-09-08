@@ -25,8 +25,7 @@ void thread_exit() {
 
   if (unlikely(idx == THREAD_CNT)) {
     /**
-     * Wait for the consumer thread to finish fetching the
-     * result in the queue.
+     * Wait for the consumer thread to finish fetching the result in the queue.
      */
     sirius_usleep(500 * 1000);
 
@@ -35,10 +34,8 @@ void thread_exit() {
     t_assert(!sirius_que_cache_num(g_que_result, &num));
     if (0 == num) {
       char *q_str;
-      t_assert(!sirius_que_get(g_que_free,
-                               (size_t *)&q_str, 0));
-      t_assert(
-          !sirius_que_put(g_que_result, (size_t)q_str, 0));
+      t_assert(!sirius_que_get(g_que_free, (size_t *)&q_str, 0));
+      t_assert(!sirius_que_put(g_que_result, (size_t)q_str, 0));
     }
   }
 
@@ -51,8 +48,7 @@ void thread_func() {
   for (int i = 0; i < 2048; i++) {
     memset(str, 0, sizeof(str));
 
-    snprintf(str, sizeof(str),
-             "[index: %d] [thread id: %llu]\n", i,
+    snprintf(str, sizeof(str), "[index: %d] [thread id: %" PRIu64 "]\n", i,
              sirius_thread_id);
 
     char *q_str = NULL;
@@ -62,8 +58,8 @@ void thread_func() {
 
     memcpy(q_str, str, strlen(str));
 
-    t_assert(!sirius_que_put(g_que_result, (size_t)q_str,
-                             sirius_timeout_infinite));
+    t_assert(
+        !sirius_que_put(g_que_result, (size_t)q_str, sirius_timeout_infinite));
   }
 
   thread_exit();
@@ -86,14 +82,13 @@ int main() {
   t_assert(!sirius_mutex_init(&g_mutex, NULL));
 
   for (int i = 0; i < QUE_SIZE; i++) {
-    t_assert(!sirius_que_put(g_que_free,
-                             (size_t)g_que_ctx[i],
+    t_assert(!sirius_que_put(g_que_free, (size_t)g_que_ctx[i],
                              sirius_timeout_none));
   }
 
   for (int i = 0; i < THREAD_CNT; i++) {
-    t_assert(!sirius_thread_create(
-        &g_thd[i], NULL, thread_func_wrapper, NULL));
+    t_assert(
+        !sirius_thread_create(&g_thd[i], NULL, thread_func_wrapper, NULL));
   }
 
   char *str = NULL;
@@ -107,8 +102,8 @@ int main() {
     t_dprintf(1, "%s", str);
     memset(str, 0, strlen(str));
 
-    t_assert(!sirius_que_put(g_que_free, (size_t)str,
-                             sirius_timeout_infinite));
+    t_assert(
+        !sirius_que_put(g_que_free, (size_t)str, sirius_timeout_infinite));
   }
 
   for (int i = 0; i < THREAD_CNT; i++) {

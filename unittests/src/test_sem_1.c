@@ -31,13 +31,11 @@ int main() {
   t_assert(!sirius_sem_init(&g_sem_sub, 0, 0));
 
   sirius_thread_handle thread;
-  t_assert(!sirius_thread_create(
-      &thread, NULL, thread_func_wrapper, NULL));
+  t_assert(!sirius_thread_create(&thread, NULL, thread_func_wrapper, NULL));
 
   for (int i = 0; i < 2048; i++) {
     memset(g_str, 0, sizeof(g_str));
-    snprintf(g_str, sizeof(g_str),
-             "[thread id: %llu] [index: %d]\n",
+    snprintf(g_str, sizeof(g_str), "[thread id: %" PRIu64 "] [index: %d]\n",
              sirius_thread_id, i);
 
     t_assert(!sirius_sem_post(&g_sem_sub));

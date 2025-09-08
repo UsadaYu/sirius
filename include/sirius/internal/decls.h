@@ -1,5 +1,5 @@
-#ifndef INTERNAL_SYS_H
-#define INTERNAL_SYS_H
+#ifndef SIRIUS_INTERNAL_DECLS_H
+#define SIRIUS_INTERNAL_DECLS_H
 
 #ifdef _WIN32
 #include <windows.h>
@@ -8,18 +8,19 @@
 #include <assert.h>
 #include <errno.h>
 #include <float.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #ifdef __STDC_VERSION__
-#if (__STDC_VERSION__ >= 201112L) && \
-    !defined(__STDC_NO_ATOMICS__)
+#if (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
 #include <stdatomic.h>
 #endif
 
@@ -45,12 +46,11 @@
 
 /**
  * @ref
- *  https://sourceforge.net/p/predef/wiki/OperatingSystems/
+ * https://sourceforge.net/p/predef/wiki/OperatingSystems/
  */
-#if defined(__unix__) || defined(__linux__) ||      \
-    (defined(__APPLE__) && defined(__MACH__)) ||    \
-    defined(__FreeBSD__) || defined(__OpenBSD__) || \
-    defined(__NetBSD__)
+#if defined(__unix__) || defined(__linux__) ||                           \
+    (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || \
+    defined(__OpenBSD__) || defined(__NetBSD__)
 #include <sys/ipc.h>
 #include <sys/select.h>
 #include <sys/shm.h>
@@ -72,4 +72,4 @@
 
 #endif
 
-#endif  // INTERNAL_SYS_H
+#endif  // SIRIUS_INTERNAL_DECLS_H

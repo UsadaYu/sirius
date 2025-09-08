@@ -1,7 +1,7 @@
-#ifndef INTERNAL_INIT_H
-#define INTERNAL_INIT_H
+#ifndef SIRIUS_INTERNAL_INIT_H
+#define SIRIUS_INTERNAL_INIT_H
 
-#include "internal_sys.h"
+#include "decls.h"
 #include "sirius_attributes.h"
 
 extern bool sirius_init_state;
@@ -14,9 +14,7 @@ void log_deinit();
 
 void _internal_init();
 
-static inline bool internal_is_init() {
-  return (sirius_init_state == true);
-}
+static inline bool internal_is_init() { return (sirius_init_state == true); }
 
 static inline void internal_init() {
   if (unlikely(!internal_is_init())) {
@@ -24,4 +22,4 @@ static inline void internal_init() {
   }
 }
 
-#endif  // INTERNAL_INIT_H
+#endif  // SIRIUS_INTERNAL_INIT_H

@@ -15,7 +15,7 @@ void thread_func() {
   }
 
   char r[64] = {0};
-  t_dprintf(1, "[%s] sub thread id: %llu\n", __func__,
+  t_dprintf(1, "[%s] sub thread id: %" PRIu64 "\n", __func__,
             sirius_thread_id);
 #ifndef _WIN32
   t_dprintf(1, "[%s] sub thread self-id: %lu\n", __func__,
@@ -47,31 +47,26 @@ int main() {
 
   int priority_min, priority_max;
   t_dprintf(1, "============ group1 ============\n");
-  priority_min = sirius_thread_sched_get_priority_min(
-      sirius_thread_self());
-  priority_max = sirius_thread_sched_get_priority_max(
-      sirius_thread_self());
-  t_dprintf(
-      1, "current thread priority: [min: %d][max: %d]\n",
-      priority_min, priority_max);
+  priority_min = sirius_thread_sched_get_priority_min(sirius_thread_self());
+  priority_max = sirius_thread_sched_get_priority_max(sirius_thread_self());
+  t_dprintf(1, "current thread priority: [min: %d][max: %d]\n", priority_min,
+            priority_max);
   SLEEP
   t_dprintf(1, "============ group1 ============\n\n");
 
   t_dprintf(1, "============ group2 ============\n");
   sirius_thread_handle thread_handle;
-  t_assert(!sirius_thread_create(
-      &thread_handle, NULL, thread_func_wrapper, NULL));
-  t_dprintf(1, "[%s] main thread id: %llu\n", __func__,
+  t_assert(
+      !sirius_thread_create(&thread_handle, NULL, thread_func_wrapper, NULL));
+  t_dprintf(1, "[%s] main thread id: %" PRIu64 "\n", __func__,
             sirius_thread_id);
 #ifndef _WIN32
-  t_dprintf(1, "[%s] sub thread self-id: %lu\n", __func__,
-            thread_handle);
+  t_dprintf(1, "[%s] sub thread self-id: %lu\n", __func__, thread_handle);
 #endif
   void *retval = NULL;
   t_assert(!sirius_thread_join(thread_handle, &retval));
 #ifndef _WIN32
-  t_dprintf(1, "[%s] retval: %s\n", __func__,
-            (char *)retval);
+  t_dprintf(1, "[%s] retval: %s\n", __func__, (char *)retval);
 #endif
   SLEEP
   t_dprintf(1, "============ group2 ============\n\n");

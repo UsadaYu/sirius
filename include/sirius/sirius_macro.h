@@ -4,8 +4,8 @@
  * @author UsadaYu
  *
  * @date
- *  Create: 2024-07-30
- *  Update: 2025-07-10
+ * Create: 2024-07-30
+ * Update: 2025-07-10
  *
  * @brief Common macro definitions.
  */
@@ -13,10 +13,14 @@
 #ifndef SIRIUS_MACRO_H
 #define SIRIUS_MACRO_H
 
-/* Timeout, no waiting. */
+/**
+ * Timeout, no waiting.
+ */
 #define sirius_timeout_none (0)
 
-/* Timeout, infinite wait. */
+/**
+ * Timeout, infinite wait.
+ */
 #define sirius_timeout_infinite (~0U)
 
 #ifndef container_of
@@ -29,12 +33,10 @@
  * @param TYPE: Struct type.
  * @param MEMBER: Struct member.
  */
-#define offsetof(TYPE, MEMBER) \
-  ((size_t)&((TYPE *)0)->MEMBER)
+#define offsetof(TYPE, MEMBER) ((size_t)&((TYPE *)0)->MEMBER)
 
 /**
- * @brief Get the struct head address from the struct
- *  member.
+ * @brief Get the struct head address from the struct member.
  *
  * @param ptr: The address of the struct member.
  * @param type: Struct type.
@@ -53,8 +55,7 @@
  *
  * @param N: The name of the pointer variable.
  */
-#define sirius_pointer_align8(N) \
-  unsigned char unused##N[8 - sizeof(void *)];
+#define sirius_pointer_align8(N) unsigned char unused##N[8 - sizeof(void *)];
 
 #else
 #define sirius_pointer_align8(N)

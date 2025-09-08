@@ -4,8 +4,8 @@
  * @author UsadaYu
  *
  * @date
- *  Create: 2024-11-01
- *  Update: 2025-05-12
+ * Create: 2024-11-01
+ * Update: 2025-05-12
  *
  * @brief Time.
  */
@@ -13,7 +13,7 @@
 #ifndef SIRIUS_TIME_H
 #define SIRIUS_TIME_H
 
-#include "custom/custom_time.h"
+#include "custom/time.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,66 +23,47 @@ extern "C" {
  * @brief Microsecond hibernation.
  *
  * @example
- *  right:
- *  sirius_usleep(18446744073709551615ULL);
+ * - (1) right: sirius_usleep(18446744073709551615ULL);
  *
- *  wrong:
- *  sirius_usleep(18446744073709551615);
+ * - (2) wrong: sirius_usleep(18446744073709551615);
  *
- *  right:
- *  sirius_usleep(1000ULL * 1000 * 1000 * 1000 * 1000);
+ * - (3) right: sirius_usleep(1000ULL * 1000 * 1000 * 1000 * 1000);
  *
- *  wrong:
- *  sirius_usleep(1000 * 1000 * 1000 * 1000 * 1000);
+ * - (4) wrong: sirius_usleep(1000 * 1000 * 1000 * 1000 * 1000);
  *
- *  wrong:
- *  sirius_usleep(1000 * 1000 * 1000 * 1000 * 1000ULL);
+ * - (5) wrong: sirius_usleep(1000 * 1000 * 1000 * 1000 * 1000ULL);
  */
-static inline void sirius_usleep(unsigned long long usec) {
-  _custom_usleep(usec);
-}
+static inline void sirius_usleep(uint64_t usec) { _custom_usleep(usec); }
 
 /**
  * @brief Nanosecond hibernation.
  *
  * @example
-    Reference the function `sirius_usleep`.
+ * @see `sirius_usleep`.
  */
-static inline void sirius_nsleep(unsigned long long usec) {
-  _custom_nsleep(usec);
-}
+static inline void sirius_nsleep(uint64_t usec) { _custom_nsleep(usec); }
 
 /**
- * @brief Get high-resolution system timestamp in
- *  microseconds.
+ * @brief Get high-resolution system timestamp in microseconds.
  *
  * @return System timestamp in microseconds.
- *  On Windows, this is based on `QueryPerformanceCounter`.
- *  On other systems, this is based on
- * `clock_gettime(CLOCK_MONOTONIC)`.
+ * On Windows, this is based on `QueryPerformanceCounter`.
+ * On other systems, this is based on `clock_gettime(CLOCK_MONOTONIC)`.
  *
- *  Returns 0 if the high-resolution timer is not available
- *  or fails.
+ * Returns 0 if the high-resolution timer is not available or fails.
  */
-static inline unsigned long long sirius_get_time_us() {
-  return _custom_get_time_us();
-}
+static inline uint64_t sirius_get_time_us() { return _custom_get_time_us(); }
 
 /**
- * @brief Get high-resolution system timestamp in
- *  nanoseconds.
+ * @brief Get high-resolution system timestamp in nanoseconds.
  *
  * @return System timestamp in nanoseconds.
- *  On Windows, this is based on `QueryPerformanceCounter`.
- *  On other systems, this is based on
- *  `clock_gettime(CLOCK_MONOTONIC)`.
+ * On Windows, this is based on `QueryPerformanceCounter`.
+ * On other systems, this is based on `clock_gettime(CLOCK_MONOTONIC)`.
  *
- *  Returns 0 if the high-resolution timer is not available
- *  or fails.
+ * Returns 0 if the high-resolution timer is not available or fails.
  */
-static inline unsigned long long sirius_get_time_ns() {
-  return _custom_get_time_ns();
-}
+static inline uint64_t sirius_get_time_ns() { return _custom_get_time_ns(); }
 
 #ifdef __cplusplus
 }

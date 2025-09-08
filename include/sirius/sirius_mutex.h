@@ -4,8 +4,8 @@
  * @author UsadaYu
  *
  * @date
- *  Create: 2025-01-06
- *  Update: 2025-01-21
+ * Create: 2025-01-06
+ * Update: 2025-01-21
  *
  * @brief Mutex.
  */
@@ -28,18 +28,18 @@ typedef pthread_mutex_t sirius_mutex_handle;
 
 typedef enum {
   /**
-   * @brief Default mutex, no deadlocks.
+   * Default mutex, no deadlocks.
    */
   sirius_mutex_normal = 0,
 
 #ifndef _WIN32
   /**
-   * @brief Recursive locking.
+   * Recursive locking.
    */
   sirius_mutex_recursive = 1,
 
   /**
-   * @brief Error-checking mutex.
+   * Error-checking mutex.
    */
   sirius_mutex_errorcheck = 2,
 #else
@@ -56,9 +56,8 @@ typedef enum {
  *
  * @return 0 on success, error code otherwise.
  */
-sirius_api int sirius_mutex_init(
-    sirius_mutex_handle *handle,
-    const sirius_mutex_attr_t *attr);
+sirius_api int sirius_mutex_init(sirius_mutex_handle *handle,
+                                 const sirius_mutex_attr_t *attr);
 
 /**
  * @brief Destroy the mutex handle.
@@ -67,8 +66,7 @@ sirius_api int sirius_mutex_init(
  *
  * @return 0 on success, error code otherwise.
  */
-sirius_api int sirius_mutex_destroy(
-    sirius_mutex_handle *handle);
+sirius_api int sirius_mutex_destroy(sirius_mutex_handle *handle);
 
 /**
  * @brief Lock a mutex.
@@ -77,8 +75,7 @@ sirius_api int sirius_mutex_destroy(
  *
  * @return 0 on success, error code otherwise.
  */
-sirius_api int sirius_mutex_lock(
-    sirius_mutex_handle *handle);
+sirius_api int sirius_mutex_lock(sirius_mutex_handle *handle);
 
 /**
  * @brief Unlock a mutex.
@@ -87,8 +84,7 @@ sirius_api int sirius_mutex_lock(
  *
  * @return 0 on success, error code otherwise.
  */
-sirius_api int sirius_mutex_unlock(
-    sirius_mutex_handle *handle);
+sirius_api int sirius_mutex_unlock(sirius_mutex_handle *handle);
 
 /**
  * @brief Try to lock a mutex without blocking.
@@ -96,16 +92,15 @@ sirius_api int sirius_mutex_unlock(
  * @param[in] handle: Mutex handle.
  *
  * @return
- *  - (1) 0 on success, the `sirius_mutex_unlock` function
- *  is then called to unlock;
+ * - (1) 0 on success, the `sirius_mutex_unlock` function is then called to
+ * unlock;
  *
- *  - (2) `sirius_err_resource_busy` indicates that the
- *  mutex lock is busy and the acquisition failed;
+ * - (2) `sirius_err_resource_busy` indicates that the mutex lock is busy and
+ * the acquisition failed;
  *
- *  - (3) error code otherwise.
+ * - (3) error code otherwise.
  */
-sirius_api int sirius_mutex_trylock(
-    sirius_mutex_handle *handle);
+sirius_api int sirius_mutex_trylock(sirius_mutex_handle *handle);
 
 #ifdef __cplusplus
 }

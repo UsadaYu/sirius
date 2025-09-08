@@ -1,11 +1,10 @@
 #include "sirius_sem.h"
 
-#include "internal/internal_log.h"
-#include "internal/internal_sys.h"
+#include "internal/decls.h"
+#include "internal/log.h"
 #include "sirius_errno.h"
 
-sirius_api int sirius_sem_init(sirius_sem_handle *handle,
-                               int pshared,
+sirius_api int sirius_sem_init(sirius_sem_handle *handle, int pshared,
                                unsigned int value) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
@@ -14,15 +13,12 @@ sirius_api int sirius_sem_init(sirius_sem_handle *handle,
 
 #ifdef _WIN32
   if (pshared) {
-    internal_warn("Invalid argument [pshared: %d]\n",
-                  pshared);
+    internal_warn("Invalid argument [pshared: %d]\n", pshared);
   }
 
-  *handle =
-      CreateSemaphore(nullptr, value, LONG_MAX, nullptr);
+  *handle = CreateSemaphore(nullptr, value, LONG_MAX, nullptr);
   if (!*handle) {
-    internal_win_fmt_error(GetLastError(),
-                           "CreateSemaphore");
+    internal_win_fmt_error(GetLastError(), "CreateSemaphore");
     return sirius_err_resource_alloc;
   }
 
@@ -37,8 +33,7 @@ sirius_api int sirius_sem_init(sirius_sem_handle *handle,
   return 0;
 }
 
-sirius_api int sirius_sem_destroy(
-    sirius_sem_handle *handle) {
+sirius_api int sirius_sem_destroy(sirius_sem_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -72,8 +67,7 @@ sirius_api int sirius_sem_wait(sirius_sem_handle *handle) {
   if (WAIT_OBJECT_0 != ret) {
     internal_error("WaitForSingleObject: %d\n", ret);
     if (WAIT_FAILED == ret) {
-      internal_win_fmt_error(GetLastError(),
-                             "WaitForSingleObject");
+      internal_win_fmt_error(GetLastError(), "WaitForSingleObject");
     }
     return -1;
   }
@@ -89,8 +83,7 @@ sirius_api int sirius_sem_wait(sirius_sem_handle *handle) {
   return 0;
 }
 
-sirius_api int sirius_sem_trywait(
-    sirius_sem_handle *handle) {
+sirius_api int sirius_sem_trywait(sirius_sem_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -104,8 +97,7 @@ sirius_api int sirius_sem_trywait(
     }
     internal_error("WaitForSingleObject: %d\n", ret);
     if (WAIT_FAILED == ret) {
-      internal_win_fmt_error(GetLastError(),
-                             "WaitForSingleObject");
+      internal_win_fmt_error(GetLastError(), "WaitForSingleObject");
     }
     return -1;
   }
@@ -124,27 +116,44 @@ sirius_api int sirius_sem_trywait(
   return 0;
 }
 
-sirius_api int sirius_sem_timedwait(
-    sirius_sem_handle *handle,
-    unsigned long int milliseconds) {
+sirius_api int sirius_sem_timedwait(sirius_sem_handle *handle,
+                                    uint64_t milliseconds) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
   }
 
 #ifdef _WIN32
-  DWORD ret = WaitForSingleObject(*handle, milliseconds);
-  if (WAIT_OBJECT_0 != ret) {
-    if (WAIT_TIMEOUT == ret) {
-      return sirius_err_timeout;
+  DWORD timeout_ms;
+  uint64_t tm_prev, tm_cur, tm_elapsed;
+
+  tm_prev = GetTickCount64();
+  while (milliseconds > 0) {
+    timeout_ms = milliseconds > (uint64_t)(INFINITE - 1) ? INFINITE - 1
+                                                         : (DWORD)milliseconds;
+
+    DWORD wait_ret = WaitForSingleObject(*handle, timeout_ms);
+    switch (wait_ret) {
+      case WAIT_OBJECT_0:
+        return 0;
+      case WAIT_TIMEOUT:
+        tm_cur = GetTickCount64();
+        tm_elapsed = tm_cur - tm_prev;
+        if (tm_elapsed >= milliseconds) {
+          return sirius_err_timeout;
+        }
+        milliseconds -= tm_elapsed;
+        tm_prev = tm_cur;
+        break;
+      case WAIT_FAILED:
+      default:
+        internal_error("WaitForSingleObject: %d\n", wait_ret);
+        internal_win_fmt_error(GetLastError(), "WaitForSingleObject");
+        return -1;
     }
-    internal_error("WaitForSingleObject: %d\n", ret);
-    if (WAIT_FAILED == ret) {
-      internal_win_fmt_error(GetLastError(),
-                             "WaitForSingleObject");
-    }
-    return -1;
   }
+
+  return sirius_err_timeout;
 
 #else
   struct timespec ts;
@@ -164,9 +173,8 @@ sirius_api int sirius_sem_timedwait(
     return -1;
   }
 
-#endif
-
   return 0;
+#endif
 }
 
 sirius_api int sirius_sem_post(sirius_sem_handle *handle) {
@@ -177,8 +185,7 @@ sirius_api int sirius_sem_post(sirius_sem_handle *handle) {
 
 #ifdef _WIN32
   if (!ReleaseSemaphore(*handle, 1, nullptr)) {
-    internal_win_fmt_error(GetLastError(),
-                           "ReleaseSemaphore");
+    internal_win_fmt_error(GetLastError(), "ReleaseSemaphore");
     return -1;
   }
 
@@ -194,8 +201,7 @@ sirius_api int sirius_sem_post(sirius_sem_handle *handle) {
 }
 
 #ifndef _WIN32
-sirius_api int sirius_sem_getvalue(
-    sirius_sem_handle *handle, int *sval) {
+sirius_api int sirius_sem_getvalue(sirius_sem_handle *handle, int *sval) {
   if (unlikely(!handle) || unlikely(!sval)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;

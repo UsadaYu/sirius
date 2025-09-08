@@ -1,5 +1,5 @@
-#ifndef CUSTOM_LOG_H
-#define CUSTOM_LOG_H
+#ifndef SIRIUS_CUSTOM_LOG_H
+#define SIRIUS_CUSTOM_LOG_H
 
 #include <string.h>
 
@@ -7,8 +7,7 @@
 extern "C" {
 #endif
 
-static inline const char *_custom_basename(
-    const char *path) {
+static inline const char *_custom_basename(const char *path) {
   const char *slash = strrchr(path, '/');
   const char *backslash = strrchr(path, '\\');
   const char *f = slash > backslash ? slash : backslash;
@@ -19,4 +18,4 @@ static inline const char *_custom_basename(
 }
 #endif
 
-#endif  // CUSTOM_LOG_H
+#endif  // SIRIUS_CUSTOM_LOG_H

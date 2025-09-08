@@ -19,15 +19,14 @@ static void cons_thread(void *args) {
     sirius_cond_wait(&g_cond, &g_mutex);
 #else
     /**
-     * The thread awakened by `broadcast` is unsafe to
-     * control the `g_prod_flag` flag, so a non-infinite
-     * signal wait is used here.
+     * The thread awakened by `broadcast` is unsafe to control the
+     * `g_prod_flag` flag, so a non-infinite signal wait is used here.
      */
     sirius_cond_timedwait(&g_cond, &g_mutex, 1000);
 #endif
 
-    t_dprintf(1, "[thread id: %llu] [var: %u]\n",
-              sirius_thread_id, g_idx);
+    t_dprintf(1, "[thread id: %" PRIu64 "] [var: %u]\n", sirius_thread_id,
+              g_idx);
 
     g_prod_flag = true;
     sirius_mutex_unlock(&g_mutex);
@@ -70,12 +69,10 @@ int main() {
   sirius_mutex_init(&g_mutex, NULL);
 
   for (int i = 0; i < THREAD_CNT; i++) {
-    sirius_thread_create(&cons_thread[i], NULL,
-                         cons_thread_wrapper, NULL);
+    sirius_thread_create(&cons_thread[i], NULL, cons_thread_wrapper, NULL);
   }
 
-  sirius_thread_create(&prod_thread, NULL,
-                       prod_thread_wrapper, NULL);
+  sirius_thread_create(&prod_thread, NULL, prod_thread_wrapper, NULL);
 
   for (int i = 0; i < THREAD_CNT; i++) {
     sirius_thread_join(cons_thread[i], NULL);

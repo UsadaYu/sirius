@@ -4,8 +4,8 @@
  * @author UsadaYu
  *
  * @date
- *  Create: 2024-09-12
- *  Update: 2025-02-10
+ * Create: 2024-09-12
+ * Update: 2025-02-10
  *
  * @brief Queue.
  */
@@ -14,6 +14,7 @@
 #define SIRIUS_QUEUE_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "sirius_attributes.h"
 #include "sirius_macro.h"
@@ -25,15 +26,21 @@ extern "C" {
 typedef void *sirius_que_handle;
 
 typedef enum {
-  /* Queue with mutex, default. */
+  /**
+   * Queue with mutex, default.
+   */
   sirius_que_type_mtx = 0,
 
-  /* Queue without mutex. */
+  /**
+   * Queue without mutex.
+   */
   sirius_que_type_no_mtx = 1,
 } sirius_que_type_t;
 
 typedef struct {
-  /* Number of queue members. */
+  /**
+   * Number of queue members.
+   */
   unsigned short elem_nr;
 
   /**
@@ -43,16 +50,15 @@ typedef struct {
 } sirius_que_t;
 
 /**
- * @brief Allocate a queue handle, the resulting handle
- *  must be deleted using `sirius_que_free`.
+ * @brief Allocate a queue handle, the resulting handle must be deleted using
+ * `sirius_que_free`.
  *
  * @param[in] cr: Queue creation parameters.
  * @param[out] handle: Queue handle.
  *
  * @return 0 on success, error code otherwise.
  */
-sirius_api int sirius_que_alloc(sirius_que_t *cr,
-                                sirius_que_handle *handle);
+sirius_api int sirius_que_alloc(sirius_que_t *cr, sirius_que_handle *handle);
 
 /**
  * @brief Free the queue handle.
@@ -68,45 +74,38 @@ sirius_api int sirius_que_free(sirius_que_handle handle);
  *
  * @param[in] handle: Queue handle.
  * @param[out] ptr: An obtained queue element.
- * @param[in] milliseconds: Timeout duration, unit: ms.
- *  Takes effect only when the queue with mutex.
- *  Setting the value to `sirius_timeout_none` means no
- *  wait, and setting it to `sirius_timeout_infinite` means
- *  infinite wait.
+ * @param[in] milliseconds: Timeout duration, unit: ms. Takes effect only when
+ * the queue with mutex. Setting the value to `sirius_timeout_none` means no
+ * wait, and setting it to `sirius_timeout_infinite` means infinite wait.
  *
  * @return
- *  - (1) 0 on success;
+ * - (1) 0 on success;
  *
- *  - (2) `sirius_err_timeout` on timeout;
+ * - (2) `sirius_err_timeout` on timeout;
  *
- *  - (3) error code otherwise.
+ * - (3) error code otherwise.
  */
-sirius_api int sirius_que_get(
-    sirius_que_handle handle, size_t *ptr,
-    unsigned long int milliseconds);
+sirius_api int sirius_que_get(sirius_que_handle handle, size_t *ptr,
+                              uint64_t milliseconds);
 
 /**
  * @brief Put an element into the queue.
  *
  * @param[in] handle: Queue handle.
- * @param[out] ptr: The element which will be added to the
- *  queue.
- * @param[in] milliseconds: Timeout duration, unit: ms.
- *  Takes effect only when the queue with mutex.
- *  Setting the value to `sirius_timeout_none` means no
- *  wait, and setting it to `sirius_timeout_infinite` means
- *  infinite wait.
+ * @param[out] ptr: The element which will be added to the queue.
+ * @param[in] milliseconds: Timeout duration, unit: ms. Takes effect only when
+ * the queue with mutex. Setting the value to `sirius_timeout_none` means no
+ * wait, and setting it to `sirius_timeout_infinite` means infinite wait.
  *
  * @return
- *  - (1) 0 on success;
+ * - (1) 0 on success;
  *
- *  - (2) `sirius_err_timeout` on timeout;
+ * - (2) `sirius_err_timeout` on timeout;
  *
- *  - (3) error code otherwise.
+ * - (3) error code otherwise.
  */
-sirius_api int sirius_que_put(
-    sirius_que_handle handle, size_t ptr,
-    unsigned long int milliseconds);
+sirius_api int sirius_que_put(sirius_que_handle handle, size_t ptr,
+                              uint64_t milliseconds);
 
 /**
  * @brief Reset the queue, empty the cached elements.
@@ -122,13 +121,11 @@ sirius_api int sirius_que_reset(sirius_que_handle handle);
  *  cache.
  *
  * @param[in] handle: Queue handle.
- * @param[out] num: The number of members of the current
- *  queue cache.
+ * @param[out] num: The number of members of the current queue cache.
  *
  * @return 0 on success, error code otherwise.
  */
-sirius_api int sirius_que_cache_num(
-    sirius_que_handle handle, size_t *num);
+sirius_api int sirius_que_cache_num(sirius_que_handle handle, size_t *num);
 
 #ifdef __cplusplus
 }

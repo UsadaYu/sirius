@@ -35,33 +35,28 @@ int main() {
   sirius_thread_sched_param_t param;
 
   t_dprintf(1, "============ group1 ============\n");
-  t_assert(!sirius_thread_create(
-      &thread_handle, NULL, thread_func_wrapper, NULL));
+  t_assert(
+      !sirius_thread_create(&thread_handle, NULL, thread_func_wrapper, NULL));
   SLEEP
 
 #ifndef _WIN32
-#define GPP                                           \
-  do {                                                \
-    t_dprintf(1, "[%s] priority: %d\n", __func__,     \
-              param.priority);                        \
-    t_dprintf(1, "[%s] sched_policy: %d\n", __func__, \
-              param.sched_policy);                    \
+#define GPP                                                                \
+  do {                                                                     \
+    t_dprintf(1, "[%s] priority: %d\n", __func__, param.priority);         \
+    t_dprintf(1, "[%s] sched_policy: %d\n", __func__, param.sched_policy); \
   } while (0)
 #else
-#define GPP                                       \
-  do {                                            \
-    t_dprintf(1, "[%s] priority: %d\n", __func__, \
-              param.priority);                    \
+#define GPP                                                        \
+  do {                                                             \
+    t_dprintf(1, "[%s] priority: %d\n", __func__, param.priority); \
   } while (0)
 #endif
 
-#define GP                                               \
-  do {                                                   \
-    memset(&param, 0,                                    \
-           sizeof(sirius_thread_sched_param_t));         \
-    t_assert(!sirius_thread_getschedparam(thread_handle, \
-                                          &param));      \
-    GPP;                                                 \
+#define GP                                                         \
+  do {                                                             \
+    memset(&param, 0, sizeof(sirius_thread_sched_param_t));        \
+    t_assert(!sirius_thread_getschedparam(thread_handle, &param)); \
+    GPP;                                                           \
   } while (0)
 
   GP;
@@ -77,12 +72,9 @@ int main() {
 #endif
 
 #else
-  param.priority =
-      sirius_thread_sched_get_priority_max(thread_handle) -
-      2;
+  param.priority = sirius_thread_sched_get_priority_max(thread_handle) - 2;
 #endif
-  t_assert(
-      !sirius_thread_setschedparam(thread_handle, &param));
+  t_assert(!sirius_thread_setschedparam(thread_handle, &param));
   GP;
 
   g_exit = true;
@@ -93,8 +85,8 @@ int main() {
 
   g_exit = false;
   t_dprintf(1, "============ group2 ============\n");
-  t_assert(!sirius_thread_create(
-      &thread_handle, NULL, thread_func_wrapper, NULL));
+  t_assert(
+      !sirius_thread_create(&thread_handle, NULL, thread_func_wrapper, NULL));
   sirius_usleep(450 * 1000);
   t_assert(!sirius_thread_cancel(thread_handle));
   t_assert(!sirius_thread_join(thread_handle, NULL));

@@ -1,37 +1,34 @@
 #include "sirius_queue.h"
 
-#include "internal/internal_log.h"
-#include "internal/internal_sys.h"
+#include "internal/decls.h"
+#include "internal/log.h"
 #include "sirius_cond.h"
 #include "sirius_errno.h"
 #include "sirius_mutex.h"
 
 typedef struct {
-  /* Queue elements. */
+  /**
+   * Queue elements.
+   */
   size_t *elements;
-  /* The number of elements in the queue. */
   size_t elem_nr;
-  /* Queue capacity. */
   size_t capacity;
 
-  /* Queue header. */
-  size_t front;
-  /* Queue tail. */
-  size_t rear;
+  size_t front, rear;
 
-  /* Mechanism in the queue, refer `sirius_que_type_t`. */
+  /**
+   * @brief Mechanism in the queue.
+   *
+   * @see `sirius_que_type_t`.
+   */
   sirius_que_type_t type;
 
   /**
-   * A mutex which is used when `type` is set to
-   * `sirius_que_type_mtx`.
+   * A mutex which is used when `type` is set to `sirius_que_type_mtx`.
    */
   sirius_mutex_handle mtx;
 
-  /* Condition variable for non-empty queue. */
-  sirius_cond_handle cond_non_empty;
-  /* Condition variable for non-full queue. */
-  sirius_cond_handle cond_non_full;
+  sirius_cond_handle cond_non_empty, cond_non_full;
 } que_t;
 
 #define que_lock(type, mtx)            \
@@ -48,8 +45,7 @@ typedef struct {
     }                                  \
   } while (0)
 
-sirius_api int sirius_que_alloc(
-    sirius_que_t *cr, sirius_que_handle *handle) {
+sirius_api int sirius_que_alloc(sirius_que_t *cr, sirius_que_handle *handle) {
   if (unlikely(!cr || !handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -68,8 +64,7 @@ sirius_api int sirius_que_alloc(
   q->rear = 0;
   q->type = cr->que_type;
 
-  q->elements =
-      (size_t *)calloc(q->capacity, sizeof(size_t));
+  q->elements = (size_t *)calloc(q->capacity, sizeof(size_t));
   if (!q->elements) {
     internal_error("calloc\n");
     ret = sirius_err_memory_alloc;
@@ -78,12 +73,9 @@ sirius_api int sirius_que_alloc(
 
   if (q->type == sirius_que_type_mtx) {
     ret = sirius_err_resource_alloc;
-    if (sirius_mutex_init(&q->mtx, nullptr))
-      goto label_free2;
-    if (sirius_cond_init(&q->cond_non_empty, nullptr))
-      goto label_free3;
-    if (sirius_cond_init(&q->cond_non_full, nullptr))
-      goto label_free4;
+    if (sirius_mutex_init(&q->mtx, nullptr)) goto label_free2;
+    if (sirius_cond_init(&q->cond_non_empty, nullptr)) goto label_free3;
+    if (sirius_cond_init(&q->cond_non_full, nullptr)) goto label_free4;
   }
 
   *handle = (sirius_que_handle)q;
@@ -127,34 +119,30 @@ sirius_api int sirius_que_free(sirius_que_handle handle) {
   return 0;
 }
 
-#define q_wait(ret, cond, que, w_nr, milliseconds)      \
-  {                                                     \
-    ret = 0;                                            \
-    if (w_nr == que->elem_nr) {                         \
-      switch (milliseconds) {                           \
-        case sirius_timeout_none:                       \
-          ret = sirius_err_timeout;                     \
-          break;                                        \
-        case sirius_timeout_infinite:                   \
-          while (!ret && w_nr == que->elem_nr) {        \
-            ret = sirius_cond_wait(&cond, &que->mtx);   \
-          }                                             \
-          break;                                        \
-        default:                                        \
-          ret = sirius_cond_timedwait(&cond, &que->mtx, \
-                                      milliseconds);    \
-          ret = !ret && w_nr == que->elem_nr            \
-                    ? sirius_err_timeout                \
-                    : ret;                              \
-          break;                                        \
-      }                                                 \
-    }                                                   \
+#define q_wait(ret, cond, que, w_nr, milliseconds)                       \
+  {                                                                      \
+    ret = 0;                                                             \
+    if (w_nr == que->elem_nr) {                                          \
+      switch (milliseconds) {                                            \
+        case sirius_timeout_none:                                        \
+          ret = sirius_err_timeout;                                      \
+          break;                                                         \
+        case sirius_timeout_infinite:                                    \
+          while (!ret && w_nr == que->elem_nr) {                         \
+            ret = sirius_cond_wait(&cond, &que->mtx);                    \
+          }                                                              \
+          break;                                                         \
+        default:                                                         \
+          ret = sirius_cond_timedwait(&cond, &que->mtx, milliseconds);   \
+          ret = !ret && w_nr == que->elem_nr ? sirius_err_timeout : ret; \
+          break;                                                         \
+      }                                                                  \
+    }                                                                    \
   }
 
 /**
  * @param[out] ret: Return code.
- * @param[in] type: Queue type, refer to
- *  `sirius_que_type_t`.
+ * @param[in] type: Queue type, refer to `sirius_que_type_t`.
  * @param[in] mtx: Mutex handle.
  * @param[in] cond: Condition handle.
  */
@@ -176,9 +164,8 @@ sirius_api int sirius_que_free(sirius_que_handle handle) {
     }                                                     \
   } while (0)
 
-sirius_api int sirius_que_get(
-    sirius_que_handle handle, size_t *ptr,
-    unsigned long int milliseconds) {
+sirius_api int sirius_que_get(sirius_que_handle handle, size_t *ptr,
+                              uint64_t milliseconds) {
   if (unlikely(!handle || !ptr)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -192,8 +179,7 @@ sirius_api int sirius_que_get(
   q->front = (q->front + 1) % q->capacity; \
   (q->elem_nr)--;
 
-#define W \
-  q_wait(ret, q->cond_non_empty, q, 0, milliseconds)
+#define W q_wait(ret, q->cond_non_empty, q, 0, milliseconds)
 
   q_tpl(ret, q->type, q->mtx, q->cond_non_full);
   return ret;
@@ -202,9 +188,8 @@ sirius_api int sirius_que_get(
 #undef V
 }
 
-sirius_api int sirius_que_put(
-    sirius_que_handle handle, size_t ptr,
-    unsigned long int milliseconds) {
+sirius_api int sirius_que_put(sirius_que_handle handle, size_t ptr,
+                              uint64_t milliseconds) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -218,9 +203,7 @@ sirius_api int sirius_que_put(
   q->rear = (q->rear + 1) % q->capacity; \
   (q->elem_nr)++;
 
-#define W                                       \
-  q_wait(ret, q->cond_non_full, q, q->capacity, \
-         milliseconds)
+#define W q_wait(ret, q->cond_non_full, q, q->capacity, milliseconds)
 
   q_tpl(ret, q->type, q->mtx, q->cond_non_empty);
   return ret;
@@ -248,8 +231,7 @@ sirius_api int sirius_que_reset(sirius_que_handle handle) {
   return 0;
 }
 
-sirius_api int sirius_que_cache_num(
-    sirius_que_handle handle, size_t *num) {
+sirius_api int sirius_que_cache_num(sirius_que_handle handle, size_t *num) {
   *num = 0;
 
   if (unlikely(!handle)) {

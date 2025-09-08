@@ -4,8 +4,8 @@
  * @author UsadaYu
  *
  * @date
- *  Create: 2024-07-30
- *  Update: 2025-01-20
+ * Create: 2024-07-30
+ * Update: 2025-01-20
  */
 
 #ifndef SIRIUS_COMMON_H
@@ -23,6 +23,12 @@
 
 #ifndef _MSC_VER
 #include <pthread.h>
+#endif
+
+#ifdef __cplusplus
+#include <cstdint>
+#else
+#include <stdint.h>
 #endif
 
 #ifdef __cplusplus

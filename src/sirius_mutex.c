@@ -1,12 +1,11 @@
 #include "sirius_mutex.h"
 
-#include "internal/internal_log.h"
-#include "internal/internal_sys.h"
+#include "internal/decls.h"
+#include "internal/log.h"
 #include "sirius_errno.h"
 
-sirius_api int sirius_mutex_init(
-    sirius_mutex_handle *handle,
-    const sirius_mutex_attr_t *attr) {
+sirius_api int sirius_mutex_init(sirius_mutex_handle *handle,
+                                 const sirius_mutex_attr_t *attr) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -45,18 +44,15 @@ sirius_api int sirius_mutex_init(
           break;
       }
 
-      ret = pthread_mutexattr_settype(&mutex_attr,
-                                      attr_type);
+      ret = pthread_mutexattr_settype(&mutex_attr, attr_type);
       if (ret) {
-        internal_str_warn(ret,
-                          "pthread_mutexattr_settype");
+        internal_str_warn(ret, "pthread_mutexattr_settype");
         pthread_mutexattr_destroy(&mutex_attr);
       }
     }
   }
 
-  pthread_mutexattr_t *mutex_attr_ptr =
-      ret ? nullptr : &mutex_attr;
+  pthread_mutexattr_t *mutex_attr_ptr = ret ? nullptr : &mutex_attr;
   ret = pthread_mutex_init(handle, mutex_attr_ptr);
   if (mutex_attr_ptr) {
     pthread_mutexattr_destroy(&mutex_attr);
@@ -71,8 +67,7 @@ sirius_api int sirius_mutex_init(
   return 0;
 }
 
-sirius_api int sirius_mutex_destroy(
-    sirius_mutex_handle *handle) {
+sirius_api int sirius_mutex_destroy(sirius_mutex_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -93,8 +88,7 @@ sirius_api int sirius_mutex_destroy(
   return 0;
 }
 
-sirius_api int sirius_mutex_lock(
-    sirius_mutex_handle *handle) {
+sirius_api int sirius_mutex_lock(sirius_mutex_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -115,8 +109,7 @@ sirius_api int sirius_mutex_lock(
   return 0;
 }
 
-sirius_api int sirius_mutex_unlock(
-    sirius_mutex_handle *handle) {
+sirius_api int sirius_mutex_unlock(sirius_mutex_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -137,17 +130,14 @@ sirius_api int sirius_mutex_unlock(
   return 0;
 }
 
-sirius_api int sirius_mutex_trylock(
-    sirius_mutex_handle *handle) {
+sirius_api int sirius_mutex_trylock(sirius_mutex_handle *handle) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
   }
 
 #ifdef _WIN32
-  return TryEnterCriticalSection(handle)
-             ? 0
-             : sirius_err_resource_busy;
+  return TryEnterCriticalSection(handle) ? 0 : sirius_err_resource_busy;
 
 #else
   int ret = pthread_mutex_trylock(handle);

@@ -4,12 +4,11 @@
 #include "test.h"
 
 /**
- * @note when using the spinlock, the number of threads
- *  should not be too large
+ * @note when using the spinlock, the number of threads should not be too large
  */
 #define CNT (4)
 
-static unsigned long g_count;
+static uint64_t g_count;
 static bool g_exit_flag;
 static bool g_exit[CNT];
 static char g_buf[40];
@@ -30,29 +29,24 @@ typedef enum {
   l_type_spin = 1,
 } l_type_t;
 
-#define LL_S(type)                                   \
-  do {                                               \
-    switch (type) {                                  \
-      case l_type_mutex:                             \
-        ll_mutex();                                  \
-        break;                                       \
-      case l_type_spin:                              \
-        ll_spin();                                   \
-        break;                                       \
-      default:                                       \
-        t_dprintf(                                   \
-            2,                                       \
-            "[error: invalid argument] [lock type: " \
-            "%d]\n",                                 \
-            type);                                   \
-        break;                                       \
-    }                                                \
+#define LL_S(type)                                                         \
+  do {                                                                     \
+    switch (type) {                                                        \
+      case l_type_mutex:                                                   \
+        ll_mutex();                                                        \
+        break;                                                             \
+      case l_type_spin:                                                    \
+        ll_spin();                                                         \
+        break;                                                             \
+      default:                                                             \
+        t_dprintf(2, "[error: invalid argument] [lock type: %d]\n", type); \
+        break;                                                             \
+    }                                                                      \
   } while (0)
 
 static void ll_init(l_type_t type) {
 #define ll_mutex() sirius_mutex_init(&g_mutex, NULL)
-#define ll_spin() \
-  sirius_spin_init(&g_spin, SIRIUS_THREAD_PROCESS_PRIVATE)
+#define ll_spin() sirius_spin_init(&g_spin, SIRIUS_THREAD_PROCESS_PRIVATE)
   LL_S(type);
 #undef ll_spin
 #undef ll_mutex
@@ -90,7 +84,7 @@ void thread_func(void *args) {
 
     memset(g_buf, 0, sizeof(g_buf));
     snprintf(g_buf, sizeof(g_buf),
-             "[count: %lu] [thread id: %llu]", ++g_count,
+             "[count: %" PRIu64 "] [thread id: %" PRIu64 "]", ++g_count,
              sirius_thread_id);
 
     ll_unlock(type);
@@ -128,9 +122,8 @@ int test(l_type_t type) {
 
   int ret = 0;
   for (int i = 0; i < CNT; i++) {
-    if (unlikely(sirius_thread_create(
-            &thread_handle[i], NULL, thread_func_wrapper,
-            (void *)&type))) {
+    if (unlikely(sirius_thread_create(&thread_handle[i], NULL,
+                                      thread_func_wrapper, (void *)&type))) {
       ret = -1;
       goto label_exit;
     }
