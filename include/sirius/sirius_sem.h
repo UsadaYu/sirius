@@ -108,8 +108,7 @@ sirius_api int sirius_sem_trywait(
  *  - (3) error code otherwise.
  */
 sirius_api int sirius_sem_timedwait(
-    sirius_sem_handle *handle,
-    unsigned long int milliseconds);
+    sirius_sem_handle *handle, uint64_t milliseconds);
 
 /**
  * @brief Increments the semaphore pointed to by sem.

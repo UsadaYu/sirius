@@ -15,8 +15,8 @@ void thread_func() {
   }
 
   char r[64] = {0};
-  t_dprintf(1, "[%s] sub thread id: %llu\n", __func__,
-            sirius_thread_id);
+  t_dprintf(1, "[%s] sub thread id: %" PRIu64 "\n",
+            __func__, sirius_thread_id);
 #ifndef _WIN32
   t_dprintf(1, "[%s] sub thread self-id: %lu\n", __func__,
             sirius_thread_self());
@@ -61,8 +61,8 @@ int main() {
   sirius_thread_handle thread_handle;
   t_assert(!sirius_thread_create(
       &thread_handle, NULL, thread_func_wrapper, NULL));
-  t_dprintf(1, "[%s] main thread id: %llu\n", __func__,
-            sirius_thread_id);
+  t_dprintf(1, "[%s] main thread id: %" PRIu64 "\n",
+            __func__, sirius_thread_id);
 #ifndef _WIN32
   t_dprintf(1, "[%s] sub thread self-id: %lu\n", __func__,
             thread_handle);

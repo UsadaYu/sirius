@@ -32,36 +32,35 @@
 #include <errno.h>
 #include <time.h>
 #endif
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-static inline void _custom_usleep(
-    unsigned long long usec) {
-  if (usec == 0) {
-    return;
-  }
+static inline void _custom_usleep(uint64_t usec) {
+  if (usec == 0) return;
 
 #ifdef _WIN32
-  unsigned long long sleep_ms = usec / 1000ULL;
-  unsigned long long remaining_usec = usec % 1000ULL;
+  uint64_t sleep_ms = usec / 1000ULL;
+  uint64_t remaining_usec = usec % 1000ULL;
 
   TIMECAPS tc;
   UINT period = 1;
   if (timeGetDevCaps(&tc, sizeof(TIMECAPS)) ==
       TIMERR_NOERROR) {
-    period = (tc.wPeriodMin < 1) ? 1 : tc.wPeriodMin;
+    period = tc.wPeriodMin < 1 ? 1 : tc.wPeriodMin;
     period =
-        (period > tc.wPeriodMax) ? tc.wPeriodMax : period;
+        period > tc.wPeriodMax ? tc.wPeriodMax : period;
     timeBeginPeriod(period);
   } else {
     period = 0;
   }
 
   while (sleep_ms > 0) {
-    DWORD chunk =
-        (sleep_ms > UINT_MAX) ? UINT_MAX : (DWORD)sleep_ms;
+    DWORD chunk = sleep_ms > (uint64_t)MAXDWORD
+                      ? MAXDWORD
+                      : (DWORD)sleep_ms;
     Sleep(chunk);
     sleep_ms -= chunk;
   }
@@ -108,31 +107,29 @@ static inline void _custom_usleep(
 #endif
 }
 
-static inline void _custom_nsleep(
-    unsigned long long nsec) {
-  if (nsec == 0) {
-    return;
-  }
+static inline void _custom_nsleep(uint64_t nsec) {
+  if (nsec == 0) return;
 
 #ifdef _WIN32
-  unsigned long long sleep_ms = nsec / 1000000ULL;
-  unsigned long long remaining_nsec = nsec % 1000000ULL;
+  uint64_t sleep_ms = nsec / 1000000ULL;
+  uint64_t remaining_nsec = nsec % 1000000ULL;
 
   TIMECAPS tc;
   UINT period = 1;
   if (timeGetDevCaps(&tc, sizeof(TIMECAPS)) ==
       TIMERR_NOERROR) {
-    period = (tc.wPeriodMin < 1) ? 1 : tc.wPeriodMin;
+    period = tc.wPeriodMin < 1 ? 1 : tc.wPeriodMin;
     period =
-        (period > tc.wPeriodMax) ? tc.wPeriodMax : period;
+        period > tc.wPeriodMax ? tc.wPeriodMax : period;
     timeBeginPeriod(period);
   } else {
     period = 0;
   }
 
   while (sleep_ms > 0) {
-    DWORD chunk =
-        (sleep_ms > UINT_MAX) ? UINT_MAX : (DWORD)sleep_ms;
+    DWORD chunk = sleep_ms > (uint64_t)MAXDWORD
+                      ? MAXDWORD
+                      : (DWORD)sleep_ms;
     Sleep(chunk);
     sleep_ms -= chunk;
   }
@@ -180,8 +177,7 @@ static inline void _custom_nsleep(
 #endif
 }
 
-static inline unsigned long long _custom_get_time_us(
-    void) {
+static inline uint64_t _custom_get_time_us(void) {
 #ifdef _WIN32
   static LARGE_INTEGER qpc_frequency_us = {0};
   LARGE_INTEGER counter;
@@ -196,12 +192,11 @@ static inline unsigned long long _custom_get_time_us(
     return 0;
   }
 
-  unsigned long long whole_seconds =
+  uint64_t whole_seconds =
       counter.QuadPart / qpc_frequency_us.QuadPart;
-  unsigned long long remainder_ticks =
+  uint64_t remainder_ticks =
       counter.QuadPart % qpc_frequency_us.QuadPart;
-  unsigned long long microseconds =
-      whole_seconds * 1000000ULL;
+  uint64_t microseconds = whole_seconds * 1000000ULL;
   microseconds += (remainder_ticks * 1000000ULL) /
                   qpc_frequency_us.QuadPart;
   return microseconds;
@@ -209,8 +204,8 @@ static inline unsigned long long _custom_get_time_us(
 #else
   struct timespec ts;
   if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
-    return (unsigned long long)ts.tv_sec * 1000000ULL +
-           (unsigned long long)ts.tv_nsec / 1000ULL;
+    return (uint64_t)ts.tv_sec * 1000000ULL +
+           (uint64_t)ts.tv_nsec / 1000ULL;
   } else {
     return 0;
   }
@@ -218,7 +213,7 @@ static inline unsigned long long _custom_get_time_us(
 #endif
 }
 
-static inline unsigned long long _custom_get_time_ns() {
+static inline uint64_t _custom_get_time_ns() {
 #ifdef _WIN32
   static LARGE_INTEGER frequency = {0};
   LARGE_INTEGER counter;
@@ -233,12 +228,11 @@ static inline unsigned long long _custom_get_time_ns() {
     return 0;
   }
 
-  unsigned long long whole_seconds =
+  uint64_t whole_seconds =
       counter.QuadPart / frequency.QuadPart;
-  unsigned long long remainder_ticks =
+  uint64_t remainder_ticks =
       counter.QuadPart % frequency.QuadPart;
-  unsigned long long nanoseconds =
-      whole_seconds * 1000000000ULL;
+  uint64_t nanoseconds = whole_seconds * 1000000000ULL;
   nanoseconds += (remainder_ticks * 1000000000ULL) /
                  frequency.QuadPart;
   return nanoseconds;
@@ -246,8 +240,8 @@ static inline unsigned long long _custom_get_time_ns() {
 #else
   struct timespec ts;
   if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
-    return (unsigned long long)ts.tv_sec * 1000000000ULL +
-           (unsigned long long)ts.tv_nsec;
+    return (uint64_t)ts.tv_sec * 1000000000ULL +
+           (uint64_t)ts.tv_nsec;
   } else {
     return 0;
   }

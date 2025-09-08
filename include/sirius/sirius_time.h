@@ -38,7 +38,7 @@ extern "C" {
  *  wrong:
  *  sirius_usleep(1000 * 1000 * 1000 * 1000 * 1000ULL);
  */
-static inline void sirius_usleep(unsigned long long usec) {
+static inline void sirius_usleep(uint64_t usec) {
   _custom_usleep(usec);
 }
 
@@ -48,7 +48,7 @@ static inline void sirius_usleep(unsigned long long usec) {
  * @example
     Reference the function `sirius_usleep`.
  */
-static inline void sirius_nsleep(unsigned long long usec) {
+static inline void sirius_nsleep(uint64_t usec) {
   _custom_nsleep(usec);
 }
 
@@ -64,7 +64,7 @@ static inline void sirius_nsleep(unsigned long long usec) {
  *  Returns 0 if the high-resolution timer is not available
  *  or fails.
  */
-static inline unsigned long long sirius_get_time_us() {
+static inline uint64_t sirius_get_time_us() {
   return _custom_get_time_us();
 }
 
@@ -80,7 +80,7 @@ static inline unsigned long long sirius_get_time_us() {
  *  Returns 0 if the high-resolution timer is not available
  *  or fails.
  */
-static inline unsigned long long sirius_get_time_ns() {
+static inline uint64_t sirius_get_time_ns() {
   return _custom_get_time_ns();
 }
 

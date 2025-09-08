@@ -9,7 +9,7 @@
  */
 #define CNT (4)
 
-static unsigned long g_count;
+static uint64_t g_count;
 static bool g_exit_flag;
 static bool g_exit[CNT];
 static char g_buf[40];
@@ -90,8 +90,9 @@ void thread_func(void *args) {
 
     memset(g_buf, 0, sizeof(g_buf));
     snprintf(g_buf, sizeof(g_buf),
-             "[count: %lu] [thread id: %llu]", ++g_count,
-             sirius_thread_id);
+             "[count: %" PRIu64 "] [thread id: %" PRIu64
+             "]",
+             ++g_count, sirius_thread_id);
 
     ll_unlock(type);
   }

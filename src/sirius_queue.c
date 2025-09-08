@@ -176,9 +176,9 @@ sirius_api int sirius_que_free(sirius_que_handle handle) {
     }                                                     \
   } while (0)
 
-sirius_api int sirius_que_get(
-    sirius_que_handle handle, size_t *ptr,
-    unsigned long int milliseconds) {
+sirius_api int sirius_que_get(sirius_que_handle handle,
+                              size_t *ptr,
+                              uint64_t milliseconds) {
   if (unlikely(!handle || !ptr)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;
@@ -202,9 +202,9 @@ sirius_api int sirius_que_get(
 #undef V
 }
 
-sirius_api int sirius_que_put(
-    sirius_que_handle handle, size_t ptr,
-    unsigned long int milliseconds) {
+sirius_api int sirius_que_put(sirius_que_handle handle,
+                              size_t ptr,
+                              uint64_t milliseconds) {
   if (unlikely(!handle)) {
     internal_error("Null pointer\n");
     return sirius_err_entry;

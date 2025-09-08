@@ -115,12 +115,13 @@ sirius_api void sirius_log(int log_level,
                            const char *func, int line,
                            const char *fmt, ...) {
 #define SP(type)                                          \
-  g_size = snprintf(                                      \
-      g_buf, sizeof(g_buf),                               \
-      "%s[%02d:%02d:%02d " #type " %s %llu %s (%s|%d)] ", \
-      color, g_tm_info.tm_hour, g_tm_info.tm_min,         \
-      g_tm_info.tm_sec, module, sirius_thread_id, file,   \
-      func, line);
+  g_size = snprintf(g_buf, sizeof(g_buf),                 \
+                    "%s[%02d:%02d:%02d " #type            \
+                    " %s %" PRIu64 " %s (%s|%d)] ",       \
+                    color, g_tm_info.tm_hour,             \
+                    g_tm_info.tm_min, g_tm_info.tm_sec,   \
+                    module, sirius_thread_id, file, func, \
+                    line);
 
   LOG_TPL
 #undef SP

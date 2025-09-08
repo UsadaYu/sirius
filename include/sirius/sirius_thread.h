@@ -22,7 +22,7 @@ extern "C" {
 
 /**
  * @brief Get the thread id, the result is of type
- *  `unsigned long long`.
+ *  `uint64_t`.
  */
 #define sirius_thread_id (_custom_thread_id())
 
@@ -120,11 +120,11 @@ typedef struct {
    *  and `sirius_thread_priority_max` is converted to a
    *  specific priority.
    *  In fact, the priority of threads in Windows is also
-   *  related to the process. the thread priority is
+   *  related to the process. The thread priority is
    *  configured on the interface according to the current
    *  process priority.
    *  For details about rules of priorit in Windows, see
-   *  the official Windows documentation
+   *  the official Windows documentation,
    *  @ref en:
    *  https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreadpriority
    *  https://learn.microsoft.com/en-us/windows/win32/procthread/scheduling-priorities

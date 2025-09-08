@@ -95,7 +95,7 @@ sirius_api int sirius_cond_wait(
  */
 sirius_api int sirius_cond_timedwait(
     sirius_cond_handle *handle, sirius_mutex_handle *mutex,
-    unsigned long int milliseconds);
+    uint64_t milliseconds);
 
 /**
  * @brief Wake up a blocked thread.

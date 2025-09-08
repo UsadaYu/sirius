@@ -26,7 +26,7 @@ static void cons_thread(void *args) {
     sirius_cond_timedwait(&g_cond, &g_mutex, 1000);
 #endif
 
-    t_dprintf(1, "[thread id: %llu] [var: %u]\n",
+    t_dprintf(1, "[thread id: %" PRIu64 "] [var: %u]\n",
               sirius_thread_id, g_idx);
 
     g_prod_flag = true;

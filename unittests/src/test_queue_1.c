@@ -52,7 +52,7 @@ void thread_func() {
     memset(str, 0, sizeof(str));
 
     snprintf(str, sizeof(str),
-             "[index: %d] [thread id: %llu]\n", i,
+             "[index: %d] [thread id: %" PRIu64 "]\n", i,
              sirius_thread_id);
 
     char *q_str = NULL;

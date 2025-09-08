@@ -11,9 +11,9 @@
 #ifndef SIRIUS_COMMON_H
 #define SIRIUS_COMMON_H
 
-#define SIRIUS_VERSION_MAJOR @SIRIUS_VERSION_MAJOR@
-#define SIRIUS_VERSION_MINOR @SIRIUS_VERSION_MINOR@
-#define SIRIUS_VERSION_PATCH @SIRIUS_VERSION_PATCH@
+#define SIRIUS_VERSION_MAJOR @SIRIUS_VERSION_MAJOR @
+#define SIRIUS_VERSION_MINOR @SIRIUS_VERSION_MINOR @
+#define SIRIUS_VERSION_PATCH @SIRIUS_VERSION_PATCH @
 
 #define SIRIUS_VERSION "@SIRIUS_VERSION@"
 
@@ -23,6 +23,12 @@
 
 #ifndef _MSC_VER
 #include <pthread.h>
+#endif
+
+#ifdef __cplusplus
+#include <cstdint>
+#else
+#include <stdint.h>
 #endif
 
 #ifdef __cplusplus

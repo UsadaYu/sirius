@@ -116,23 +116,44 @@ sirius_api int sirius_cond_wait(
 
 sirius_api int sirius_cond_timedwait(
     sirius_cond_handle *handle, sirius_mutex_handle *mutex,
-    unsigned long int milliseconds) {
-  if (unlikely(!handle || !mutex || milliseconds < 0)) {
+    uint64_t milliseconds) {
+  if (unlikely(!handle || !mutex)) {
     internal_error("Invalid arguments\n");
     return sirius_err_entry;
   }
 
 #ifdef _WIN32
-  if (!SleepConditionVariableCS(handle, mutex,
-                                milliseconds)) {
-    if (ERROR_TIMEOUT == GetLastError()) {
-      return sirius_err_timeout;
-    } else {
-      internal_win_fmt_error(GetLastError(),
-                             "SleepConditionVariableCS");
+  DWORD timeout_ms;
+  uint64_t tm_prev, tm_cur, tm_elapsed;
+
+  tm_prev = GetTickCount64();
+  while (milliseconds > 0) {
+    timeout_ms = milliseconds >= (uint64_t)(INFINITE - 1)
+                     ? INFINITE - 1
+                     : (DWORD)milliseconds;
+
+    if (SleepConditionVariableCS(handle, mutex,
+                                 timeout_ms)) {
+      return 0;
     }
-    return -1;
+
+    DWORD dw_err = GetLastError();
+    if (dw_err == ERROR_TIMEOUT) {
+      tm_cur = GetTickCount64();
+      tm_elapsed = tm_cur - tm_prev;
+      if (tm_elapsed >= milliseconds) {
+        return sirius_err_timeout;
+      }
+      milliseconds -= tm_elapsed;
+      tm_prev = tm_cur;
+    } else {
+      internal_win_fmt_error(dw_err,
+                             "SleepConditionVariableCS");
+      return -1;
+    }
   }
+
+  return sirius_err_timeout;
 
 #else
   struct timespec ts;
@@ -154,9 +175,8 @@ sirius_api int sirius_cond_timedwait(
     return -1;
   }
 
-#endif
-
   return 0;
+#endif
 }
 
 sirius_api int sirius_cond_signal(

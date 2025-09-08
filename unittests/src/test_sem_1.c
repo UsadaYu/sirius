@@ -37,7 +37,7 @@ int main() {
   for (int i = 0; i < 2048; i++) {
     memset(g_str, 0, sizeof(g_str));
     snprintf(g_str, sizeof(g_str),
-             "[thread id: %llu] [index: %d]\n",
+             "[thread id: %" PRIu64 "] [index: %d]\n",
              sirius_thread_id, i);
 
     t_assert(!sirius_sem_post(&g_sem_sub));

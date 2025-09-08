@@ -14,6 +14,7 @@
 #define SIRIUS_QUEUE_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "sirius_attributes.h"
 #include "sirius_macro.h"
@@ -81,9 +82,9 @@ sirius_api int sirius_que_free(sirius_que_handle handle);
  *
  *  - (3) error code otherwise.
  */
-sirius_api int sirius_que_get(
-    sirius_que_handle handle, size_t *ptr,
-    unsigned long int milliseconds);
+sirius_api int sirius_que_get(sirius_que_handle handle,
+                              size_t *ptr,
+                              uint64_t milliseconds);
 
 /**
  * @brief Put an element into the queue.
@@ -104,9 +105,9 @@ sirius_api int sirius_que_get(
  *
  *  - (3) error code otherwise.
  */
-sirius_api int sirius_que_put(
-    sirius_que_handle handle, size_t ptr,
-    unsigned long int milliseconds);
+sirius_api int sirius_que_put(sirius_que_handle handle,
+                              size_t ptr,
+                              uint64_t milliseconds);
 
 /**
  * @brief Reset the queue, empty the cached elements.
