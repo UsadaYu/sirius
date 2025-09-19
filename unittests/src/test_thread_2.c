@@ -2,7 +2,7 @@
 #include "test.h"
 
 #if 0
-#define test_root
+#  define test_root
 #endif
 
 static int idx = 0;
@@ -15,8 +15,7 @@ void thread_func() {
   }
 
   char r[64] = {0};
-  t_dprintf(1, "[%s] sub thread id: %" PRIu64 "\n", __func__,
-            sirius_thread_id);
+  t_dprintf(1, "[%s] sub thread id: %" PRIu64 "\n", __func__, sirius_thread_id);
 #ifndef _WIN32
   t_dprintf(1, "[%s] sub thread self-id: %lu\n", __func__,
             sirius_thread_self());
@@ -41,7 +40,7 @@ void *thread_func_wrapper(void *args) {
 }
 
 int main() {
-#define SLEEP                         \
+#define SLEEP \
   for (int i = 0; i < 2000000; i++) { \
   }
 
@@ -57,7 +56,7 @@ int main() {
   t_dprintf(1, "============ group2 ============\n");
   sirius_thread_handle thread_handle;
   t_assert(
-      !sirius_thread_create(&thread_handle, NULL, thread_func_wrapper, NULL));
+    !sirius_thread_create(&thread_handle, NULL, thread_func_wrapper, NULL));
   t_dprintf(1, "[%s] main thread id: %" PRIu64 "\n", __func__,
             sirius_thread_id);
 #ifndef _WIN32

@@ -7,7 +7,7 @@
 #include "test.h"
 
 #ifdef _WIN32
-#include <share.h>
+#  include <share.h>
 #endif
 
 #define THREAD_CNT (16)
@@ -93,7 +93,7 @@ int main() {
   sirius_thread_handle thread[THREAD_CNT];
   for (int i = 0; i < THREAD_CNT; i++) {
     t_assert(
-        !sirius_thread_create(&thread[i], NULL, thread_func_wrapper, NULL));
+      !sirius_thread_create(&thread[i], NULL, thread_func_wrapper, NULL));
   }
 
   sirius_usleep(2 * 1000 * 1000);

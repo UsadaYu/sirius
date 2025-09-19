@@ -3,7 +3,7 @@
 
 #define N (32)
 #if 0
-#define test_root
+#  define test_root
 #endif
 
 static int g_idx = 0;
@@ -21,24 +21,24 @@ void *thread_func_wrapper(void *args) {
 }
 
 int main() {
-#define THD_C(cnt)                                                    \
-  do {                                                                \
-    int idx = cnt > N ? N : cnt;                                      \
-    for (int i = 0; i < idx; i++) {                                   \
-      g_args_arr[g_argc] = g_argc;                                    \
-      t_assert(!sirius_thread_create(&thread_handle[i], &attr,        \
-                                     thread_func_wrapper,             \
+#define THD_C(cnt) \
+  do { \
+    int idx = cnt > N ? N : cnt; \
+    for (int i = 0; i < idx; i++) { \
+      g_args_arr[g_argc] = g_argc; \
+      t_assert(!sirius_thread_create(&thread_handle[i], &attr, \
+                                     thread_func_wrapper, \
                                      (void *)(g_args_arr + g_argc))); \
-      g_argc++;                                                       \
-    }                                                                 \
+      g_argc++; \
+    } \
   } while (0)
 
-#define THD_J(cnt)                                           \
-  do {                                                       \
-    int idx = cnt > N ? N : cnt;                             \
-    for (int i = 0; i < idx; i++) {                          \
+#define THD_J(cnt) \
+  do { \
+    int idx = cnt > N ? N : cnt; \
+    for (int i = 0; i < idx; i++) { \
       t_assert(!sirius_thread_join(thread_handle[i], NULL)); \
-    }                                                        \
+    } \
   } while (0)
 
   sirius_thread_handle thread_handle[N];
@@ -51,7 +51,7 @@ int main() {
 #endif
   attr.scope = sirius_thread_scope_system;
   attr.sched_param.priority =
-      sirius_thread_sched_get_priority_max(sirius_thread_self());
+    sirius_thread_sched_get_priority_max(sirius_thread_self());
   attr.stacksize = 1024 * 200;
   t_dprintf(1, "============ group1 ============\n");
   THD_C(N);
@@ -64,7 +64,7 @@ int main() {
   attr.scope = sirius_thread_scope_process;
 #endif
   attr.sched_param.priority =
-      sirius_thread_sched_get_priority_min(sirius_thread_self());
+    sirius_thread_sched_get_priority_min(sirius_thread_self());
   attr.guardsize = 128;
   t_dprintf(1, "============ group2 ============\n");
   THD_C(N);

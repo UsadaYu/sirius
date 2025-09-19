@@ -19,7 +19,7 @@ static void cons_thread(void *args) {
     sirius_cond_wait(&g_cond, &g_mutex);
 #else
     /**
-     * The thread awakened by `broadcast` is unsafe to control the
+     * @brief The thread awakened by `broadcast` is unsafe to control the
      * `g_prod_flag` flag, so a non-infinite signal wait is used here.
      */
     sirius_cond_timedwait(&g_cond, &g_mutex, 1000);

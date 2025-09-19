@@ -27,24 +27,24 @@ typedef void *sirius_que_handle;
 
 typedef enum {
   /**
-   * Queue with mutex, default.
+   * @brief Queue with mutex, default.
    */
   sirius_que_type_mtx = 0,
 
   /**
-   * Queue without mutex.
+   * @brief Queue without mutex.
    */
   sirius_que_type_no_mtx = 1,
 } sirius_que_type_t;
 
 typedef struct {
   /**
-   * Number of queue members.
+   * @brief Number of queue members.
    */
   unsigned short elem_nr;
 
   /**
-   * Mechanism in the queue, refer to `sirius_que_type_t`.
+   * @brief Mechanism in the queue, refer to `sirius_que_type_t`.
    */
   sirius_que_type_t que_type;
 } sirius_que_t;
@@ -131,4 +131,4 @@ sirius_api int sirius_que_cache_num(sirius_que_handle handle, size_t *num);
 }
 #endif
 
-#endif  // SIRIUS_QUEUE_H
+#endif // SIRIUS_QUEUE_H

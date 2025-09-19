@@ -10,7 +10,8 @@ static sirius_sem_handle g_sem_main;
 void thread_func() {
   while (!g_exit) {
     t_assert(!sirius_sem_wait(&g_sem_sub));
-    if (unlikely(g_exit)) break;
+    if (unlikely(g_exit))
+      break;
 
     t_dprintf(1, "%s", g_str);
 

@@ -28,18 +28,18 @@ typedef pthread_mutex_t sirius_mutex_handle;
 
 typedef enum {
   /**
-   * Default mutex, no deadlocks.
+   * @brief Default mutex, no deadlocks.
    */
   sirius_mutex_normal = 0,
 
 #ifndef _WIN32
   /**
-   * Recursive locking.
+   * @brief Recursive locking.
    */
   sirius_mutex_recursive = 1,
 
   /**
-   * Error-checking mutex.
+   * @brief Error-checking mutex.
    */
   sirius_mutex_errorcheck = 2,
 #else
@@ -106,4 +106,4 @@ sirius_api int sirius_mutex_trylock(sirius_mutex_handle *handle);
 }
 #endif
 
-#endif  // SIRIUS_MUTEX_H
+#endif // SIRIUS_MUTEX_H

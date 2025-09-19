@@ -19,19 +19,19 @@
 #define SIRIUS_CUSTOM_TIME_H
 
 /**
- * The header file `Windows.h` must be included first.
+ * @note The header file `Windows.h` must be included first.
  */
 #ifdef _WIN32
-#include <Windows.h>
+#  include <Windows.h>
 #endif
 
 #ifdef _WIN32
-#include <limits.h>
-#include <mmsystem.h>
-#include <timeapi.h>
+#  include <limits.h>
+#  include <mmsystem.h>
+#  include <timeapi.h>
 #else
-#include <errno.h>
-#include <time.h>
+#  include <errno.h>
+#  include <time.h>
 #endif
 #include <stdint.h>
 
@@ -40,7 +40,8 @@ extern "C" {
 #endif
 
 static inline void _custom_usleep(uint64_t usec) {
-  if (usec == 0) return;
+  if (usec == 0)
+    return;
 
 #ifdef _WIN32
   uint64_t sleep_ms = usec / 1000ULL;
@@ -68,14 +69,15 @@ static inline void _custom_usleep(uint64_t usec) {
     QueryPerformanceCounter(&start);
     double remaining_seconds = (double)remaining_usec / 1e6;
     LONGLONG target =
-        start.QuadPart + (LONGLONG)(remaining_seconds * freq.QuadPart);
+      start.QuadPart + (LONGLONG)(remaining_seconds * freq.QuadPart);
 
     do {
       QueryPerformanceCounter(&end);
-      if (end.QuadPart >= target) break;
+      if (end.QuadPart >= target)
+        break;
 
       /**
-       * Make way for CPU time slices to reduce the CPU usage during busy
+       * @note Make way for CPU time slices to reduce the CPU usage during busy
        * waiting.
        */
       Sleep(0);
@@ -103,7 +105,8 @@ static inline void _custom_usleep(uint64_t usec) {
 }
 
 static inline void _custom_nsleep(uint64_t nsec) {
-  if (nsec == 0) return;
+  if (nsec == 0)
+    return;
 
 #ifdef _WIN32
   uint64_t sleep_ms = nsec / 1000000ULL;
@@ -131,14 +134,15 @@ static inline void _custom_nsleep(uint64_t nsec) {
     QueryPerformanceCounter(&start);
     double remaining_seconds = (double)remaining_nsec / 1e9;
     LONGLONG target =
-        start.QuadPart + (LONGLONG)(remaining_seconds * freq.QuadPart);
+      start.QuadPart + (LONGLONG)(remaining_seconds * freq.QuadPart);
 
     do {
       QueryPerformanceCounter(&end);
-      if (end.QuadPart >= target) break;
+      if (end.QuadPart >= target)
+        break;
 
       /**
-       * Make way for CPU time slices to reduce the CPU usage during busy
+       * @note Make way for CPU time slices to reduce the CPU usage during busy
        * waiting.
        */
       Sleep(0);
@@ -234,4 +238,4 @@ static inline uint64_t _custom_get_time_ns() {
 }
 #endif
 
-#endif  // SIRIUS_CUSTOM_TIME_H
+#endif // SIRIUS_CUSTOM_TIME_H

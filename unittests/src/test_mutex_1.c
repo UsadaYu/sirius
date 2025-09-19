@@ -13,12 +13,12 @@ static bool g_exit_flag;
 static bool g_exit[CNT];
 static char g_buf[40];
 
-#define G_CLEAR()                      \
-  do {                                 \
-    g_count = 0;                       \
-    g_exit_flag = false;               \
+#define G_CLEAR() \
+  do { \
+    g_count = 0; \
+    g_exit_flag = false; \
     memset(g_exit, 0, sizeof(g_exit)); \
-    memset(g_buf, 0, sizeof(g_buf));   \
+    memset(g_buf, 0, sizeof(g_buf)); \
   } while (0)
 
 static sirius_mutex_handle g_mutex;
@@ -29,19 +29,19 @@ typedef enum {
   l_type_spin = 1,
 } l_type_t;
 
-#define LL_S(type)                                                         \
-  do {                                                                     \
-    switch (type) {                                                        \
-      case l_type_mutex:                                                   \
-        ll_mutex();                                                        \
-        break;                                                             \
-      case l_type_spin:                                                    \
-        ll_spin();                                                         \
-        break;                                                             \
-      default:                                                             \
-        t_dprintf(2, "[error: invalid argument] [lock type: %d]\n", type); \
-        break;                                                             \
-    }                                                                      \
+#define LL_S(type) \
+  do { \
+    switch (type) { \
+    case l_type_mutex: \
+      ll_mutex(); \
+      break; \
+    case l_type_spin: \
+      ll_spin(); \
+      break; \
+    default: \
+      t_dprintf(2, "[error: invalid argument] [lock type: %d]\n", type); \
+      break; \
+    } \
   } while (0)
 
 static void ll_init(l_type_t type) {

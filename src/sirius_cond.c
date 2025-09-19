@@ -14,10 +14,10 @@ sirius_api int sirius_cond_init(sirius_cond_handle *handle,
 #ifdef _WIN32
   if (attr) {
     switch (*attr) {
-      case sirius_cond_process_private:
-        break;
-      default:
-        internal_warn("Invalid condition attr: %d\n", *attr);
+    case sirius_cond_process_private:
+      break;
+    default:
+      internal_warn("Invalid condition attr: %d\n", *attr);
     }
   }
 
@@ -33,8 +33,8 @@ sirius_api int sirius_cond_init(sirius_cond_handle *handle,
     } else {
       ret = pthread_condattr_setpshared(&cond_attr,
                                         *attr == sirius_cond_process_shared
-                                            ? PTHREAD_PROCESS_SHARED
-                                            : PTHREAD_PROCESS_PRIVATE);
+                                          ? PTHREAD_PROCESS_SHARED
+                                          : PTHREAD_PROCESS_PRIVATE);
       if (ret) {
         internal_str_warn(ret, "pthread_condattr_setpshared");
         pthread_condattr_destroy(&cond_attr);
@@ -65,7 +65,7 @@ sirius_api int sirius_cond_destroy(sirius_cond_handle *handle) {
 
 #ifdef _WIN32
   /**
-   * Windows MSVC condition variables do not require explicit destruction
+   * @brief Windows MSVC condition variables do not require explicit destruction
    */
 
 #else
@@ -119,9 +119,8 @@ sirius_api int sirius_cond_timedwait(sirius_cond_handle *handle,
 
   tm_prev = GetTickCount64();
   while (milliseconds > 0) {
-    timeout_ms = milliseconds >= (uint64_t)(INFINITE - 1)
-                     ? INFINITE - 1
-                     : (DWORD)milliseconds;
+    timeout_ms = milliseconds >= (uint64_t)(INFINITE - 1) ? INFINITE - 1
+                                                          : (DWORD)milliseconds;
 
     if (SleepConditionVariableCS(handle, mutex, timeout_ms)) {
       return 0;

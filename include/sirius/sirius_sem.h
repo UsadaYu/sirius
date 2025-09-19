@@ -23,7 +23,7 @@ extern "C" {
 #ifdef _WIN32
 typedef HANDLE sirius_sem_handle;
 #else
-#include <semaphore.h>
+#  include <semaphore.h>
 typedef sem_t sirius_sem_handle;
 #endif
 
@@ -34,8 +34,8 @@ typedef sem_t sirius_sem_handle;
  * @param[in] pshared:
  * In Windows system, this parameter should be set to 0.
  * In POSIX system, if `pshared` has the value 0, then the semaphore is shared
- * between the threads of a process; if `pshared` is nonzero, then the
- * semaphore is shared between processes.
+ * between the threads of a process; if `pshared` is nonzero, then the semaphore
+ * is shared between processes.
  * @param[in] value: The `value` argument specifies the initial value for the
  * semaphore.
  *
@@ -121,11 +121,11 @@ sirius_api int sirius_sem_post(sirius_sem_handle *handle);
  */
 sirius_api int sirius_sem_getvalue(sirius_sem_handle *handle, int *sval);
 #else
-#define sirius_sem_getvalue(handle, sval) (0)
+#  define sirius_sem_getvalue(handle, sval) (0)
 #endif
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // SIRIUS_SEM_H
+#endif // SIRIUS_SEM_H

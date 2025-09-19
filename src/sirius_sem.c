@@ -134,22 +134,22 @@ sirius_api int sirius_sem_timedwait(sirius_sem_handle *handle,
 
     DWORD wait_ret = WaitForSingleObject(*handle, timeout_ms);
     switch (wait_ret) {
-      case WAIT_OBJECT_0:
-        return 0;
-      case WAIT_TIMEOUT:
-        tm_cur = GetTickCount64();
-        tm_elapsed = tm_cur - tm_prev;
-        if (tm_elapsed >= milliseconds) {
-          return sirius_err_timeout;
-        }
-        milliseconds -= tm_elapsed;
-        tm_prev = tm_cur;
-        break;
-      case WAIT_FAILED:
-      default:
-        internal_error("WaitForSingleObject: %d\n", wait_ret);
-        internal_win_fmt_error(GetLastError(), "WaitForSingleObject");
-        return -1;
+    case WAIT_OBJECT_0:
+      return 0;
+    case WAIT_TIMEOUT:
+      tm_cur = GetTickCount64();
+      tm_elapsed = tm_cur - tm_prev;
+      if (tm_elapsed >= milliseconds) {
+        return sirius_err_timeout;
+      }
+      milliseconds -= tm_elapsed;
+      tm_prev = tm_cur;
+      break;
+    case WAIT_FAILED:
+    default:
+      internal_error("WaitForSingleObject: %d\n", wait_ret);
+      internal_win_fmt_error(GetLastError(), "WaitForSingleObject");
+      return -1;
     }
   }
 

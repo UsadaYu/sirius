@@ -14,7 +14,9 @@ void log_deinit();
 
 void _internal_init();
 
-static inline bool internal_is_init() { return (sirius_init_state == true); }
+static inline bool internal_is_init() {
+  return (sirius_init_state == true);
+}
 
 static inline void internal_init() {
   if (unlikely(!internal_is_init())) {
@@ -22,4 +24,4 @@ static inline void internal_init() {
   }
 }
 
-#endif  // SIRIUS_INTERNAL_INIT_H
+#endif // SIRIUS_INTERNAL_INIT_H

@@ -29,7 +29,7 @@ typedef pthread_cond_t sirius_cond_handle;
 
 typedef enum {
   /**
-   * Thread sharing within a single process.
+   * @brief Thread sharing within a single process.
    */
   sirius_cond_process_private = 0,
 
@@ -114,4 +114,4 @@ sirius_api int sirius_cond_broadcast(sirius_cond_handle *handle);
 }
 #endif
 
-#endif  // SIRIUS_COND_H
+#endif // SIRIUS_COND_H
