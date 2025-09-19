@@ -33,4 +33,4 @@ extern "C" {
 }
 #endif
 
-#endif  // SIRIUS_MATH_H
+#endif // SIRIUS_MATH_H

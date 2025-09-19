@@ -29,7 +29,7 @@ typedef pthread_cond_t sirius_cond_handle;
 
 typedef enum {
   /**
-   * Thread sharing within a single process.
+   * @brief Thread sharing within a single process.
    */
   sirius_cond_process_private = 0,
 
@@ -49,8 +49,8 @@ typedef enum {
  * @brief Initialize a condition variable, which is used for thread
  * synchronization.
  *
- * @param[out] handle: Condition handle.
- * @param[in] attr: Condition attribute, refer to the `sirius_cond_attr_t`.
+ * @param[out] handle Condition handle.
+ * @param[in] attr Condition attribute, refer to the `sirius_cond_attr_t`.
  *
  * @return 0 on success, error code otherwise.
  */
@@ -65,8 +65,8 @@ sirius_api int sirius_cond_destroy(sirius_cond_handle *handle);
 /**
  * @brief Block the current thread until another thread wakes it up.
  *
- * @param[in] handle: Condition handle.
- * @param[in] mutex: The mutex handle.
+ * @param[in] handle Condition handle.
+ * @param[in] mutex The mutex handle.
  *
  * @return 0 on success, error code otherwise.
  */
@@ -77,9 +77,9 @@ sirius_api int sirius_cond_wait(sirius_cond_handle *handle,
  * @brief Block the current thread until another thread wakes it up or out of
  * the wait time.
  *
- * @param[in] handle: Condition handle.
- * @param[in] mutex: The mutex handle.
- * @param[in] milliseconds: Timeout duration, unit: ms.
+ * @param[in] handle Condition handle.
+ * @param[in] mutex The mutex handle.
+ * @param[in] milliseconds Timeout duration, unit: ms.
  *
  * @return
  * - (1) 0 on success;
@@ -95,7 +95,7 @@ sirius_api int sirius_cond_timedwait(sirius_cond_handle *handle,
 /**
  * @brief Wake up a blocked thread.
  *
- * @param[in] handle: Condition handle.
+ * @param[in] handle Condition handle.
  *
  * @return 0 on success, error code otherwise.
  */
@@ -104,7 +104,7 @@ sirius_api int sirius_cond_signal(sirius_cond_handle *handle);
 /**
  * @brief Wake up all blocked threads.
  *
- * @param[in] handle: Condition handle.
+ * @param[in] handle Condition handle.
  *
  * @return 0 on success, error code otherwise.
  */
@@ -114,4 +114,4 @@ sirius_api int sirius_cond_broadcast(sirius_cond_handle *handle);
 }
 #endif
 
-#endif  // SIRIUS_COND_H
+#endif // SIRIUS_COND_H

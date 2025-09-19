@@ -18,4 +18,4 @@ static inline const char *_custom_basename(const char *path) {
 }
 #endif
 
-#endif  // SIRIUS_CUSTOM_LOG_H
+#endif // SIRIUS_CUSTOM_LOG_H

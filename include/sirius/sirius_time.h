@@ -33,7 +33,9 @@ extern "C" {
  *
  * - (5) wrong: sirius_usleep(1000 * 1000 * 1000 * 1000 * 1000ULL);
  */
-static inline void sirius_usleep(uint64_t usec) { _custom_usleep(usec); }
+static inline void sirius_usleep(uint64_t usec) {
+  _custom_usleep(usec);
+}
 
 /**
  * @brief Nanosecond hibernation.
@@ -41,7 +43,9 @@ static inline void sirius_usleep(uint64_t usec) { _custom_usleep(usec); }
  * @example
  * @see `sirius_usleep`.
  */
-static inline void sirius_nsleep(uint64_t usec) { _custom_nsleep(usec); }
+static inline void sirius_nsleep(uint64_t usec) {
+  _custom_nsleep(usec);
+}
 
 /**
  * @brief Get high-resolution system timestamp in microseconds.
@@ -52,7 +56,9 @@ static inline void sirius_nsleep(uint64_t usec) { _custom_nsleep(usec); }
  *
  * Returns 0 if the high-resolution timer is not available or fails.
  */
-static inline uint64_t sirius_get_time_us() { return _custom_get_time_us(); }
+static inline uint64_t sirius_get_time_us() {
+  return _custom_get_time_us();
+}
 
 /**
  * @brief Get high-resolution system timestamp in nanoseconds.
@@ -63,10 +69,12 @@ static inline uint64_t sirius_get_time_us() { return _custom_get_time_us(); }
  *
  * Returns 0 if the high-resolution timer is not available or fails.
  */
-static inline uint64_t sirius_get_time_ns() { return _custom_get_time_ns(); }
+static inline uint64_t sirius_get_time_ns() {
+  return _custom_get_time_ns();
+}
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // SIRIUS_TIME_H
+#endif // SIRIUS_TIME_H

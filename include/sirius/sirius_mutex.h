@@ -28,18 +28,18 @@ typedef pthread_mutex_t sirius_mutex_handle;
 
 typedef enum {
   /**
-   * Default mutex, no deadlocks.
+   * @brief Default mutex, no deadlocks.
    */
   sirius_mutex_normal = 0,
 
 #ifndef _WIN32
   /**
-   * Recursive locking.
+   * @brief Recursive locking.
    */
   sirius_mutex_recursive = 1,
 
   /**
-   * Error-checking mutex.
+   * @brief Error-checking mutex.
    */
   sirius_mutex_errorcheck = 2,
 #else
@@ -51,8 +51,8 @@ typedef enum {
 /**
  * @brief Initialize a mutex.
  *
- * @param[out] handle: Mutex handle.
- * @param[in] attr: Mutex attribute.
+ * @param[out] handle Mutex handle.
+ * @param[in] attr Mutex attribute.
  *
  * @return 0 on success, error code otherwise.
  */
@@ -62,7 +62,7 @@ sirius_api int sirius_mutex_init(sirius_mutex_handle *handle,
 /**
  * @brief Destroy the mutex handle.
  *
- * @param[in] handle: Mutex handle.
+ * @param[in] handle Mutex handle.
  *
  * @return 0 on success, error code otherwise.
  */
@@ -71,7 +71,7 @@ sirius_api int sirius_mutex_destroy(sirius_mutex_handle *handle);
 /**
  * @brief Lock a mutex.
  *
- * @param[in] handle: Mutex handle.
+ * @param[in] handle Mutex handle.
  *
  * @return 0 on success, error code otherwise.
  */
@@ -80,7 +80,7 @@ sirius_api int sirius_mutex_lock(sirius_mutex_handle *handle);
 /**
  * @brief Unlock a mutex.
  *
- * @param[in] handle: Mutex handle.
+ * @param[in] handle Mutex handle.
  *
  * @return 0 on success, error code otherwise.
  */
@@ -89,7 +89,7 @@ sirius_api int sirius_mutex_unlock(sirius_mutex_handle *handle);
 /**
  * @brief Try to lock a mutex without blocking.
  *
- * @param[in] handle: Mutex handle.
+ * @param[in] handle Mutex handle.
  *
  * @return
  * - (1) 0 on success, the `sirius_mutex_unlock` function is then called to
@@ -106,4 +106,4 @@ sirius_api int sirius_mutex_trylock(sirius_mutex_handle *handle);
 }
 #endif
 
-#endif  // SIRIUS_MUTEX_H
+#endif // SIRIUS_MUTEX_H

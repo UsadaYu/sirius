@@ -14,10 +14,10 @@ sirius_api int sirius_mutex_init(sirius_mutex_handle *handle,
 #ifdef _WIN32
   if (attr) {
     switch (*attr) {
-      case sirius_mutex_normal:
-        break;
-      default:
-        internal_warn("Invalid mutex attr: %d\n", *attr);
+    case sirius_mutex_normal:
+      break;
+    default:
+      internal_warn("Invalid mutex attr: %d\n", *attr);
     }
   }
 
@@ -33,15 +33,15 @@ sirius_api int sirius_mutex_init(sirius_mutex_handle *handle,
     } else {
       int attr_type;
       switch (*attr) {
-        case sirius_mutex_recursive:
-          attr_type = PTHREAD_MUTEX_RECURSIVE;
-          break;
-        case sirius_mutex_errorcheck:
-          attr_type = PTHREAD_MUTEX_ERRORCHECK;
-          break;
-        default:
-          attr_type = PTHREAD_MUTEX_NORMAL;
-          break;
+      case sirius_mutex_recursive:
+        attr_type = PTHREAD_MUTEX_RECURSIVE;
+        break;
+      case sirius_mutex_errorcheck:
+        attr_type = PTHREAD_MUTEX_ERRORCHECK;
+        break;
+      default:
+        attr_type = PTHREAD_MUTEX_NORMAL;
+        break;
       }
 
       ret = pthread_mutexattr_settype(&mutex_attr, attr_type);

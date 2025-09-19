@@ -18,17 +18,17 @@
 #define SIRIUS_VERSION "@SIRIUS_VERSION@"
 
 #ifdef _WIN32
-#include <Windows.h>
+#  include <Windows.h>
 #endif
 
 #ifndef _MSC_VER
-#include <pthread.h>
+#  include <pthread.h>
 #endif
 
 #ifdef __cplusplus
-#include <cstdint>
+#  include <cstdint>
 #else
-#include <stdint.h>
+#  include <stdint.h>
 #endif
 
 #ifdef __cplusplus
@@ -39,4 +39,4 @@ extern "C" {
 }
 #endif
 
-#endif  // SIRIUS_COMMON_H
+#endif // SIRIUS_COMMON_H

@@ -28,30 +28,27 @@ extern "C" {
  * - (1) CFLAGS += -Dlog_module_name='"$(log_module_name)"'
  */
 #ifndef log_module_name
-#define log_module_name "unknown"
+#  define log_module_name "unknown"
 #endif
 
 /**
- * Log print levels.
- */
-/**
- * Disable log printing.
+ * @brief Disable log printing.
  */
 #define sirius_log_level_none (0)
 /**
- * Print error message.
+ * @brief Print error message.
  */
 #define sirius_log_level_error (1)
 /**
- * Print warning message.
+ * @brief Print warning message.
  */
 #define sirius_log_level_warn (2)
 /**
- * Print generic message.
+ * @brief Print generic message.
  */
 #define sirius_log_level_info (3)
 /**
- * Print debug message.
+ * @brief Print debug message.
  */
 #define sirius_log_level_debg (4)
 
@@ -63,10 +60,10 @@ extern "C" {
  * - (1) CFLAGS += -Dexternal_log_level=2
  */
 #ifndef external_log_level
-#define external_log_level sirius_log_level_info
+#  define external_log_level sirius_log_level_info
 #elif (external_log_level > sirius_log_level_debg)
-#undef external_log_level
-#define external_log_level sirius_log_level_debg
+#  undef external_log_level
+#  define external_log_level sirius_log_level_debg
 #endif
 
 /**
@@ -74,8 +71,8 @@ extern "C" {
  *
  * @note The `basename` function provided by posix is not used here. The
  * prototype of the basename function is: `char *basename(char *path);`.
- * Therefore, implicitly converting a `const char *` type to a `char *` type
- * may result in a compilation warning.
+ * Therefore, implicitly converting a `const char *` type to a `char *` type may
+ * result in a compilation warning.
  */
 #define sirius_file (_custom_basename(__FILE__))
 
@@ -97,14 +94,14 @@ extern "C" {
 
 typedef struct {
   /**
-   * File descriptor for error/warn log writing. The original configuration
-   * will not change if the parameter is null.
+   * @brief File descriptor for error/warn log writing. The original
+   * configuration will not change if the parameter is null.
    */
   int *fd_err;
 
   /**
-   * File descriptor for info/debug log writing. The original configuration
-   * will not change if the parameter is null.
+   * @brief File descriptor for info/debug log writing. The original
+   * configuration will not change if the parameter is null.
    */
   int *fd_out;
 } sirius_log_config_t;
@@ -114,96 +111,96 @@ sirius_api void sirius_log_config(sirius_log_config_t cfg);
 /**
  * @brief Print log.
  *
- * @param[in] log_level: Log level.
- * @param[in] color: Print color.
- * @param[in] module: Module name.
- * @param[in] file: File.
- * @param[in] func: Function.
- * @param[in] line: Line.
- * @param[in] fmt: User's message.
+ * @param[in] log_level Log level.
+ * @param[in] color Print color.
+ * @param[in] module Module name.
+ * @param[in] file File.
+ * @param[in] func Function.
+ * @param[in] line Line.
+ * @param[in] fmt User's message.
  */
-sirius_api void sirius_log(int log_level, const char *color,
-                           const char *module, const char *file,
-                           const char *func, int line, const char *fmt, ...);
+sirius_api void sirius_log(int log_level, const char *color, const char *module,
+                           const char *file, const char *func, int line,
+                           const char *fmt, ...);
 
 /**
  * @brief Print log, but hide the file information and thread id.
  *
- * @param[in] log_level: Log level.
- * @param[in] color: Print color.
- * @param[in] module: Module name.
- * @param[in] fmt: User's message.
+ * @param[in] log_level Log level.
+ * @param[in] color Print color.
+ * @param[in] module Module name.
+ * @param[in] fmt User's message.
  */
 sirius_api void sirius_logsp(int log_level, const char *color,
                              const char *module, const char *fmt, ...);
 
-#define _LOG_WRITE(level, color, fmt, ...)                           \
-  do {                                                               \
-    sirius_log(level, color, log_module_name, sirius_file, __func__, \
-               __LINE__, fmt, ##__VA_ARGS__);                        \
+#define _LOG_WRITE(level, color, fmt, ...) \
+  do { \
+    sirius_log(level, color, log_module_name, sirius_file, __func__, __LINE__, \
+               fmt, ##__VA_ARGS__); \
   } while (0)
 
-#define _LOG_WRITESP(level, color, fmt, ...)                         \
-  do {                                                               \
+#define _LOG_WRITESP(level, color, fmt, ...) \
+  do { \
     sirius_logsp(level, color, log_module_name, fmt, ##__VA_ARGS__); \
   } while (0)
 
 #if (external_log_level >= sirius_log_level_error)
-#define _ERROR(fmt, ...) \
-  _LOG_WRITE(sirius_log_level_error, log_red, fmt, ##__VA_ARGS__)
+#  define _ERROR(fmt, ...) \
+    _LOG_WRITE(sirius_log_level_error, log_red, fmt, ##__VA_ARGS__)
 #else
-#define _ERROR(fmt, ...)          \
-  do {                            \
-    _custom_swallow(__VA_ARGS__); \
-  } while (0)
+#  define _ERROR(fmt, ...) \
+    do { \
+      _custom_swallow(__VA_ARGS__); \
+    } while (0)
 #endif
 
 #if (external_log_level >= sirius_log_level_warn)
-#define _WARN(fmt, ...) \
-  _LOG_WRITE(sirius_log_level_warn, log_yellow, fmt, ##__VA_ARGS__)
-#define _WARNSP(fmt, ...) \
-  _LOG_WRITESP(sirius_log_level_warn, log_yellow, fmt, ##__VA_ARGS__)
+#  define _WARN(fmt, ...) \
+    _LOG_WRITE(sirius_log_level_warn, log_yellow, fmt, ##__VA_ARGS__)
+#  define _WARNSP(fmt, ...) \
+    _LOG_WRITESP(sirius_log_level_warn, log_yellow, fmt, ##__VA_ARGS__)
 #else
-#define _WARN(fmt, ...)           \
-  do {                            \
-    _custom_swallow(__VA_ARGS__); \
-  } while (0)
-#define _WARNSP(fmt, ...)         \
-  do {                            \
-    _custom_swallow(__VA_ARGS__); \
-  } while (0)
+#  define _WARN(fmt, ...) \
+    do { \
+      _custom_swallow(__VA_ARGS__); \
+    } while (0)
+#  define _WARNSP(fmt, ...) \
+    do { \
+      _custom_swallow(__VA_ARGS__); \
+    } while (0)
 #endif
 
 #if (external_log_level >= sirius_log_level_info)
-#define _INFO(fmt, ...) \
-  _LOG_WRITE(sirius_log_level_info, log_green, fmt, ##__VA_ARGS__)
-#define _INFOSP(fmt, ...) \
-  _LOG_WRITESP(sirius_log_level_info, log_green, fmt, ##__VA_ARGS__)
+#  define _INFO(fmt, ...) \
+    _LOG_WRITE(sirius_log_level_info, log_green, fmt, ##__VA_ARGS__)
+#  define _INFOSP(fmt, ...) \
+    _LOG_WRITESP(sirius_log_level_info, log_green, fmt, ##__VA_ARGS__)
 #else
-#define _INFO(fmt, ...)           \
-  do {                            \
-    _custom_swallow(__VA_ARGS__); \
-  } while (0)
-#define _INFOSP(fmt, ...)         \
-  do {                            \
-    _custom_swallow(__VA_ARGS__); \
-  } while (0)
+#  define _INFO(fmt, ...) \
+    do { \
+      _custom_swallow(__VA_ARGS__); \
+    } while (0)
+#  define _INFOSP(fmt, ...) \
+    do { \
+      _custom_swallow(__VA_ARGS__); \
+    } while (0)
 #endif
 
 #if (external_log_level >= sirius_log_level_debg)
-#define _DEBG(fmt, ...) \
-  _LOG_WRITE(sirius_log_level_debg, log_color_none, fmt, ##__VA_ARGS__)
-#define _DEBGSP(fmt, ...) \
-  _LOG_WRITESP(sirius_log_level_debg, log_color_none, fmt, ##__VA_ARGS__)
+#  define _DEBG(fmt, ...) \
+    _LOG_WRITE(sirius_log_level_debg, log_color_none, fmt, ##__VA_ARGS__)
+#  define _DEBGSP(fmt, ...) \
+    _LOG_WRITESP(sirius_log_level_debg, log_color_none, fmt, ##__VA_ARGS__)
 #else
-#define _DEBG(fmt, ...)           \
-  do {                            \
-    _custom_swallow(__VA_ARGS__); \
-  } while (0)
-#define _DEBGSP(fmt, ...)         \
-  do {                            \
-    _custom_swallow(__VA_ARGS__); \
-  } while (0)
+#  define _DEBG(fmt, ...) \
+    do { \
+      _custom_swallow(__VA_ARGS__); \
+    } while (0)
+#  define _DEBGSP(fmt, ...) \
+    do { \
+      _custom_swallow(__VA_ARGS__); \
+    } while (0)
 #endif
 
 #define sirius_log_write(level, color, fmt, ...) \
@@ -223,4 +220,4 @@ sirius_api void sirius_logsp(int log_level, const char *color,
 }
 #endif
 
-#endif  // SIRIUS_LOG_H
+#endif // SIRIUS_LOG_H

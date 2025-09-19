@@ -1,5 +1,5 @@
-#ifndef __TEST_H__
-#define __TEST_H__
+#ifndef SIRIUS_TEST_H
+#define SIRIUS_TEST_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,28 +16,28 @@ extern "C" {
 #include "sirius/sirius_time.h"
 
 #ifdef _WIN32
-#include <Windows.h>
-#include <io.h>
-#define t_dprintf(fd, ...)                      \
-  do {                                          \
-    char msg[1024];                             \
-    snprintf(msg, sizeof(msg), ##__VA_ARGS__);  \
-    _write(fd, msg, (unsigned int)strlen(msg)); \
-  } while (0)
+#  include <io.h>
+#  include <Windows.h>
+#  define t_dprintf(fd, ...) \
+    do { \
+      char msg[1024]; \
+      snprintf(msg, sizeof(msg), ##__VA_ARGS__); \
+      _write(fd, msg, (unsigned int)strlen(msg)); \
+    } while (0)
 #else
-#define t_dprintf dprintf
+#  define t_dprintf dprintf
 #endif
 
-#define t_assert(expr)                     \
-  do {                                     \
-    if (unlikely(!(expr))) {               \
+#define t_assert(expr) \
+  do { \
+    if (unlikely(!(expr))) { \
       sirius_error("assert: %s\n", #expr); \
-      abort();                             \
-    }                                      \
+      abort(); \
+    } \
   } while (0)
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // __TEST_H__
+#endif // SIRIUS_TEST_H

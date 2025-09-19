@@ -69,4 +69,4 @@ static inline double _custom_min_double(unsigned int args_num, ...) {
 }
 #endif
 
-#endif  // SIRIUS_CUSTOM_MATH_H
+#endif // SIRIUS_CUSTOM_MATH_H
