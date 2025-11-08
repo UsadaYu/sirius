@@ -26,6 +26,8 @@ list(APPEND _include_dir_list ${_artifact_inc_path})
 
 foreach(file ${_src_list})
   get_filename_component(file_name ${file} NAME_WE)
+  get_filename_component(full_name ${file} NAME)
+  string(REGEX REPLACE "\\.[^.]+$" "" file_name ${full_name})
   set(_target_name "${SIRIUS_TARGET_NAME}_${file_name}")
 
   add_executable(${_target_name} ${file})

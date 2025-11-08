@@ -1,5 +1,6 @@
-#include "internal/decls.h"
-#include "internal/init.h"
+#include "sirius/internal/init.h"
+
+#include "sirius/internal/decls.h"
 
 bool sirius_init_state = false;
 
@@ -8,8 +9,7 @@ static __attribute__((constructor))
 #else
 static
 #endif
-void
-_init() {
+void _init() {
   if (sirius_init_state)
     return;
 
@@ -26,8 +26,7 @@ static __attribute__((destructor))
 #else
 static
 #endif
-void
-_deinit() {
+void _deinit() {
   if (!sirius_init_state)
     return;
 

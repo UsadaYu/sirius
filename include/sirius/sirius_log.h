@@ -1,21 +1,9 @@
-/**
- * @name sirius_log.h
- *
- * @author UsadaYu
- *
- * @date
- * Create: 2024-07-30
- * Update: 2025-07-10
- *
- * @brief Log print.
- */
-
 #ifndef SIRIUS_LOG_H
 #define SIRIUS_LOG_H
 
-#include "custom/log.h"
-#include "custom/macro.h"
-#include "sirius_attributes.h"
+#include "sirius/custom/log.h"
+#include "sirius/custom/macro.h"
+#include "sirius/sirius_attributes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -74,7 +62,7 @@ extern "C" {
  * Therefore, implicitly converting a `const char *` type to a `char *` type may
  * result in a compilation warning.
  */
-#define sirius_file (_custom_basename(__FILE__))
+#define sirius_file (sirius_custom_basename(__FILE__))
 
 /**
  * @brief Log color.
@@ -151,7 +139,7 @@ sirius_api void sirius_logsp(int log_level, const char *color,
 #else
 #  define _ERROR(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #endif
 
@@ -163,11 +151,11 @@ sirius_api void sirius_logsp(int log_level, const char *color,
 #else
 #  define _WARN(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #  define _WARNSP(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #endif
 
@@ -179,11 +167,11 @@ sirius_api void sirius_logsp(int log_level, const char *color,
 #else
 #  define _INFO(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #  define _INFOSP(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #endif
 
@@ -195,11 +183,11 @@ sirius_api void sirius_logsp(int log_level, const char *color,
 #else
 #  define _DEBG(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #  define _DEBGSP(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #endif
 

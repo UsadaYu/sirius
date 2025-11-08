@@ -1,109 +1,242 @@
-/**
- * @name sirius_mutex.h
- *
- * @author UsadaYu
- *
- * @date
- * Create: 2025-01-06
- * Update: 2025-01-21
- *
- * @brief Mutex.
- */
-
 #ifndef SIRIUS_MUTEX_H
 #define SIRIUS_MUTEX_H
 
-#include "sirius_attributes.h"
-#include "sirius_common.h"
+#include "sirius/sirius_attributes.h"
+#include "sirius/sirius_common.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifdef _WIN32
-typedef CRITICAL_SECTION sirius_mutex_handle;
-#else
-typedef pthread_mutex_t sirius_mutex_handle;
-#endif
-
+/**
+ * @brief Defines the behavior type of the mutex.
+ */
 typedef enum {
   /**
-   * @brief Default mutex, no deadlocks.
+   * @brief Default, non-recursive mutex.
+   * On Windows, this uses `SRWLOCK` for high performance.
+   * On POSIX, this uses `PTHREAD_MUTEX_NORMAL`.
    */
   sirius_mutex_normal = 0,
 
-#ifndef _WIN32
   /**
-   * @brief Recursive locking.
+   * @brief A recursive mutex. The same thread can lock it multiple times.
+   * On Windows, this uses `CRITICAL_SECTION`.
+   * On POSIX, this uses `PTHREAD_MUTEX_RECURSIVE`.
    */
   sirius_mutex_recursive = 1,
+} sirius_mutex_type_t;
 
-  /**
-   * @brief Error-checking mutex.
-   */
-  sirius_mutex_errorcheck = 2,
+#ifdef _WIN32
+/**
+ * @brief Cross-platform mutex handle.
+ * On Windows, this is a struct to accommodate different underlying lock types.
+ */
+typedef struct {
+  sirius_mutex_type_t type;
+  union {
+    SRWLOCK srw_lock;
+    CRITICAL_SECTION critical_section;
+  } handle;
+} sirius_mutex_t;
 #else
-  sirius_mutex_recursive = sirius_mutex_normal,
-  sirius_mutex_errorcheck = sirius_mutex_normal,
+/**
+ * @brief Cross-platform mutex handle.
+ * On POSIX, this is a direct wrapper around `pthread_mutex_t`.
+ */
+typedef pthread_mutex_t sirius_mutex_t;
 #endif
-} sirius_mutex_attr_t;
 
 /**
  * @brief Initialize a mutex.
  *
- * @param[out] handle Mutex handle.
- * @param[in] attr Mutex attribute.
+ * @param[out] mutex A pointer to the mutex object to be initialized.
+ * @param[in] type  A pointer to the mutex type. If `nullptr`, a default
+ * (normal) mutex is created.
  *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_mutex_init(sirius_mutex_handle *handle,
-                                 const sirius_mutex_attr_t *attr);
+static inline int sirius_mutex_init(sirius_mutex_t *__restrict mutex,
+                                    const sirius_mutex_type_t *__restrict type);
 
 /**
- * @brief Destroy the mutex handle.
+ * @brief Destroy the mutex.
  *
- * @param[in] handle Mutex handle.
- *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_mutex_destroy(sirius_mutex_handle *handle);
+static inline int sirius_mutex_destroy(sirius_mutex_t *mutex);
 
 /**
- * @brief Lock a mutex.
+ * @brief Lock the mutex.
  *
- * @param[in] handle Mutex handle.
- *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_mutex_lock(sirius_mutex_handle *handle);
+static inline int sirius_mutex_lock(sirius_mutex_t *mutex);
 
 /**
- * @brief Unlock a mutex.
+ * @brief Unlock the mutex.
  *
- * @param[in] handle Mutex handle.
- *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_mutex_unlock(sirius_mutex_handle *handle);
+static inline int sirius_mutex_unlock(sirius_mutex_t *mutex);
 
 /**
- * @brief Try to lock a mutex without blocking.
+ * @brief Try to lock the mutex without blocking.
  *
- * @param[in] handle Mutex handle.
- *
- * @return
- * - (1) 0 on success, the `sirius_mutex_unlock` function is then called to
- * unlock;
- *
- * - (2) `sirius_err_resource_busy` indicates that the mutex lock is busy and
- * the acquisition failed;
- *
- * - (3) error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_mutex_trylock(sirius_mutex_handle *handle);
+static inline int sirius_mutex_trylock(sirius_mutex_t *mutex);
 
 #ifdef __cplusplus
 }
+#endif
+
+/**
+ * @implements
+ */
+
+#ifdef _WIN32
+
+static inline int sirius_mutex_init(sirius_mutex_t *mutex,
+                                    const sirius_mutex_type_t *type) {
+  if (unlikely(!mutex))
+    return EINVAL;
+
+  sirius_mutex_type_t mutex_type = (type) ? *type : sirius_mutex_normal;
+  mutex->type = mutex_type;
+
+  if (mutex_type == sirius_mutex_recursive) {
+/**
+ * @note `CRITICAL_SECTION` can raise an exception on low memory, but
+ * doesn't return an error. Here use structured exception handling to be
+ * safe, though it's rare.
+ */
+#  ifdef _MSC_VER
+    __try {
+#  endif
+      InitializeCriticalSection(&mutex->handle.critical_section);
+#  ifdef _MSC_VER
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+      return ENOMEM;
+    }
+#  endif
+  } else { // sirius_mutex_normal
+    InitializeSRWLock(&mutex->handle.srw_lock);
+  }
+  return 0;
+}
+
+static inline int sirius_mutex_destroy(sirius_mutex_t *mutex) {
+  if (unlikely(!mutex))
+    return EINVAL;
+
+  /**
+   * @note `CRITICAL_SECTION` requires `DeleteCriticalSection`; `SRWLOCK`
+   * doesn't need explicit destruction.
+   */
+  if (mutex->type == sirius_mutex_recursive) {
+    DeleteCriticalSection(&mutex->handle.critical_section);
+  } else {
+    /**
+     * @note SRWLOCK: no-op.
+     */
+    (void)mutex;
+  }
+  return 0;
+}
+
+static inline int sirius_mutex_lock(sirius_mutex_t *mutex) {
+  if (unlikely(!mutex))
+    return EINVAL;
+
+  if (mutex->type == sirius_mutex_recursive) {
+    EnterCriticalSection(&mutex->handle.critical_section);
+  } else {
+    AcquireSRWLockExclusive(&mutex->handle.srw_lock);
+  }
+  return 0;
+}
+
+static inline int sirius_mutex_unlock(sirius_mutex_t *mutex) {
+  if (unlikely(!mutex))
+    return EINVAL;
+
+  if (mutex->type == sirius_mutex_recursive) {
+    LeaveCriticalSection(&mutex->handle.critical_section);
+  } else {
+    ReleaseSRWLockExclusive(&mutex->handle.srw_lock);
+  }
+  return 0;
+}
+
+static inline int sirius_mutex_trylock(sirius_mutex_t *mutex) {
+  if (unlikely(!mutex))
+    return EINVAL;
+
+  if (mutex->type == sirius_mutex_recursive) {
+    BOOL ok = TryEnterCriticalSection(&mutex->handle.critical_section);
+    return ok ? 0 : EBUSY;
+  } else {
+    BOOLEAN ok = TryAcquireSRWLockExclusive(&mutex->handle.srw_lock);
+    return ok ? 0 : EBUSY;
+  }
+}
+
+#else
+
+static inline int sirius_mutex_init(sirius_mutex_t *mutex,
+                                    const sirius_mutex_type_t *type) {
+  if (unlikely(!mutex))
+    return EINVAL;
+
+  int ret;
+  pthread_mutexattr_t attr;
+
+  /**
+   * @note Default to a normal mutex if type is not specified or if `attr_init`
+   * fails.
+   */
+  if (!type || pthread_mutexattr_init(&attr) != 0)
+    return pthread_mutex_init(mutex, NULL);
+
+  int native_type = *type == sirius_mutex_recursive ? PTHREAD_MUTEX_RECURSIVE
+                                                    : PTHREAD_MUTEX_NORMAL;
+
+  ret = pthread_mutexattr_settype(&attr, native_type);
+  if (ret != 0) {
+    pthread_mutexattr_destroy(&attr);
+    return ret;
+  }
+
+  ret = pthread_mutex_init(mutex, &attr);
+  pthread_mutexattr_destroy(&attr);
+  return ret;
+}
+
+static inline int sirius_mutex_destroy(sirius_mutex_t *mutex) {
+  if (unlikely(!mutex))
+    return EINVAL;
+  return pthread_mutex_destroy(mutex);
+}
+
+static inline int sirius_mutex_lock(sirius_mutex_t *mutex) {
+  if (unlikely(!mutex))
+    return EINVAL;
+  return pthread_mutex_lock(mutex);
+}
+
+static inline int sirius_mutex_unlock(sirius_mutex_t *mutex) {
+  if (unlikely(!mutex))
+    return EINVAL;
+  return pthread_mutex_unlock(mutex);
+}
+
+static inline int sirius_mutex_trylock(sirius_mutex_t *mutex) {
+  if (unlikely(!mutex))
+    return EINVAL;
+  return pthread_mutex_trylock(mutex);
+}
+
 #endif
 
 #endif // SIRIUS_MUTEX_H

@@ -4,7 +4,7 @@
 #include "test.h"
 
 /**
- * @note when using the spinlock, the number of threads should not be too large
+ * @note When using the spinlock, the number of threads should not be too large.
  */
 #define CNT (4)
 
@@ -21,21 +21,21 @@ static char g_buf[40];
     memset(g_buf, 0, sizeof(g_buf)); \
   } while (0)
 
-static sirius_mutex_handle g_mutex;
+static sirius_mutex_t g_mutex;
 static sirius_spinlock_t g_spin;
 
 typedef enum {
-  l_type_mutex = 0,
-  l_type_spin = 1,
-} l_type_t;
+  lock_type_mutex = 0,
+  lock_type_spin = 1,
+} lock_type_e;
 
-#define LL_S(type) \
+#define ll_tpl(type) \
   do { \
     switch (type) { \
-    case l_type_mutex: \
+    case lock_type_mutex: \
       ll_mutex(); \
       break; \
-    case l_type_spin: \
+    case lock_type_spin: \
       ll_spin(); \
       break; \
     default: \
@@ -44,40 +44,40 @@ typedef enum {
     } \
   } while (0)
 
-static void ll_init(l_type_t type) {
-#define ll_mutex() sirius_mutex_init(&g_mutex, NULL)
+static void ll_init(lock_type_e type) {
+#define ll_mutex() sirius_mutex_init(&g_mutex, nullptr)
 #define ll_spin() sirius_spin_init(&g_spin, SIRIUS_THREAD_PROCESS_PRIVATE)
-  LL_S(type);
+  ll_tpl(type);
 #undef ll_spin
 #undef ll_mutex
 }
 
-static void ll_destroy(l_type_t type) {
+static void ll_destroy(lock_type_e type) {
 #define ll_mutex() sirius_mutex_destroy(&g_mutex)
 #define ll_spin() sirius_spin_destroy(&g_spin)
-  LL_S(type);
+  ll_tpl(type);
 #undef ll_spin
 #undef ll_mutex
 }
 
-static force_inline void ll_lock(l_type_t type) {
+static force_inline void ll_lock(lock_type_e type) {
 #define ll_mutex() sirius_mutex_lock(&g_mutex)
 #define ll_spin() sirius_spin_lock(&g_spin)
-  LL_S(type);
+  ll_tpl(type);
 #undef ll_spin
 #undef ll_mutex
 }
 
-static force_inline void ll_unlock(l_type_t type) {
+static force_inline void ll_unlock(lock_type_e type) {
 #define ll_mutex() sirius_mutex_unlock(&g_mutex)
 #define ll_spin() sirius_spin_unlock(&g_spin)
-  LL_S(type);
+  ll_tpl(type);
 #undef ll_spin
 #undef ll_mutex
 }
 
-void thread_func(void *args) {
-  int type = *((l_type_t *)args);
+void *foo(void *args) {
+  int type = *((lock_type_e *)args);
 
   for (int i = 0; i < 1024 * 10; i++) {
     ll_lock(type);
@@ -104,26 +104,21 @@ void thread_func(void *args) {
   }
   ll_unlock(type);
 
-  sirius_thread_exit(NULL);
+  sirius_thread_exit(nullptr);
+  return nullptr;
 }
 
-void *thread_func_wrapper(void *args) {
-  thread_func(args);
-  return NULL;
-}
-
-int test(l_type_t type) {
+int test(lock_type_e type) {
   G_CLEAR();
 
   int t_cnt = 0;
-  sirius_thread_handle thread_handle[CNT];
+  sirius_thread_t thread_handle[CNT];
 
   ll_init(type);
 
   int ret = 0;
   for (int i = 0; i < CNT; i++) {
-    if (unlikely(sirius_thread_create(&thread_handle[i], NULL,
-                                      thread_func_wrapper, (void *)&type))) {
+    if (sirius_thread_create(&thread_handle[i], nullptr, foo, (void *)&type)) {
       ret = -1;
       goto label_exit;
     }
@@ -139,7 +134,7 @@ int test(l_type_t type) {
 
 label_exit:
   for (int j = 0; j < t_cnt; j++) {
-    sirius_thread_join(thread_handle[j], NULL);
+    sirius_thread_join(thread_handle[j], nullptr);
   }
 
   ll_destroy(type);
@@ -151,12 +146,12 @@ int main() {
 #define ARR_CNT (2)
   int ret[ARR_CNT] = {0};
 
-  ret[0] = test(l_type_mutex);
+  ret[0] = test(lock_type_mutex);
 
   sirius_usleep(1000 * 1000 * 2);
-  ret[1] = test(l_type_spin);
+  ret[1] = test(lock_type_spin);
 
-  t_dprintf(1, "\n================================\n");
+  t_dprintf(1, "\n--------------------------------\n");
   for (int i = 0; i < ARR_CNT; i++) {
     if (ret[i]) {
       t_dprintf(2, "[test index: %d] fail\n", i);
@@ -164,7 +159,7 @@ int main() {
       t_dprintf(1, "[test index: %d] succeed\n", i);
     }
   }
-  t_dprintf(1, "================================\n");
+  t_dprintf(1, "--------------------------------\n");
 
   return 0;
 #undef ARR_CNT

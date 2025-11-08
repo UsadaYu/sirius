@@ -4,10 +4,12 @@
 
 static bool g_exit = false;
 static char g_str[128];
-static sirius_sem_handle g_sem_sub;
-static sirius_sem_handle g_sem_main;
+static sirius_sem_t g_sem_sub;
+static sirius_sem_t g_sem_main;
 
-void thread_func() {
+void *foo(void *args) {
+  (void)args;
+
   while (!g_exit) {
     t_assert(!sirius_sem_wait(&g_sem_sub));
     if (unlikely(g_exit))
@@ -17,22 +19,16 @@ void thread_func() {
 
     t_assert(!sirius_sem_post(&g_sem_main));
   }
-}
 
-void *thread_func_wrapper(void *args) {
-  if (args)
-    ;
-
-  thread_func();
-  return NULL;
+  return nullptr;
 }
 
 int main() {
   t_assert(!sirius_sem_init(&g_sem_main, 0, 0));
   t_assert(!sirius_sem_init(&g_sem_sub, 0, 0));
 
-  sirius_thread_handle thread;
-  t_assert(!sirius_thread_create(&thread, NULL, thread_func_wrapper, NULL));
+  sirius_thread_t thread;
+  t_assert(!sirius_thread_create(&thread, nullptr, foo, nullptr));
 
   for (int i = 0; i < 2048; i++) {
     memset(g_str, 0, sizeof(g_str));
@@ -46,7 +42,7 @@ int main() {
   g_exit = true;
   t_assert(!sirius_sem_post(&g_sem_sub));
 
-  t_assert(!sirius_thread_join(thread, NULL));
+  t_assert(!sirius_thread_join(thread, nullptr));
   t_assert(!sirius_sem_destroy(&g_sem_sub));
   t_assert(!sirius_sem_destroy(&g_sem_main));
 

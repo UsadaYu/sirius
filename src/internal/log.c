@@ -1,5 +1,6 @@
-#include "internal/decls.h"
-#include "internal/log.h"
+#include "sirius/internal/log.h"
+
+#include "sirius/internal/decls.h"
 
 static int g_fd_err = STDERR_FILENO;
 static int g_fd_out = STDOUT_FILENO;
@@ -26,8 +27,8 @@ static char g_buffer[WRITE_SIZE];
 #ifdef _WIN32
 static CRITICAL_SECTION cs;
 
-#  define MUTEX_LOCK() EnterCriticalSection(&cs)
-#  define MUTEX_UNLOCK() LeaveCriticalSection(&cs)
+#  define log_mutex_lock() EnterCriticalSection(&cs)
+#  define log_mutex_unlock() LeaveCriticalSection(&cs)
 
 static void _enable_win_ansi() {
 #  if defined(NTDDI_VERSION) && (NTDDI_VERSION >= 0x0A000002)
@@ -61,8 +62,8 @@ void internal_log_deinit() {
 #else
 static pthread_mutex_t mutex;
 
-#  define MUTEX_LOCK() pthread_mutex_lock(&mutex)
-#  define MUTEX_UNLOCK() pthread_mutex_unlock(&mutex)
+#  define log_mutex_lock() pthread_mutex_lock(&mutex)
+#  define log_mutex_unlock() pthread_mutex_unlock(&mutex)
 
 bool internal_log_init() {
   int ret = pthread_mutex_init(&mutex, nullptr);
@@ -88,12 +89,12 @@ void internal_log_deinit() {
  * caller.
  */
 void internal_log_fd_set(const int *const fd_err, const int *const fd_out) {
-  MUTEX_LOCK();
+  log_mutex_lock();
 
   g_fd_err = fd_err ? *fd_err : g_fd_err;
   g_fd_out = fd_out ? *fd_out : g_fd_out;
 
-  MUTEX_UNLOCK();
+  log_mutex_unlock();
 }
 
 void internal_log(int level, const char *color, const char *module,
@@ -125,7 +126,7 @@ void internal_log(int level, const char *color, const char *module,
       snprintf(g_buffer + g_size, sizeof(g_buffer) - g_size, log_color_none); \
   W(fd, g_buffer, g_size);
 
-  MUTEX_LOCK();
+  log_mutex_lock();
 
   g_size = 0;
 
@@ -142,7 +143,7 @@ void internal_log(int level, const char *color, const char *module,
     break;
   }
 
-  MUTEX_UNLOCK();
+  log_mutex_unlock();
 
 #undef LOG_WRITE
 #undef W

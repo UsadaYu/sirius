@@ -1,15 +1,3 @@
-/**
- * @name sirius_attributes.h
- *
- * @author UsadaYu
- *
- * @date
- * Create: 2024-09-25
- * Update: 2025-01-06
- *
- * @brief Attribute class macro definition.
- */
-
 #ifndef SIRIUS_ATTRIBUTES_H
 #define SIRIUS_ATTRIBUTES_H
 

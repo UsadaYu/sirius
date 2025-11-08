@@ -2,6 +2,37 @@
 #define SIRIUS_TEST_H
 
 #ifdef __cplusplus
+#  include <chrono>
+#  include <cmath>
+#  include <cstdlib>
+#  include <filesystem>
+#  include <format>
+#  include <fstream>
+#  include <iomanip>
+#  include <iostream>
+#  include <map>
+#  include <memory>
+#  include <random>
+#  include <sstream>
+#  include <stdexcept>
+#  include <string>
+#  include <thread>
+#  include <vector>
+#else
+#  ifdef __STDC_VERSION__
+#    if (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
+#      include <stdatomic.h>
+#    endif
+
+#    if (__STDC_VERSION__ >= 202311L)
+#    else
+#      include <stdbool.h>
+#      define nullptr NULL
+#    endif
+#  endif
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 

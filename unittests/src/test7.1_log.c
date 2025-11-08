@@ -69,7 +69,7 @@ static void *thread_func_wrapper(void *args) {
     ;
 
   thread_func();
-  return NULL;
+  return nullptr;
 }
 
 int main() {
@@ -90,10 +90,10 @@ int main() {
   cfg.fd_out = &fd;
   sirius_log_config(cfg);
 
-  sirius_thread_handle thread[THREAD_CNT];
+  sirius_thread_t thread[THREAD_CNT];
   for (int i = 0; i < THREAD_CNT; i++) {
     t_assert(
-      !sirius_thread_create(&thread[i], NULL, thread_func_wrapper, NULL));
+      !sirius_thread_create(&thread[i], nullptr, thread_func_wrapper, nullptr));
   }
 
   sirius_usleep(2 * 1000 * 1000);
@@ -115,7 +115,7 @@ int main() {
   g_exit_flag = true;
 
   for (int i = 0; i < THREAD_CNT; i++) {
-    t_assert(!sirius_thread_join(thread[i], NULL));
+    t_assert(!sirius_thread_join(thread[i], nullptr));
   }
 
 #ifdef _WIN32

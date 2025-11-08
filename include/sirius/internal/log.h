@@ -1,8 +1,8 @@
 #ifndef SIRIUS_INTERNAL_LOG_H
 #define SIRIUS_INTERNAL_LOG_H
 
-#include "init.h"
-#include "sirius_log.h"
+#include "sirius/internal/init.h"
+#include "sirius/sirius_log.h"
 
 /**
  * @brief Compile macro, level: 0, 1, 2, 3, 4
@@ -77,7 +77,7 @@ void internal_log(int level, const char *color, const char *module,
 #else
 #  define internal_error(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow(__VA_ARGS__); \
     } while (0)
 #endif
 
@@ -90,7 +90,7 @@ void internal_log(int level, const char *color, const char *module,
 #else
 #  define internal_warn(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow(__VA_ARGS__); \
     } while (0)
 #endif
 
@@ -103,7 +103,7 @@ void internal_log(int level, const char *color, const char *module,
 #else
 #  define internal_info(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow(__VA_ARGS__); \
     } while (0)
 #endif
 
@@ -116,7 +116,7 @@ void internal_log(int level, const char *color, const char *module,
 #else
 #  define internal_debg(fmt, ...) \
     do { \
-      _custom_swallow(__VA_ARGS__); \
+      sirius_custom_swallow(__VA_ARGS__); \
     } while (0)
 #endif
 

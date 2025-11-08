@@ -1,8 +1,8 @@
 #ifndef SIRIUS_INTERNAL_INIT_H
 #define SIRIUS_INTERNAL_INIT_H
 
-#include "decls.h"
-#include "sirius_attributes.h"
+#include "sirius/internal/decls.h"
+#include "sirius/sirius_attributes.h"
 
 extern bool sirius_init_state;
 

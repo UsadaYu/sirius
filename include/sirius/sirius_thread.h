@@ -1,20 +1,8 @@
-/**
- * @name sirius_thread.h
- *
- * @author UsadaYu
- *
- * @date
- * Create: 2025-01-06
- * Update: 2025-01-25
- *
- * @brief Thread.
- */
-
 #ifndef SIRIUS_THREAD_H
 #define SIRIUS_THREAD_H
 
-#include "custom/thread.h"
-#include "sirius_attributes.h"
+#include "sirius/custom/thread.h"
+#include "sirius/sirius_attributes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,22 +11,28 @@ extern "C" {
 /**
  * @brief Get the thread id, the result is of type `uint64_t`.
  */
-#define sirius_thread_id (_custom_thread_id())
+#define sirius_thread_id (sirius_custom_thread_id())
+
+/**
+ * @brief On POSIX system, under the `SCHED_OTHER` policy, the priority is
+ * always 0, corresponding to `none` here.
+ */
+#define sirius_thread_priority_none (0)
 
 /**
  * @brief Minimum thread priority.
  */
-#define sirius_thread_priority_min (0)
+#define sirius_thread_priority_min (1)
 
 /**
  * @brief Maximum thread priority.
  */
-#define sirius_thread_priority_max (31)
+#define sirius_thread_priority_max (99)
 
 #ifdef _WIN32
-typedef HANDLE sirius_thread_handle;
+typedef HANDLE sirius_thread_t;
 #else
-typedef pthread_t sirius_thread_handle;
+typedef pthread_t sirius_thread_t;
 #endif
 
 typedef enum {
@@ -91,45 +85,44 @@ typedef struct {
   /**
    * @brief Thread rotation policy.
    *
-   * @note Only takes effect in POSIX system.
+   * @note Only takes effect on POSIX system.
    */
   sirius_thread_sched_policy_t sched_policy;
 
   /**
    * @brief Thread priority.
    *
-   * @note This parameters usually range from `sirius_thread_priority_min` to
-   * `sirius_thread_priority_max`, and it only affects the thread priority, not
-   * the process priority.
+   * @note This parameters usually range from `sirius_thread_priority_min` (1)
+   * to `sirius_thread_priority_max` (99), and it only affects the thread
+   * priority, not the process priority.
    *
-   * - (1) In POSIX system, like pthread, this parameter needs to be used in
+   * - (1) On POSIX system, like `pthread`, this parameter needs to be used in
    * conjunction with the `sched_policy` parameter. When parameter
    * `sched_policy` is set to `sirius_thread_sched_fifo` or
-   * `sirius_thread_sched_rr`, this parameter ranges from 1 to 31, corresponding
-   * to the priority of pthread threads from 1 to 99; when parameter
-   * `sched_policy` is configured to `sirius_thread_sched_other`, this parameter
-   * has a value of 0.
+   * `sirius_thread_sched_rr`, this parameter ranges from 1 to 99; when
+   * parameter `sched_policy` is configured to `sirius_thread_sched_other`, this
+   * parameter has a value of `sirius_thread_priority_none` (0) always.
    *
-   * - (2) In Windows MSVC system, this parameter is valid regardless of the
+   * - (2) On Windows MSVC system, this parameter is valid regardless of the
    * `sched_policy` parameter. any configuration between
    * `sirius_thread_priority_min` and `sirius_thread_priority_max` is converted
-   * to a specific priority. In fact, the priority of threads in Windows is also
+   * to a specific priority. In fact, the priority of threads on Windows is also
    * related to the process. The thread priority is configured on the interface
    * according to the current process priority. For details about rules of
-   * priorit in Windows, see the official Windows documentation.
+   * priorit on Windows, see the official Windows documentation.
    * @ref
    * en:
-   * - (1)
+   * - (2.1)
    * https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreadpriority
    *
-   * - (2)
+   * - (2.2)
    * https://learn.microsoft.com/en-us/windows/win32/procthread/scheduling-priorities
    *
    * cn:
-   * - (1)
+   * - (2.3)
    * https://learn.microsoft.com/zh-cn/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreadpriority
    *
-   * - (2)
+   * - (2.4)
    * https://learn.microsoft.com/zh-cn/windows/win32/procthread/scheduling-priorities
    */
   int priority;
@@ -178,31 +171,31 @@ typedef enum {
 
 typedef struct {
   /**
-   * @note Only takes effect in POSIX system.
+   * @note Only takes effect on POSIX system.
    */
   sirius_thread_detach_state_t detach_state;
 
   /**
-   * @note Only takes effect in POSIX system.
+   * @note Only takes effect on POSIX system.
    */
   sirius_thread_inherit_t inherit_sched;
 
   /**
-   * @note Only takes effect in POSIX system.
+   * @note Only takes effect on POSIX system.
    */
   sirius_thread_scope_t scope;
 
   /**
    * @brief Specifies the starting address of the thread stack.
    *
-   * @note Only takes effect in POSIX system.
+   * @note Only takes effect on POSIX system.
    */
   void *stackaddr;
 
   /**
    * @brief Alert buffer size at the end of the thread stack.
    *
-   * @note Only takes effect in POSIX system.
+   * @note Only takes effect on POSIX system.
    */
   size_t guardsize;
 
@@ -216,64 +209,78 @@ typedef struct {
 
 /**
  * @brief Create a thread.
- * Equivalent to the `pthread_create` function in POSIX system;
- * Equivalent to the `CreateThread` function in Windows MSVC environment.
+ * Equivalent to the `pthread_create` function on POSIX system;
+ * Equivalent to the `CreateThread` function on Windows MSVC environment.
  *
- * @param[out] handle Thread handle.
+ * @param[out] thread Thread handle.
  * @param[in] attr Thread attributes.
- * @param[in] start_routine Start routine of the thread.
+ * @param[in] start_routine Start routine of the thread. According to the POSIX
+ * standard, the type of a routine function should be `void *`.
  * @param[in] arg Parameters of routine.
  *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  *
  * @note If the thread is created successfully, but attributes setting fails,
  * the function will still return success.
+ *
+ * @example
+ * void *foo(void *args) {
+ *   return NULL;
+ * }
+ *
+ * int main() {
+ *   sirius_thread_t thread;
+ *   sirius_thread_create(&thread, NULL, foo, NULL);
+ *   sirius_thread_join(thread, NULL);
+ *   return 0;
+ * }
  */
-sirius_api int sirius_thread_create(sirius_thread_handle *handle,
-                                    const sirius_thread_attr_t *attr,
-                                    void *(*start_routine)(void *), void *arg);
+sirius_api int sirius_thread_create(sirius_thread_t *__restrict thread,
+                                    const sirius_thread_attr_t *__restrict attr,
+                                    void *(*start_routine)(void *),
+                                    void *__restrict arg);
 
 /**
  * @brief Reclaim the resources of the thread.
- * Equivalent to the `pthread_join` function in POSIX system;
- * Equivalent to the `WaitForSingleObject(handle, INFINITE)` function in Windows
+ * Equivalent to the `pthread_join` function on POSIX system;
+ * Equivalent to the `WaitForSingleObject(handle, INFINITE)` function on Windows
  * MSVC environment.
  *
- * @param[in] handle Thread handle.
+ * @param[in] thread Thread handle.
  * @param[out] retval Data returned by the thread. This parameter only takes
- * effect in POSIX system, but not in Windows MSVC environment.
+ * effect on POSIX system.
  *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_thread_join(sirius_thread_handle handle, void **retval);
+sirius_api int sirius_thread_join(sirius_thread_t thread, void **retval);
 
 #ifndef _WIN32
 /**
  * @brief Detach the thread.
- * Equivalent to the `pthread_detach` function in POSIX system.
+ * Equivalent to the `pthread_detach` function on POSIX system.
  *
- * @param[in] handle Thread handle.
+ * @param[in] thread Thread handle.
  *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_thread_detach(sirius_thread_handle handle);
+sirius_api int sirius_thread_detach(sirius_thread_t thread);
 #else
-#  define sirius_thread_detach(handle) (0)
+#  define sirius_thread_detach(thread) (0)
 #endif
 
 /**
  * @brief Exit the thread.
- * Equivalent to the `pthread_exit` function in POSIX system;
- * Equivalent to the `ExitThread` function in Windows MSVC environment.
+ * Equivalent to the `pthread_exit` function on POSIX system;
+ * Equivalent to the `ExitThread` function on Windows MSVC environment.
  *
- * @param[out] retval In POSIX system, this parameter can be a pointer to any
- * data; in Windows MSVC environment, this parameter can only be a `DWORD` type
+ * @param[out] retval On POSIX system, this parameter can be a pointer to any
+ * data; on Windows MSVC environment, this parameter can only be a `DWORD` type
  * error code.
  *
- * This parameter can be null, if it is needed, then:
- * In POSIX system, this parameter needs to point to a non-temporary memory
+ * This parameter can be `nullptr`, if it is needed, then:
+ * On POSIX system, this parameter needs to point to a non-temporary memory
  * address;
- * In Windows MSVC environment, this parameter can point to a temporary memory
+ * On Windows MSVC environment, this parameter can point to a temporary memory
  * address.
  */
 sirius_api void sirius_thread_exit(
@@ -286,67 +293,67 @@ sirius_api void sirius_thread_exit(
 
 /**
  * @brief Terminate the thread.
- * Equivalent to the `pthread_cancel` function in POSIX system;
- * Equivalent to the `TerminateThread` function in Windows MSVC environment.
+ * Equivalent to the `pthread_cancel` function on POSIX system;
+ * Equivalent to the `TerminateThread` function on Windows MSVC environment.
  *
- * @param[in] handle Thread handle.
+ * @param[in] thread Thread handle.
  *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_thread_cancel(sirius_thread_handle handle);
+sirius_api int sirius_thread_cancel(sirius_thread_t thread);
 
 /**
  * @brief Get the thread handle.
- * Equivalent to the `pthread_self` function in POSIX system;
- * Equivalent to the `GetCurrentThread` function in Windows MSVC environment.
+ * Equivalent to the `pthread_self` function on POSIX system;
+ * Equivalent to the `GetCurrentThread` function on Windows MSVC environment.
  *
  * @return The thread handle.
  */
-sirius_api sirius_thread_handle sirius_thread_self();
+sirius_api sirius_thread_t sirius_thread_self();
 
 /**
- * @brief Get the maximum thread priority.
+ * @brief Get the maximum priority of the specified thread handle.
  *
- * @param[in] handle Thread handle. This parameter is valid only in POSIX
- * system, but not in Windows MSVC environment.
+ * @param[in] thread Thread handle.
+ * @param[out] priority Priority.
  *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int
-sirius_thread_sched_get_priority_max(sirius_thread_handle handle);
+sirius_api int sirius_thread_get_priority_max(sirius_thread_t thread,
+                                              int *priority);
 
 /**
- * @brief Get the minimum thread priority.
+ * @brief Get the minimum priority of the specified thread handle.
  *
- * @param[in] handle Thread handle. This parameter is valid only in POSIX
- * system, but not in Windows MSVC environment.
+ * @param[in] thread Thread handle.
+ * @param[out] priority Priority.
  *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int
-sirius_thread_sched_get_priority_min(sirius_thread_handle handle);
+sirius_api int sirius_thread_get_priority_min(sirius_thread_t thread,
+                                              int *priority);
 
 /**
  * @brief Set the thread attributes.
  *
- * @param[in] handle Thread handle.
+ * @param[in] thread Thread handle.
  * @param[in] param Parameters of the thread attributes.
  *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
 sirius_api int
-sirius_thread_setschedparam(sirius_thread_handle handle,
+sirius_thread_setschedparam(sirius_thread_t thread,
                             const sirius_thread_sched_param_t *param);
 
 /**
  * @brief Get the thread attributes.
  *
- * @param[in] handle Thread handle.
+ * @param[in] thread Thread handle.
  * @param[in] param Parameters of the thread attributes.
  *
- * @return 0 on success, error code otherwise.
+ * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_thread_getschedparam(sirius_thread_handle handle,
+sirius_api int sirius_thread_getschedparam(sirius_thread_t thread,
                                            sirius_thread_sched_param_t *param);
 
 #ifdef __cplusplus

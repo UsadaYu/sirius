@@ -1,22 +1,7 @@
-/**
- * @name sirius_spinlock.h
- *
- * @author UsadaYu
- *
- * @date
- * Create: 2025-01-11
- * Update: 2025-03-04
- *
- * @brief Spin lock.
- *
- * @note Spinlock is a lightweight lock, so it is not encapsulated by a
- * function.
- */
-
 #ifndef SIRIUS_SPINLOCK
 #define SIRIUS_SPINLOCK
 
-#include "sirius_common.h"
+#include "sirius/sirius_common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,6 +29,7 @@ typedef pthread_spinlock_t sirius_spinlock_t;
 typedef volatile LONG sirius_spinlock_t;
 
 #  define SIRIUS_THREAD_PROCESS_PRIVATE (0)
+#  define SIRIUS_THREAD_PROCESS_SHARED SIRIUS_THREAD_PROCESS_PRIVATE
 
 #  define sirius_spin_init(lock, pshared) (*(lock) = 0, 0)
 #  define sirius_spin_lock(lock) \

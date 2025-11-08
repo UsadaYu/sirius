@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-static inline const char *_custom_basename(const char *path) {
+static inline const char *sirius_custom_basename(const char *path) {
   const char *slash = strrchr(path, '/');
   const char *backslash = strrchr(path, '\\');
   const char *f = slash > backslash ? slash : backslash;

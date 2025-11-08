@@ -1,17 +1,7 @@
-/**
- * @name sirius_macro.h
- *
- * @author UsadaYu
- *
- * @date
- * Create: 2024-07-30
- * Update: 2025-07-10
- *
- * @brief Common macro definitions.
- */
-
 #ifndef SIRIUS_MACRO_H
 #define SIRIUS_MACRO_H
+
+#include <stdint.h>
 
 /**
  * @brief Timeout, no waiting.
@@ -21,7 +11,7 @@
 /**
  * @brief Timeout, infinite wait.
  */
-#define sirius_timeout_infinite (~0U)
+#define sirius_timeout_infinite (UINT64_MAX)
 
 #ifndef container_of
 #  ifdef offsetof

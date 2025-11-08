@@ -1,9 +1,9 @@
-#include "internal/decls.h"
-#include "internal/log.h"
-#include "sirius_mutex.h"
-#include "sirius_thread.h"
+#include "sirius/internal/decls.h"
+#include "sirius/internal/log.h"
+#include "sirius/sirius_mutex.h"
+#include "sirius/sirius_thread.h"
 
-static sirius_mutex_handle g_mutex;
+static sirius_mutex_t g_mutex;
 static int g_fd_err = STDERR_FILENO;
 static int g_fd_out = STDOUT_FILENO;
 static time_t g_raw_time;
@@ -50,13 +50,13 @@ sirius_api void sirius_log_config(sirius_log_config_t cfg) {
 #  define WRITE(fd, buf, size) write((fd), (buf), (size))
 #endif
 
-#define P(fd, type) \
+#define C(fd, type) \
   sirius_mutex_lock(&g_mutex); \
   g_size = 0; \
   color = fd > STDERR_FILENO ? "" : color; \
   time(&g_raw_time); \
   localtime_r(&g_raw_time, &g_tm_info); \
-  SP(type) \
+  E(type) \
   va_start(args, fmt); \
   g_size += vsnprintf(g_buf + g_size, sizeof(g_buf) - g_size, fmt, args); \
   va_end(args); \
@@ -67,19 +67,19 @@ sirius_api void sirius_log_config(sirius_log_config_t cfg) {
   sirius_mutex_unlock(&g_mutex); \
   break;
 
-#define LOG_TPL \
+#define log_tpl \
   va_list args; \
   switch (log_level) { \
   case sirius_log_level_none: \
     break; \
   case sirius_log_level_error: \
-    P(g_fd_err, error) \
+    C(g_fd_err, error) \
   case sirius_log_level_warn: \
-    P(g_fd_err, warn) \
+    C(g_fd_err, warn) \
   case sirius_log_level_info: \
-    P(g_fd_out, info) \
+    C(g_fd_out, info) \
   case sirius_log_level_debg: \
-    P(g_fd_out, debg) \
+    C(g_fd_out, debg) \
   default: \
     internal_warn("Invalid argument: [log level: %d]\n", log_level); \
     break; \
@@ -87,25 +87,25 @@ sirius_api void sirius_log_config(sirius_log_config_t cfg) {
 
 sirius_api void sirius_logsp(int log_level, const char *color,
                              const char *module, const char *fmt, ...) {
-#define SP(type) \
+#define E(type) \
   g_size = \
     snprintf(g_buf, sizeof(g_buf), "%s[%02d:%02d:%02d " #type " %s] ", color, \
              g_tm_info.tm_hour, g_tm_info.tm_min, g_tm_info.tm_sec, module);
 
-  LOG_TPL
-#undef SP
+  log_tpl
+#undef E
 }
 
 sirius_api void sirius_log(int log_level, const char *color, const char *module,
                            const char *file, const char *func, int line,
                            const char *fmt, ...) {
-#define SP(type) \
+#define E(type) \
   g_size = \
     snprintf(g_buf, sizeof(g_buf), \
              "%s[%02d:%02d:%02d " #type " %s %" PRIu64 " %s (%s|%d)] ", color, \
              g_tm_info.tm_hour, g_tm_info.tm_min, g_tm_info.tm_sec, module, \
              sirius_thread_id, file, func, line);
 
-  LOG_TPL
-#undef SP
+  log_tpl
+#undef E
 }

@@ -6,12 +6,12 @@
 #define THREAD_CNT (16)
 
 static unsigned int g_idx = 0;
-sirius_cond_handle g_cond;
-sirius_mutex_handle g_mutex;
-bool g_prod_flag = true;
-bool g_exit = false;
+static sirius_cond_t g_cond;
+static sirius_mutex_t g_mutex;
+static bool g_prod_flag = true;
+static bool g_exit = false;
 
-static void cons_thread(void *args) {
+static void *foo_cons(void *args) {
   for (int i = 0; i < 1024; i++) {
     sirius_mutex_lock(&g_mutex);
 
@@ -31,14 +31,11 @@ static void cons_thread(void *args) {
     g_prod_flag = true;
     sirius_mutex_unlock(&g_mutex);
   }
+
+  return nullptr;
 }
 
-static void *cons_thread_wrapper(void *args) {
-  cons_thread(args);
-  return NULL;
-}
-
-static void prod_thread(void *args) {
+static void *foo_prod(void *args) {
   while (!g_exit) {
     sirius_mutex_lock(&g_mutex);
 
@@ -54,32 +51,29 @@ static void prod_thread(void *args) {
 
     sirius_mutex_unlock(&g_mutex);
   }
-}
 
-static void *prod_thread_wrapper(void *args) {
-  prod_thread(args);
-  return NULL;
+  return nullptr;
 }
 
 int main() {
-  sirius_thread_handle cons_thread[THREAD_CNT];
-  sirius_thread_handle prod_thread;
+  sirius_thread_t cons_thread[THREAD_CNT];
+  sirius_thread_t prod_thread;
 
-  sirius_cond_init(&g_cond, NULL);
-  sirius_mutex_init(&g_mutex, NULL);
+  sirius_cond_init(&g_cond, nullptr);
+  sirius_mutex_init(&g_mutex, nullptr);
 
   for (int i = 0; i < THREAD_CNT; i++) {
-    sirius_thread_create(&cons_thread[i], NULL, cons_thread_wrapper, NULL);
+    sirius_thread_create(&cons_thread[i], nullptr, foo_cons, nullptr);
   }
 
-  sirius_thread_create(&prod_thread, NULL, prod_thread_wrapper, NULL);
+  sirius_thread_create(&prod_thread, nullptr, foo_prod, nullptr);
 
   for (int i = 0; i < THREAD_CNT; i++) {
-    sirius_thread_join(cons_thread[i], NULL);
+    sirius_thread_join(cons_thread[i], nullptr);
   }
 
   g_exit = true;
-  sirius_thread_join(prod_thread, NULL);
+  sirius_thread_join(prod_thread, nullptr);
 
   sirius_mutex_destroy(&g_mutex);
   sirius_cond_destroy(&g_cond);
