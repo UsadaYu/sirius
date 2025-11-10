@@ -31,8 +31,13 @@ foreach(file ${_src_list})
   set(_target_name "${SIRIUS_TARGET_NAME}_${file_name}")
 
   add_executable(${_target_name} ${file})
-  set_target_properties(${_target_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY
-                                                   ${_artifact_bin_path})
+  set_target_properties(
+    ${_target_name}
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${_artifact_bin_path}
+               RUNTIME_OUTPUT_DIRECTORY_DEBUG ${_artifact_bin_path}
+               RUNTIME_OUTPUT_DIRECTORY_RELEASE ${_artifact_bin_path}
+               RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${_artifact_bin_path}
+               RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${_artifact_bin_path})
 
   target_link_directories(${_target_name} PRIVATE ${_link_dir_list})
   target_link_libraries(${_target_name} PRIVATE ${_link_libs_list})
@@ -72,7 +77,7 @@ foreach(file ${_src_list})
 
   add_test(
     NAME ${_target_name}
-    COMMAND ./${_target_name}
+    COMMAND ${_artifact_bin_path}/${_target_name}
     WORKING_DIRECTORY ${_artifact_bin_path})
 endforeach()
 

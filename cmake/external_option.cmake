@@ -23,22 +23,12 @@ set(SIRIUS_WRITE_SIZE
       "write file size in bytes at a time, generally recommended with page size"
 )
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL
-                                        "RelWithDebInfo")
-  set(SIRIUS_INTERNAL_LOG_LEVEL
-      "4"
-      CACHE
-        STRING
-        "Internal log level: 0: disable the log; 1: error; 2: warn; 3: info; 4: debug"
-  )
-else()
-  set(SIRIUS_INTERNAL_LOG_LEVEL
-      "3"
-      CACHE
-        STRING
-        "Internal log level: 0: disable the log; 1: error; 2: warn; 3: info; 4: debug"
-  )
-endif()
+set(SIRIUS_INTERNAL_LOG_LEVEL
+    "3"
+    CACHE
+      STRING
+      "Internal log level: 0: disable the log; 1: error; 2: warn; 3: info; 4: debug"
+)
 
 set(SIRIUS_EXTRA_LINK_DIR
     ""
