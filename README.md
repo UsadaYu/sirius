@@ -1,11 +1,9 @@
-# Version-1.3.1
+# Version-1.3.2
 
-|                | gcc  | clang | msvc |
-| -------------- | ---- | ----- | ---- |
-| Linux Shared   | yes  | yes   | /    |
-| Linux Static   | yes  | yes   | /    |
-| Windows Shared | yes  | yes   | yes  |
-| Windows Static | yes  | yes   | yes  |
+|         | gcc  | clang | msvc |
+| ------- | ---- | ----- | ---- |
+| Linux   | yes  | yes   | /    |
+| Windows | yes  | yes   | yes  |
 
 
 

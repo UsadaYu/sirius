@@ -1,7 +1,13 @@
 #ifndef SIRIUS_MACRO_H
 #define SIRIUS_MACRO_H
 
-#include <stdint.h>
+#ifdef __cplusplus
+#  include <cstddef>
+#  include <cstdint>
+#  include <type_traits>
+#else
+#  include <stdint.h>
+#endif
 
 /**
  * @brief Timeout, no waiting.
@@ -13,31 +19,29 @@
  */
 #define sirius_timeout_infinite (UINT64_MAX)
 
-#ifndef container_of
-#  ifdef offsetof
-#    undef offsetof
-#  endif
-/**
- * @brief Get the address offset of the struct member.
- *
- * @param TYPE Struct type.
- * @param MEMBER Struct member.
- */
-#  define offsetof(TYPE, MEMBER) ((size_t)&((TYPE *)0)->MEMBER)
+#ifdef offsetof
+#  undef offsetof
+#endif
+#ifdef container_of
+#  undef container_of
+#endif
 
-/**
- * @brief Get the struct head address from the struct member.
- *
- * @param ptr The address of the struct member.
- * @param type Struct type.
- * @param member Struct member name.
- */
+#define offsetof(TYPE, MEMBER) ((size_t)&((TYPE *)0)->MEMBER)
+
+#ifdef __cplusplus
+#  define container_of(ptr, type, member) \
+    reinterpret_cast<type *>(reinterpret_cast<char *>(const_cast<void *>( \
+                               static_cast<const void *>(ptr))) - \
+                             offsetof(type, member))
+
+#else
 #  define container_of(ptr, type, member) \
     ({ \
       const typeof(((type *)0)->member) *__mptr = (ptr); \
       (type *)((char *)__mptr - offsetof(type, member)); \
     })
-#endif // container_of
+
+#endif
 
 #if defined(__GNUC__) || defined(__clang__)
 /**
