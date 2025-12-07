@@ -1,13 +1,12 @@
-# Version-1.3.2
-
-|         | gcc  | clang | msvc |
-| ------- | ---- | ----- | ---- |
-| Linux   | yes  | yes   | /    |
-| Windows | yes  | yes   | yes  |
+# Sirius
 
 
 
-# Author:
+## v1.3.3
 
-* Name: UsadaYu
-* Email: UsadaYu.yh@gmail.com
+|         | gcc/clang | msvc |
+| ------- | --------- | ---- |
+| Linux   | yes       | /    |
+| Windows | yes       | yes  |
+
+

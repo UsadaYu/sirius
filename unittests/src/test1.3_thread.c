@@ -2,6 +2,8 @@
 #include "test.h"
 
 void *foo(void *args) {
+  (void)args;
+
   sirius_infosp("[Subt] Thread system id: %" PRIu64 "\n", sirius_thread_id);
 #ifndef _WIN32
   sirius_infosp("[Subt] Thread self id: %" PRId64 "\n",

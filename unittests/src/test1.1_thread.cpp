@@ -10,6 +10,8 @@ static int g_index = 1;
 static std::mutex g_mutex;
 
 void *foo(void *args) {
+  (void)args;
+
   std::string nspace;
 
   {

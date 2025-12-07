@@ -6,8 +6,8 @@
 #define THREAD_CNT (32)
 #define QUE_SIZE (128)
 
-static sirius_queue_t g_que_result;
-static sirius_queue_t g_que_free;
+static sirius_queue_t *g_que_result;
+static sirius_queue_t *g_que_free;
 static sirius_thread_t g_thd[THREAD_CNT];
 static bool g_thd_exit_arr[THREAD_CNT] = {0};
 static bool g_thd_exit = false;

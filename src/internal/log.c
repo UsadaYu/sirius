@@ -21,8 +21,8 @@ static char g_buffer[WRITE_SIZE];
 #endif
 
 #define cst_error(fmt, ...) \
-  dprintf(g_fd_err, "[error %s %s %d] " fmt, log_module_name, sirius_file, \
-          __LINE__, ##__VA_ARGS__)
+  dprintf(g_fd_err, "[error %s %s %d] " fmt, sirius_log_module_name, \
+          sirius_file, __LINE__, ##__VA_ARGS__)
 
 #ifdef _WIN32
 static CRITICAL_SECTION cs;
@@ -104,12 +104,12 @@ void internal_log(int level, const char *color, const char *module,
   static va_list args;
 
 #ifdef _WIN32
-#  define W(fd, buf, size) _write((fd), (buf), (unsigned int)(size))
+#  define WRITE(fd, buf, size) _write((fd), (buf), (unsigned int)(size))
 #else
-#  define W(fd, buf, size) write((fd), (buf), (size))
+#  define WRITE(fd, buf, size) write((fd), (buf), (size))
 #endif
 
-#define LOG_WRITE(fd, type) \
+#define log_tpl(fd, type) \
   color = fd > STDERR_FILENO ? "" : color; \
   time(&g_raw_time); \
   localtime_r(&g_raw_time, &g_tm_info); \
@@ -124,7 +124,7 @@ void internal_log(int level, const char *color, const char *module,
   g_size = fd > STDERR_FILENO ? g_size \
                               : g_size + \
       snprintf(g_buffer + g_size, sizeof(g_buffer) - g_size, log_color_none); \
-  W(fd, g_buffer, g_size);
+  WRITE(fd, g_buffer, g_size);
 
   log_mutex_lock();
 
@@ -132,19 +132,19 @@ void internal_log(int level, const char *color, const char *module,
 
   switch (level) {
   case sirius_log_level_error:
-    LOG_WRITE(g_fd_err, error) break;
+    log_tpl(g_fd_err, error) break;
   case sirius_log_level_warn:
-    LOG_WRITE(g_fd_err, warn) break;
+    log_tpl(g_fd_err, warn) break;
   case sirius_log_level_info:
-    LOG_WRITE(g_fd_out, info) break;
+    log_tpl(g_fd_out, info) break;
   case sirius_log_level_debg:
-    LOG_WRITE(g_fd_out, debg) break;
+    log_tpl(g_fd_out, debg) break;
   default: // sirius_log_level_none
     break;
   }
 
   log_mutex_unlock();
 
-#undef LOG_WRITE
-#undef W
+#undef log_tpl
+#undef WRITE
 }

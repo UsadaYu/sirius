@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+
+set(_sirius_target_file "@_target_cmake_package_dir@/@_cmake_target_export_name@.cmake")
+
+include(${_sirius_target_file})

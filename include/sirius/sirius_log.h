@@ -13,10 +13,10 @@ extern "C" {
  * @brief Custom log module name.
  *
  * @example
- * - (1) CFLAGS += -Dlog_module_name='"$(log_module_name)"'
+ * - (1) CFLAGS += -Dsirius_log_module_name='"$(sirius_log_module_name)"'
  */
-#ifndef log_module_name
-#  define log_module_name "unknown"
+#ifndef sirius_log_module_name
+#  define sirius_log_module_name "unknown"
 #endif
 
 /**
@@ -45,13 +45,13 @@ extern "C" {
  * The default log printing level.
  *
  * @example
- * - (1) CFLAGS += -Dexternal_log_level=2
+ * - (1) CFLAGS += -Dsirius_log_level=2
  */
-#ifndef external_log_level
-#  define external_log_level sirius_log_level_info
-#elif (external_log_level > sirius_log_level_debg)
-#  undef external_log_level
-#  define external_log_level sirius_log_level_debg
+#ifndef sirius_log_level
+#  define sirius_log_level sirius_log_level_info
+#elif (sirius_log_level > sirius_log_level_debg)
+#  undef sirius_log_level
+#  define sirius_log_level sirius_log_level_debg
 #endif
 
 /**
@@ -124,16 +124,16 @@ sirius_api void sirius_logsp(int log_level, const char *color,
 
 #define _LOG_WRITE(level, color, fmt, ...) \
   do { \
-    sirius_log(level, color, log_module_name, sirius_file, __func__, __LINE__, \
-               fmt, ##__VA_ARGS__); \
+    sirius_log(level, color, sirius_log_module_name, sirius_file, __func__, \
+               __LINE__, fmt, ##__VA_ARGS__); \
   } while (0)
 
 #define _LOG_WRITESP(level, color, fmt, ...) \
   do { \
-    sirius_logsp(level, color, log_module_name, fmt, ##__VA_ARGS__); \
+    sirius_logsp(level, color, sirius_log_module_name, fmt, ##__VA_ARGS__); \
   } while (0)
 
-#if (external_log_level >= sirius_log_level_error)
+#if (sirius_log_level >= sirius_log_level_error)
 #  define _ERROR(fmt, ...) \
     _LOG_WRITE(sirius_log_level_error, log_red, fmt, ##__VA_ARGS__)
 #else
@@ -143,7 +143,7 @@ sirius_api void sirius_logsp(int log_level, const char *color,
     } while (0)
 #endif
 
-#if (external_log_level >= sirius_log_level_warn)
+#if (sirius_log_level >= sirius_log_level_warn)
 #  define _WARN(fmt, ...) \
     _LOG_WRITE(sirius_log_level_warn, log_yellow, fmt, ##__VA_ARGS__)
 #  define _WARNSP(fmt, ...) \
@@ -159,7 +159,7 @@ sirius_api void sirius_logsp(int log_level, const char *color,
     } while (0)
 #endif
 
-#if (external_log_level >= sirius_log_level_info)
+#if (sirius_log_level >= sirius_log_level_info)
 #  define _INFO(fmt, ...) \
     _LOG_WRITE(sirius_log_level_info, log_green, fmt, ##__VA_ARGS__)
 #  define _INFOSP(fmt, ...) \
@@ -175,7 +175,7 @@ sirius_api void sirius_logsp(int log_level, const char *color,
     } while (0)
 #endif
 
-#if (external_log_level >= sirius_log_level_debg)
+#if (sirius_log_level >= sirius_log_level_debg)
 #  define _DEBG(fmt, ...) \
     _LOG_WRITE(sirius_log_level_debg, log_color_none, fmt, ##__VA_ARGS__)
 #  define _DEBGSP(fmt, ...) \

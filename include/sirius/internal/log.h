@@ -71,7 +71,7 @@ void internal_log(int level, const char *color, const char *module,
 #if (INTERNAL_LOG_LEVEL >= sirius_log_level_error)
 #  define internal_error(fmt, ...) \
     do { \
-      internal_log(sirius_log_level_error, log_red, log_module_name, \
+      internal_log(sirius_log_level_error, log_red, sirius_log_module_name, \
                    sirius_file, __LINE__, fmt, ##__VA_ARGS__); \
     } while (0)
 #else
@@ -84,7 +84,7 @@ void internal_log(int level, const char *color, const char *module,
 #if (INTERNAL_LOG_LEVEL >= sirius_log_level_warn)
 #  define internal_warn(fmt, ...) \
     do { \
-      internal_log(sirius_log_level_warn, log_yellow, log_module_name, \
+      internal_log(sirius_log_level_warn, log_yellow, sirius_log_module_name, \
                    sirius_file, __LINE__, fmt, ##__VA_ARGS__); \
     } while (0)
 #else
@@ -97,7 +97,7 @@ void internal_log(int level, const char *color, const char *module,
 #if (INTERNAL_LOG_LEVEL >= sirius_log_level_info)
 #  define internal_info(fmt, ...) \
     do { \
-      internal_log(sirius_log_level_info, log_green, log_module_name, \
+      internal_log(sirius_log_level_info, log_green, sirius_log_module_name, \
                    sirius_file, __LINE__, fmt, ##__VA_ARGS__); \
     } while (0)
 #else
@@ -110,8 +110,9 @@ void internal_log(int level, const char *color, const char *module,
 #if (INTERNAL_LOG_LEVEL >= sirius_log_level_debg)
 #  define internal_debg(fmt, ...) \
     do { \
-      internal_log(sirius_log_level_debg, log_color_none, log_module_name, \
-                   sirius_file, __LINE__, fmt, ##__VA_ARGS__); \
+      internal_log(sirius_log_level_debg, log_color_none, \
+                   sirius_log_module_name, sirius_file, __LINE__, fmt, \
+                   ##__VA_ARGS__); \
     } while (0)
 #else
 #  define internal_debg(fmt, ...) \

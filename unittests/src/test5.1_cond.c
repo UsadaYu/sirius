@@ -12,6 +12,8 @@ static bool g_prod_flag = true;
 static bool g_exit = false;
 
 static void *foo_cons(void *args) {
+  (void)args;
+
   for (int i = 0; i < 1024; i++) {
     sirius_mutex_lock(&g_mutex);
 
@@ -36,6 +38,8 @@ static void *foo_cons(void *args) {
 }
 
 static void *foo_prod(void *args) {
+  (void)args;
+
   while (!g_exit) {
     sirius_mutex_lock(&g_mutex);
 

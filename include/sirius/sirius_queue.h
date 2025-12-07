@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-typedef void *sirius_queue_t;
+typedef struct sirius_queue_t sirius_queue_t;
 
 typedef enum {
   /**
@@ -45,7 +45,7 @@ typedef struct {
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_queue_alloc(sirius_queue_t *__restrict queue,
+sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
                                   const sirius_queue_args_t *__restrict args);
 
 /**
@@ -55,7 +55,7 @@ sirius_api int sirius_queue_alloc(sirius_queue_t *__restrict queue,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_queue_free(sirius_queue_t queue);
+sirius_api int sirius_queue_free(sirius_queue_t *queue);
 
 /**
  * @brief Get an element from the queue.
@@ -73,7 +73,7 @@ sirius_api int sirius_queue_free(sirius_queue_t queue);
  *
  * - (3) error code otherwise.
  */
-sirius_api int sirius_queue_get(sirius_queue_t queue, size_t *ptr,
+sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
                                 uint64_t milliseconds);
 
 /**
@@ -93,7 +93,7 @@ sirius_api int sirius_queue_get(sirius_queue_t queue, size_t *ptr,
  *
  * - (3) error code otherwise.
  */
-sirius_api int sirius_queue_put(sirius_queue_t queue, size_t ptr,
+sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
                                 uint64_t milliseconds);
 
 /**
@@ -103,7 +103,7 @@ sirius_api int sirius_queue_put(sirius_queue_t queue, size_t ptr,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_queue_reset(sirius_queue_t queue);
+sirius_api int sirius_queue_reset(sirius_queue_t *queue);
 
 /**
  * @brief Get the number of members of the current queue
@@ -114,7 +114,7 @@ sirius_api int sirius_queue_reset(sirius_queue_t queue);
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_queue_cache_num(sirius_queue_t queue, size_t *num);
+sirius_api int sirius_queue_cache_num(sirius_queue_t *queue, size_t *num);
 
 #ifdef __cplusplus
 }
