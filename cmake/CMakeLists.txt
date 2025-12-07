@@ -39,25 +39,54 @@ configure_file(
   "${PROJECT_SOURCE_DIR}/include/sirius/sirius_common.h" @ONLY)
 
 # install directory
-set(_target_lib_dirr "lib")
-set(_target_pkg_dirr "${_target_lib_dirr}/pkgconfig")
-set(_target_package_dirr "${_target_lib_dirr}/cmake/${SIRIUS_TARGET_NAME}")
-set(_target_lib_dir "${CMAKE_INSTALL_PREFIX}/${_target_lib_dirr}")
-set(_target_pkg_dir "${CMAKE_INSTALL_PREFIX}/${_target_pkg_dirr}")
-set(_target_package_dir "${CMAKE_INSTALL_PREFIX}/${_target_package_dirr}")
+cmake_path(SET _target_bin_dir NORMALIZE
+           "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}")
+cmake_path(SET _target_lib_dir NORMALIZE
+           "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+cmake_path(SET _target_include_dir NORMALIZE
+           "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}")
+cmake_path(SET _target_pkg_dir NORMALIZE
+           "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+cmake_path(
+  SET
+  _target_package_dir
+  NORMALIZE
+  "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/cmake/${SIRIUS_TARGET_CMAKE_NAMESPACE}"
+)
 
 # args
-set(EXTRA_LINK_DIR_LIST "${SIRIUS_EXTRA_LINK_DIR}")
-set(EXTRA_LINK_LIBS_LIST "")
-set(ITFC_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  list(APPEND EXTRA_LINK_LIBS_LIST "winmm")
-else()
-  list(APPEND EXTRA_LINK_LIBS_LIST "pthread")
+set(PRIVATE_LINK_DIR_LIST "")
+set(PRIVATE_LINK_LIBS_LIST "")
+set(ITFC_INCLUDE_DIR_LIST "")
+set(ITFC_LINK_DIR_LIST "")
+set(ITFC_LINK_LIBS_LIST "")
+
+# --- include directories ---
+set(ITFC_INCLUDE_DIR_LIST ${_target_include_dir})
+
+# --- link directories ---
+list(APPEND ITFC_LINK_DIR_LIST ${SIRIUS_EXTRA_LINK_DIR})
+if(BUILD_SHARED_LIBS)
+  list(APPEND PRIVATE_LINK_DIR_LIST ${SIRIUS_EXTRA_LINK_DIR})
 endif()
-list(APPEND EXTRA_LINK_LIBS_LIST "${SIRIUS_EXTRA_LINK_LIBRARIES}")
-set(ITFC_LINK_LIBS_LIST "${SIRIUS_TARGET_NAME};${EXTRA_LINK_LIBS_LIST}")
-set(ITFC_LINK_DIR_LIST "${_target_lib_dir};${EXTRA_LINK_DIR_LIST}")
+
+# --- link libraries ---
+list(APPEND ITFC_LINK_LIBS_LIST ${SIRIUS_EXTRA_LINK_LIBRARIES})
+if(BUILD_SHARED_LIBS)
+  list(APPEND PRIVATE_LINK_LIBS_LIST ${SIRIUS_EXTRA_LINK_LIBRARIES})
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  list(APPEND ITFC_LINK_LIBS_LIST "winmm")
+  if(BUILD_SHARED_LIBS)
+    list(APPEND PRIVATE_LINK_LIBS_LIST "winmm")
+  endif()
+else()
+  list(APPEND ITFC_LINK_LIBS_LIST "pthread")
+  if(BUILD_SHARED_LIBS)
+    list(APPEND PRIVATE_LINK_LIBS_LIST "pthread")
+  endif()
+endif()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/external_option.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/internal_option.cmake)
@@ -65,102 +94,119 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/internal_option.cmake)
 include(CMakePackageConfigHelpers)
 
 # pkg interface
-set(_pkg_interface_link_dir "")
-set(_pkg_interface_link_libraries "")
-set(_pkg_interface_private_link_dir "")
-set(_pkg_interface_private_link_libraries "")
-set(_pkg_interface_cflags "")
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 
-if(BUILD_SHARED_LIBS)
+  set(_pkg_interface_link_dir "")
+  set(_pkg_interface_link_libraries "")
+  set(_pkg_interface_private_link_dir "")
+  set(_pkg_interface_private_link_libraries "")
+  set(_pkg_interface_cflags "")
+
   list(APPEND _pkg_interface_link_dir "-L${_target_lib_dir}")
+  if(BUILD_SHARED_LIBS)
+    foreach(dir IN LISTS PRIVATE_LINK_DIR_LIST)
+      if(NOT dir)
+        continue()
+      endif()
+      list(APPEND _pkg_interface_private_link_dir "-L${dir}")
+    endforeach()
+  else()
+    foreach(dir IN LISTS ITFC_LINK_DIR_LIST)
+      if(NOT dir)
+        continue()
+      endif()
+      list(APPEND _pkg_interface_link_dir "-L${dir}")
+    endforeach()
+  endif()
+  unset(dir)
 
-  foreach(dir IN LISTS EXTRA_LINK_DIR_LIST)
-    if(NOT dir)
-      continue()
-    endif()
-    list(APPEND _pkg_interface_private_link_dir "-L${dir}")
-  endforeach()
-else()
-  foreach(dir IN LISTS ITFC_LINK_DIR_LIST)
-    if(NOT dir)
-      continue()
-    endif()
-    list(APPEND _pkg_interface_link_dir "-L${dir}")
-  endforeach()
+  list(APPEND _pkg_interface_link_libraries
+       "-l${SIRIUS_TARGET_SIRIUS_LIBRARY_NAME}")
+  if(BUILD_SHARED_LIBS)
+    foreach(lib IN LISTS PRIVATE_LINK_LIBS_LIST)
+      if(NOT lib)
+        continue()
+      elseif(lib MATCHES "::")
+        string(REGEX REPLACE ".*::" "" clean "${lib}")
+      else()
+        set(clean "${lib}")
+      endif()
+
+      list(APPEND _pkg_interface_private_link_libraries "-l${clean}")
+    endforeach()
+  else()
+    foreach(lib IN LISTS ITFC_LINK_LIBS_LIST)
+      if(NOT lib)
+        continue()
+      elseif(lib MATCHES "::")
+        string(REGEX REPLACE ".*::" "" clean "${lib}")
+      else()
+        set(clean "${lib}")
+      endif()
+
+      list(APPEND _pkg_interface_link_libraries "-l${clean}")
+    endforeach()
+  endif()
+  unset(clean)
+  unset(lib)
+
+  if(SIRIUS_ASAN)
+    list(APPEND _pkg_interface_link_libraries "-fsanitize=address")
+    list(APPEND _pkg_interface_cflags "-fsanitize=address")
+    list(APPEND _pkg_interface_cflags "-fno-omit-frame-pointer")
+    list(APPEND _pkg_interface_cflags "-fsanitize-recover=address")
+  endif()
+
+  if(BUILD_SHARED_LIBS AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    list(APPEND _pkg_interface_cflags "-D${SIRIUS_WIN_DLL} ")
+  endif()
+
+  list(JOIN _pkg_interface_link_dir " " _pkg_interface_link_dir)
+  list(JOIN _pkg_interface_link_libraries " " _pkg_interface_link_libraries)
+  list(JOIN _pkg_interface_private_link_dir " " _pkg_interface_private_link_dir)
+  list(JOIN _pkg_interface_private_link_libraries " "
+       _pkg_interface_private_link_libraries)
+  list(JOIN _pkg_interface_cflags " " _pkg_interface_cflags)
+
+  set(_pkg_file
+      "${PROJECT_BINARY_DIR}/itfc/pkgconfig/${SIRIUS_TARGET_SIRIUS_LIBRARY_NAME}.pc"
+  )
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/sirius.pc.in" ${_pkg_file} @ONLY)
+  install(
+    FILES ${_pkg_file}
+    COMPONENT "${PROJECT_NAME}"
+    DESTINATION ${_target_pkg_dir})
 endif()
-unset(dir)
 
-if(BUILD_SHARED_LIBS)
-  list(APPEND _pkg_interface_link_libraries "-l${SIRIUS_TARGET_NAME}")
+# --- install ---
+set(_cmake_target_export_name "${SIRIUS_TARGET_CMAKE_NAMESPACE}Targets")
 
-  foreach(lib IN LISTS EXTRA_LINK_LIBS_LIST)
-    if(NOT lib)
-      continue()
-    elseif(lib MATCHES "::")
-      string(REGEX REPLACE ".*::" "" clean "${lib}")
-    else()
-      set(clean "${lib}")
-    endif()
+set_target_properties(${SIRIUS_TARGET_SIRIUS_LIBRARY_NAME}
+                      PROPERTIES VERSION ${SIRIUS_VERSION})
 
-    list(APPEND _pkg_interface_private_link_libraries "-l${clean}")
-  endforeach()
-else()
-  foreach(lib IN LISTS ITFC_LINK_LIBS_LIST)
-    if(NOT lib)
-      continue()
-    elseif(lib MATCHES "::")
-      string(REGEX REPLACE ".*::" "" clean "${lib}")
-    else()
-      set(clean "${lib}")
-    endif()
+# library
+install(
+  TARGETS ${SIRIUS_TARGET_SIRIUS_LIBRARY_NAME}
+  EXPORT ${_cmake_target_export_name}
+  COMPONENT "${PROJECT_NAME}"
+  ARCHIVE DESTINATION ${_target_lib_dir}
+  LIBRARY DESTINATION ${_target_lib_dir}
+  RUNTIME DESTINATION ${_target_bin_dir})
 
-    list(APPEND _pkg_interface_link_libraries "-l${clean}")
-  endforeach()
-endif()
-unset(clean)
-unset(lib)
-
-if(SIRIUS_ASAN)
-  list(APPEND _pkg_interface_link_libraries "-fsanitize=address")
-  list(APPEND _pkg_interface_cflags "-fsanitize=address")
-  list(APPEND _pkg_interface_cflags "-fno-omit-frame-pointer")
-  list(APPEND _pkg_interface_cflags "-fsanitize-recover=address")
-endif()
-
-if(SIRIUS_GCOV)
-  list(APPEND _pkg_interface_link_libraries "--coverage")
-  list(APPEND _pkg_interface_cflags "--coverage")
-endif()
-
-if(BUILD_SHARED_LIBS AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  list(APPEND _pkg_interface_cflags "-D${SIRIUS_WIN_DLL} ")
-endif()
-
-list(JOIN _pkg_interface_link_dir " " _pkg_interface_link_dir)
-list(JOIN _pkg_interface_link_libraries " " _pkg_interface_link_libraries)
-list(JOIN _pkg_interface_private_link_dir " " _pkg_interface_private_link_dir)
-list(JOIN _pkg_interface_private_link_libraries " "
-     _pkg_interface_private_link_libraries)
-list(JOIN _pkg_interface_cflags " " _pkg_interface_cflags)
-
-set(_pkg_file
-    "${PROJECT_BINARY_DIR}/${_target_pkg_dirr}/${SIRIUS_TARGET_NAME}.pc")
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/sirius.pc.in" ${_pkg_file} @ONLY)
-install(FILES ${_pkg_file} DESTINATION ${_target_pkg_dir})
+# include
+install(
+  DIRECTORY ${PROJECT_SOURCE_DIR}/include/sirius
+  DESTINATION ${_target_include_dir}
+  FILES_MATCHING
+  PATTERN "*.h"
+  PATTERN "internal" EXCLUDE)
 
 # cmake interface
-install(
-  TARGETS ${SIRIUS_TARGET_NAME}
-  EXPORT "${SIRIUS_TARGET_NAME}Targets"
-  DESTINATION ${_target_lib_dir})
-set_target_properties(${SIRIUS_TARGET_NAME} PROPERTIES VERSION
-                                                       ${SIRIUS_VERSION})
-
 set(_version_file
-    "${PROJECT_BINARY_DIR}/${_target_package_dirr}/${SIRIUS_TARGET_NAME}ConfigVersion.cmake"
+    "${PROJECT_BINARY_DIR}/itfc/cmake/${SIRIUS_TARGET_CMAKE_NAMESPACE}ConfigVersion.cmake"
 )
 set(_config_file
-    "${PROJECT_BINARY_DIR}/${_target_package_dirr}/${SIRIUS_TARGET_NAME}Config.cmake"
+    "${PROJECT_BINARY_DIR}/itfc/cmake/${SIRIUS_TARGET_CMAKE_NAMESPACE}Config.cmake"
 )
 
 configure_package_config_file(
@@ -173,15 +219,10 @@ write_basic_package_version_file(
 install(FILES ${_version_file} ${_config_file}
         DESTINATION ${_target_package_dir})
 install(
-  EXPORT "${SIRIUS_TARGET_NAME}Targets"
-  FILE "${SIRIUS_TARGET_NAME}Targets.cmake"
-  NAMESPACE ${SIRIUS_TARGET_NAME}::
+  EXPORT ${_cmake_target_export_name}
+  COMPONENT "${PROJECT_NAME}"
+  FILE "${_cmake_target_export_name}.cmake"
+  NAMESPACE ${SIRIUS_TARGET_CMAKE_NAMESPACE}::
   DESTINATION ${_target_package_dir})
 
-# header file install
-install(
-  DIRECTORY ${PROJECT_SOURCE_DIR}/include/sirius
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/include
-  FILES_MATCHING
-  PATTERN "*.h"
-  PATTERN "internal" EXCLUDE)
+unset(_cmake_target_export_name)

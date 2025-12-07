@@ -18,9 +18,8 @@ file(COPY ${_header_custom_list}
 set(_src_dir "${CMAKE_CURRENT_SOURCE_DIR}/src")
 file(GLOB _src_list "${_src_dir}/*.cpp" "${_src_dir}/*.c")
 
-list(APPEND _link_dir_list ${TARGET_LIB_DIR})
 list(APPEND _link_dir_list ${SIRIUS_TEST_EXTRA_LINK_DIR})
-list(APPEND _link_libs_list ${SIRIUS_TARGET_NAME})
+list(APPEND _link_libs_list ${SIRIUS_TARGET_SIRIUS_LIBRARY_NAME})
 list(APPEND _link_libs_list ${SIRIUS_TEST_EXTRA_LINK_LIBRARIES})
 list(APPEND _include_dir_list ${_artifact_inc_path})
 
@@ -28,16 +27,15 @@ foreach(file ${_src_list})
   get_filename_component(file_name ${file} NAME_WE)
   get_filename_component(full_name ${file} NAME)
   string(REGEX REPLACE "\\.[^.]+$" "" file_name ${full_name})
-  set(_target_name "${SIRIUS_TARGET_NAME}_${file_name}")
+  set(_target_name "${SIRIUS_TARGET_SIRIUS_LIBRARY_NAME}_${file_name}")
 
   add_executable(${_target_name} ${file})
-  set_target_properties(
-    ${_target_name}
-    PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${_artifact_bin_path}
-               RUNTIME_OUTPUT_DIRECTORY_DEBUG ${_artifact_bin_path}
-               RUNTIME_OUTPUT_DIRECTORY_RELEASE ${_artifact_bin_path}
-               RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${_artifact_bin_path}
-               RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${_artifact_bin_path})
+  foreach(_suffix "" "_DEBUG" "_RELEASE" "_RELWITHDEBINFO" "_MINSIZEREL")
+    set_target_properties(
+      ${_target_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY${_suffix}
+                                 ${_artifact_bin_path})
+  endforeach()
+  unset(_suffix)
 
   target_link_directories(${_target_name} PRIVATE ${_link_dir_list})
   target_link_libraries(${_target_name} PRIVATE ${_link_libs_list})
@@ -49,17 +47,6 @@ foreach(file ${_src_list})
       target_link_options(${_target_name} PRIVATE -pie)
     else()
       target_link_options(${_target_name} PRIVATE -no-pie)
-    endif()
-  else()
-    if(BUILD_SHARED_LIBS)
-      add_custom_command(
-        TARGET ${_target_name}
-        POST_BUILD
-        COMMAND
-          ${CMAKE_COMMAND} -E copy_if_different
-          $<TARGET_FILE:${SIRIUS_TARGET_NAME}>
-          $<TARGET_FILE_DIR:${_target_name}>
-        COMMENT "Copy ${SIRIUS_TARGET_NAME} dll next to ${_target_name}")
     endif()
   endif()
 
@@ -79,6 +66,12 @@ foreach(file ${_src_list})
     NAME ${_target_name}
     COMMAND ${_artifact_bin_path}/${_target_name}
     WORKING_DIRECTORY ${_artifact_bin_path})
+
+  if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND BUILD_SHARED_LIBS)
+    set_tests_properties(
+      ${_target_name} PROPERTIES ENVIRONMENT
+                                 "PATH=${TARGET_LIB_DIR};$ENV{PATH}")
+  endif()
 endforeach()
 
 add_custom_target(

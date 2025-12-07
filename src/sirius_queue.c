@@ -5,7 +5,7 @@
 #include "sirius/sirius_cond.h"
 #include "sirius/sirius_mutex.h"
 
-typedef struct {
+struct sirius_queue_t {
   /**
    * @brief Queue elements.
    */
@@ -38,7 +38,7 @@ typedef struct {
   sirius_mutex_t mtx;
 
   sirius_cond_t cond_non_empty, cond_non_full;
-} que_s;
+};
 
 #define que_lock(type, mtx) \
   do { \
@@ -74,7 +74,7 @@ static inline bool is_power_of_2(size_t n) {
   return (n > 0) && ((n & (n - 1)) == 0);
 }
 
-sirius_api int sirius_queue_alloc(sirius_queue_t *__restrict queue,
+sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
                                   const sirius_queue_args_t *__restrict args) {
   if (unlikely(!queue || !args)) {
     internal_error("Null pointer\n");
@@ -82,7 +82,7 @@ sirius_api int sirius_queue_alloc(sirius_queue_t *__restrict queue,
   }
 
   int ret;
-  que_s *q = (que_s *)calloc(1, sizeof(que_s));
+  sirius_queue_t *q = (sirius_queue_t *)calloc(1, sizeof(sirius_queue_t));
   if (!q) {
     internal_error("calloc\n");
     return errno;
@@ -122,7 +122,7 @@ sirius_api int sirius_queue_alloc(sirius_queue_t *__restrict queue,
       goto label_free4;
   }
 
-  *queue = (sirius_queue_t)q;
+  *queue = q;
   return 0;
 
 label_free4:
@@ -137,25 +137,23 @@ label_free1:
   return ret;
 }
 
-sirius_api int sirius_queue_free(sirius_queue_t queue) {
+sirius_api int sirius_queue_free(sirius_queue_t *queue) {
   if (unlikely(!queue)) {
     internal_error("Null pointer\n");
     return EINVAL;
   }
 
-  que_s *q = (que_s *)queue;
-
-  if (q->type == sirius_queue_type_mtx) {
-    sirius_cond_destroy(&q->cond_non_full);
-    sirius_cond_destroy(&q->cond_non_empty);
-    sirius_mutex_destroy(&q->mtx);
+  if (queue->type == sirius_queue_type_mtx) {
+    sirius_cond_destroy(&queue->cond_non_full);
+    sirius_cond_destroy(&queue->cond_non_empty);
+    sirius_mutex_destroy(&queue->mtx);
   }
 
-  if (q->elements) {
-    free(q->elements);
-    q->elements = nullptr;
+  if (queue->elements) {
+    free(queue->elements);
+    queue->elements = nullptr;
   }
-  free(q);
+  free(queue);
 
   return 0;
 }
@@ -207,27 +205,25 @@ sirius_api int sirius_queue_free(sirius_queue_t queue) {
     } \
   } while (0)
 
-sirius_api int sirius_queue_get(sirius_queue_t queue, size_t *ptr,
+sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
                                 uint64_t milliseconds) {
   if (unlikely(!queue || !ptr)) {
     internal_error("Null pointer\n");
     return EINVAL;
   }
 
-  que_s *q = (que_s *)queue;
-
   int ret;
 #define C \
-  *ptr = q->elements[q->front]; \
-  q->front = (q->front + 1) & q->capacity_mask; \
-  q->elem_count--;
+  *ptr = queue->elements[queue->front]; \
+  queue->front = (queue->front + 1) & queue->capacity_mask; \
+  queue->elem_count--;
 #define W_NB \
-  if (q->elem_count == 0) { \
+  if (queue->elem_count == 0) { \
     return EAGAIN; \
   }
-#define W_B q_wait(ret, q->cond_non_empty, q, 0, milliseconds)
+#define W_B q_wait(ret, queue->cond_non_empty, queue, 0, milliseconds)
 
-  que_tpl(ret, q->type, q->mtx, q->cond_non_full);
+  que_tpl(ret, queue->type, queue->mtx, queue->cond_non_full);
   return ret;
 
 #undef W_B
@@ -235,27 +231,26 @@ sirius_api int sirius_queue_get(sirius_queue_t queue, size_t *ptr,
 #undef C
 }
 
-sirius_api int sirius_queue_put(sirius_queue_t queue, size_t ptr,
+sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
                                 uint64_t milliseconds) {
   if (unlikely(!queue)) {
     internal_error("Null pointer\n");
     return EINVAL;
   }
 
-  que_s *q = (que_s *)queue;
-
   int ret;
 #define C \
-  q->elements[q->rear] = ptr; \
-  q->rear = (q->rear + 1) & q->capacity_mask; \
-  q->elem_count++;
+  queue->elements[queue->rear] = ptr; \
+  queue->rear = (queue->rear + 1) & queue->capacity_mask; \
+  queue->elem_count++;
 #define W_NB \
-  if (q->elem_count == q->capacity) { \
+  if (queue->elem_count == queue->capacity) { \
     return EAGAIN; \
   }
-#define W_B q_wait(ret, q->cond_non_full, q, q->capacity, milliseconds)
+#define W_B \
+  q_wait(ret, queue->cond_non_full, queue, queue->capacity, milliseconds)
 
-  que_tpl(ret, q->type, q->mtx, q->cond_non_empty);
+  que_tpl(ret, queue->type, queue->mtx, queue->cond_non_empty);
   return ret;
 
 #undef W_B
@@ -263,26 +258,24 @@ sirius_api int sirius_queue_put(sirius_queue_t queue, size_t ptr,
 #undef C
 }
 
-sirius_api int sirius_queue_reset(sirius_queue_t queue) {
+sirius_api int sirius_queue_reset(sirius_queue_t *queue) {
   if (unlikely(!queue)) {
     internal_error("Null pointer\n");
     return EINVAL;
   }
 
-  que_s *q = (que_s *)queue;
+  que_lock(queue->type, queue->mtx);
 
-  que_lock(q->type, q->mtx);
+  queue->front = 0;
+  queue->rear = 0;
+  queue->elem_count = 0;
 
-  q->front = 0;
-  q->rear = 0;
-  q->elem_count = 0;
-
-  que_unlock(q->type, q->mtx);
+  que_unlock(queue->type, queue->mtx);
 
   return 0;
 }
 
-sirius_api int sirius_queue_cache_num(sirius_queue_t queue, size_t *num) {
+sirius_api int sirius_queue_cache_num(sirius_queue_t *queue, size_t *num) {
   if (unlikely(!queue || !num)) {
     internal_error("Null pointer\n");
     return EINVAL;
@@ -290,13 +283,11 @@ sirius_api int sirius_queue_cache_num(sirius_queue_t queue, size_t *num) {
 
   *num = 0;
 
-  que_s *q = (que_s *)queue;
+  que_lock(queue->type, queue->mtx);
 
-  que_lock(q->type, q->mtx);
+  *num = queue->elem_count;
 
-  *num = q->elem_count;
-
-  que_unlock(q->type, q->mtx);
+  que_unlock(queue->type, queue->mtx);
 
   return 0;
 }

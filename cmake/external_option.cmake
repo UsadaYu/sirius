@@ -2,8 +2,6 @@ option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 
 option(SIRIUS_ASAN "Enable asan" OFF)
 
-option(SIRIUS_GCOV "Enable gcov" OFF)
-
 option(SIRIUS_WARNING_ALL "Enable all compile warnings" ON)
 
 option(SIRIUS_WARNING_ERROR "Compile warnings as errors" OFF)
