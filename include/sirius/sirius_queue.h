@@ -34,19 +34,19 @@ typedef struct {
    * @brief Mechanism in the queue, refer to `sirius_queue_type_t`.
    */
   sirius_queue_type_t que_type;
-} sirius_queue_args_t;
+} sirius_queue_arg_t;
 
 /**
  * @brief Allocate a queue handle, the resulting handle must be deleted using
  * `sirius_queue_free`.
  *
  * @param[out] queue Queue handle.
- * @param[in] args Queue creation parameters.
+ * @param[in] arg Queue creation parameters.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
 sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
-                                  const sirius_queue_args_t *__restrict args);
+                                  const sirius_queue_arg_t *__restrict arg);
 
 /**
  * @brief Free the queue handle.

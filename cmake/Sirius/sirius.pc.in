@@ -1,9 +1,0 @@
-prefix=@CMAKE_INSTALL_PREFIX@
-
-Name: @SIRIUS_TARGET_LIBRARY_NAME_LIBSIRIUS@
-Description: sirius
-Version: @SIRIUS_VERSION@
-URL: https://github.com/UsadaYu/sirius
-Libs: @__pkgconfig_link_dir@ @__pkgconfig_link_libraries@
-Libs.private: @__pkgconfig_private_link_dir@ @__pkgconfig_private_link_libraries@
-Cflags: @__pkgconfig_cflags@

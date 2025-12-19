@@ -1,9 +1,8 @@
 #include "sirius/sirius_queue.h"
 
-#include "sirius/internal/decls.h"
-#include "sirius/internal/log.h"
+#include "internal/log.h"
+#include "internal/mutex.h"
 #include "sirius/sirius_cond.h"
-#include "sirius/sirius_mutex.h"
 
 struct sirius_queue_t {
   /**
@@ -75,24 +74,24 @@ static inline bool is_power_of_2(size_t n) {
 }
 
 sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
-                                  const sirius_queue_args_t *__restrict args) {
-  if (unlikely(!queue || !args)) {
-    internal_error("Null pointer\n");
+                                  const sirius_queue_arg_t *__restrict arg) {
+  if (unlikely(!queue || !arg)) {
+    sirius_error("Null pointer\n");
     return EINVAL;
   }
 
   int ret;
   sirius_queue_t *q = (sirius_queue_t *)calloc(1, sizeof(sirius_queue_t));
   if (!q) {
-    internal_error("calloc\n");
+    sirius_error("calloc\n");
     return errno;
   }
 
-  size_t requested_capacity = args->elem_count;
+  size_t requested_capacity = arg->elem_count;
   if (!is_power_of_2(requested_capacity)) {
     q->capacity = next_power_of_2(requested_capacity);
-    internal_debg("Queue capacity adjusted from `%zu` to `%zu`\n",
-                  requested_capacity, q->capacity);
+    sirius_debugsp("Queue capacity adjusted from `%zu` to `%zu`\n",
+                   requested_capacity, q->capacity);
   } else {
     q->capacity = requested_capacity;
   }
@@ -104,11 +103,11 @@ sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
   q->elem_count = 0;
   q->front = 0;
   q->rear = 0;
-  q->type = args->que_type;
+  q->type = arg->que_type;
 
   q->elements = (size_t *)calloc(q->capacity, sizeof(size_t));
   if (!q->elements) {
-    internal_error("calloc\n");
+    sirius_error("calloc\n");
     ret = errno;
     goto label_free1;
   }
@@ -139,7 +138,7 @@ label_free1:
 
 sirius_api int sirius_queue_free(sirius_queue_t *queue) {
   if (unlikely(!queue)) {
-    internal_error("Null pointer\n");
+    sirius_error("Null pointer\n");
     return EINVAL;
   }
 
@@ -199,7 +198,7 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue) {
     case sirius_queue_type_no_mtx: \
       W_NB C break; \
     default: \
-      internal_error("Invalid queue type: %d\n", type); \
+      sirius_error("Invalid queue type: %d\n", type); \
       ret = EINVAL; \
       break; \
     } \
@@ -208,7 +207,7 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue) {
 sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
                                 uint64_t milliseconds) {
   if (unlikely(!queue || !ptr)) {
-    internal_error("Null pointer\n");
+    sirius_error("Null pointer\n");
     return EINVAL;
   }
 
@@ -234,7 +233,7 @@ sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
 sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
                                 uint64_t milliseconds) {
   if (unlikely(!queue)) {
-    internal_error("Null pointer\n");
+    sirius_error("Null pointer\n");
     return EINVAL;
   }
 
@@ -260,7 +259,7 @@ sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
 
 sirius_api int sirius_queue_reset(sirius_queue_t *queue) {
   if (unlikely(!queue)) {
-    internal_error("Null pointer\n");
+    sirius_error("Null pointer\n");
     return EINVAL;
   }
 
@@ -277,7 +276,7 @@ sirius_api int sirius_queue_reset(sirius_queue_t *queue) {
 
 sirius_api int sirius_queue_cache_num(sirius_queue_t *queue, size_t *num) {
   if (unlikely(!queue || !num)) {
-    internal_error("Null pointer\n");
+    sirius_error("Null pointer\n");
     return EINVAL;
   }
 

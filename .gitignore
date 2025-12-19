@@ -2,7 +2,7 @@
 .vscode
 
 # common directory
-build
+/build*
 
 # common file
 *.gcno

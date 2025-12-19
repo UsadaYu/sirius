@@ -1,111 +1,196 @@
-#include "sirius/internal/decls.h"
-#include "sirius/internal/log.h"
-#include "sirius/sirius_mutex.h"
+#include "internal/initializer.h"
+#include "internal/log.h"
 #include "sirius/sirius_thread.h"
 
-static sirius_mutex_t g_mutex;
+#ifdef LOW_WRITE
+#  undef LOW_WRITE
+#endif
+#ifdef LOCALTIME
+#  undef LOCALTIME
+#endif
+#ifdef DPRINTF
+#  undef DPRINTF
+#endif
+#ifdef LOG_PRINT
+#  undef LOG_PRINT
+#endif
+#ifdef LOCK
+#  undef LOCK
+#endif
+#ifdef UNLOCK
+#  undef UNLOCK
+#endif
+
+#if defined(_WIN32) || defined(_WIN64)
+#  define LOW_WRITE(fd, buf, len) _write(fd, buf, (unsigned int)(len))
+#  define LOCALTIME(timer, result) localtime_s(result, timer)
+#  define DPRINTF(fd, ...) \
+    do { \
+      char msg[1024] = {0}; \
+      snprintf(msg, sizeof(msg), ##__VA_ARGS__); \
+      _write(fd, msg, (unsigned int)strlen(msg)); \
+    } while (0)
+#else
+#  define LOW_WRITE(fd, buf, len) write(fd, buf, len)
+#  define LOCALTIME(timer, result) localtime_r(timer, result)
+#  define DPRINTF dprintf
+#endif
+
 static int g_fd_err = STDERR_FILENO;
 static int g_fd_out = STDOUT_FILENO;
-static time_t g_raw_time;
-static struct tm g_tm_info;
-static int g_size;
-static char g_buf[WRITE_SIZE];
 
-bool log_init() {
-  return (bool)(!sirius_mutex_init(&g_mutex, nullptr));
+#define LOG_PRINT(fmt, ...) \
+  DPRINTF(g_fd_err, "[%s %s %d] " fmt, sirius_log_module_name, \
+          sirius_file_name, __LINE__, ##__VA_ARGS__)
+
+#if defined(_WIN32) || defined(_WIN64)
+static SRWLOCK g_srw_lock = SRWLOCK_INIT;
+#  define LOCK() AcquireSRWLockExclusive(&g_srw_lock)
+#  define UNLOCK() ReleaseSRWLockExclusive(&g_srw_lock)
+
+static void enable_win_ansi() {
+#  if defined(NTDDI_VERSION) && (NTDDI_VERSION >= 0x0A000002)
+  HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+  HANDLE hErr = GetStdHandle(STD_ERROR_HANDLE);
+  DWORD mode = 0;
+
+  if (GetConsoleMode(hOut, &mode)) {
+    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, mode);
+  }
+  if (GetConsoleMode(hErr, &mode)) {
+    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hErr, mode);
+  }
+#  endif
 }
 
-void log_deinit() {
-  (void)sirius_mutex_destroy(&g_mutex);
+#else
+
+static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
+#  define LOCK() pthread_mutex_lock(&g_mutex)
+#  define UNLOCK() pthread_mutex_unlock(&g_mutex)
+
+#endif
+
+bool internal_init_log() {
+#if defined(_WIN32) || defined(_WIN64)
+  enable_win_ansi();
+#endif
+  return true;
+}
+
+void internal_deinit_log() {
+#if !defined(_WIN32) && !defined(_WIN64)
+  pthread_mutex_destroy(&g_mutex);
+#endif
 }
 
 sirius_api void sirius_log_config(sirius_log_config_t cfg) {
-  sirius_mutex_lock(&g_mutex);
+  LOCK();
+  if (cfg.fd_err && *cfg.fd_err >= 0) {
+    g_fd_err = *cfg.fd_err;
+  }
+  if (cfg.fd_out && *cfg.fd_out >= 0) {
+    g_fd_out = *cfg.fd_out;
+  }
+  UNLOCK();
+}
 
-  if (cfg.fd_err) {
-    if (*cfg.fd_err < STDOUT_FILENO) {
-      internal_warn("Invalid argument: [fd_err: %lld]\n", *cfg.fd_err);
-    } else {
-      g_fd_err = *cfg.fd_err;
+static inline void write_log(int level, const char *buf, int len) {
+  int fd = (level <= sirius_log_level_warn) ? g_fd_err : g_fd_out;
+
+  LOCK();
+  LOW_WRITE(fd, buf, len);
+  UNLOCK();
+}
+
+sirius_api void sirius_log_impl(int level, const char *level_str,
+                                const char *color, const char *module,
+                                const char *file, const char *func, int line,
+                                const char *fmt, ...) {
+  char buf[LOG_BUF_SIZE];
+  int len = 0;
+
+  time_t raw_time;
+  struct tm tm_info;
+  time(&raw_time);
+  LOCALTIME(&raw_time, &tm_info);
+
+  int written = snprintf(
+    buf, LOG_BUF_SIZE, "%s%s [%02d:%02d:%02d %s %" PRIu64 " %s (%s|%d)]%s ",
+    color, level_str, tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, module,
+    sirius_thread_id, file, func, line, log_color_none);
+
+  if (likely(written > 0 && written < LOG_BUF_SIZE)) {
+    len += written;
+  } else {
+    LOG_PRINT(
+      "\n"
+      "  The LOG module issues an ERROR\n"
+      "  Log length exceeds the buffer, log will be lost\n");
+    return;
+  }
+
+  va_list args;
+  va_start(args, fmt);
+  written = vsnprintf(buf + len, LOG_BUF_SIZE - len, fmt, args);
+  va_end(args);
+
+  if (written > 0) {
+    len += written;
+    if (unlikely(len >= LOG_BUF_SIZE)) {
+      len = LOG_BUF_SIZE - 1;
+      LOG_PRINT(
+        "\n"
+        "  The LOG module issues a WARNING\n"
+        "  Log length exceeds the buffer, log will be truncated\n");
     }
   }
 
-  if (cfg.fd_out) {
-    if (*cfg.fd_out < STDOUT_FILENO) {
-      internal_warn("Invalid argument: [fd_out: %lld]\n", *cfg.fd_out);
-    } else {
-      g_fd_out = *cfg.fd_out;
+  write_log(level, buf, len);
+}
+
+sirius_api void sirius_logsp_impl(int level, const char *level_str,
+                                  const char *color, const char *module,
+                                  const char *fmt, ...) {
+  char buf[LOG_BUF_SIZE];
+  int len = 0;
+
+  time_t raw_time;
+  struct tm tm_info;
+  time(&raw_time);
+  LOCALTIME(&raw_time, &tm_info);
+
+  int written = snprintf(buf, LOG_BUF_SIZE, "%s%s [%02d:%02d:%02d %s]%s ",
+                         color, level_str, tm_info.tm_hour, tm_info.tm_min,
+                         tm_info.tm_sec, module, log_color_none);
+
+  if (likely(written > 0 && written < LOG_BUF_SIZE)) {
+    len += written;
+  } else {
+    LOG_PRINT(
+      "\n"
+      "  The LOG module issues an ERROR\n"
+      "  Log length exceeds the buffer, log will be lost\n");
+    return;
+  }
+
+  va_list args;
+  va_start(args, fmt);
+  written = vsnprintf(buf + len, LOG_BUF_SIZE - len, fmt, args);
+  va_end(args);
+
+  if (written > 0) {
+    len += written;
+    if (unlikely(len >= LOG_BUF_SIZE)) {
+      len = LOG_BUF_SIZE - 1;
+      LOG_PRINT(
+        "\n"
+        "  The LOG module issues a WARNING\n"
+        "  Log length exceeds the buffer, log will be truncated\n");
     }
   }
 
-  sirius_mutex_unlock(&g_mutex);
-
-  internal_log_fd_set(&g_fd_err, &g_fd_out);
-}
-
-#ifdef _WIN32
-#  define localtime_r(a, b) localtime_s(b, a)
-#  define WRITE(fd, buf, size) _write((fd), (buf), (unsigned int)(size))
-#else
-#  define WRITE(fd, buf, size) write((fd), (buf), (size))
-#endif
-
-#define C(fd, type) \
-  sirius_mutex_lock(&g_mutex); \
-  g_size = 0; \
-  color = fd > STDERR_FILENO ? "" : color; \
-  time(&g_raw_time); \
-  localtime_r(&g_raw_time, &g_tm_info); \
-  E(type) \
-  va_start(args, fmt); \
-  g_size += vsnprintf(g_buf + g_size, sizeof(g_buf) - g_size, fmt, args); \
-  va_end(args); \
-  g_size = fd > STDERR_FILENO ? g_size \
-                              : g_size + \
-      snprintf(g_buf + g_size, sizeof(g_buf) - g_size, log_color_none); \
-  WRITE(fd, g_buf, g_size); \
-  sirius_mutex_unlock(&g_mutex); \
-  break;
-
-#define log_tpl \
-  va_list args; \
-  switch (log_level) { \
-  case sirius_log_level_none: \
-    break; \
-  case sirius_log_level_error: \
-    C(g_fd_err, error) \
-  case sirius_log_level_warn: \
-    C(g_fd_err, warn) \
-  case sirius_log_level_info: \
-    C(g_fd_out, info) \
-  case sirius_log_level_debg: \
-    C(g_fd_out, debg) \
-  default: \
-    internal_warn("Invalid argument: [log level: %d]\n", log_level); \
-    break; \
-  }
-
-sirius_api void sirius_logsp(int log_level, const char *color,
-                             const char *module, const char *fmt, ...) {
-#define E(type) \
-  g_size = \
-    snprintf(g_buf, sizeof(g_buf), "%s[%02d:%02d:%02d " #type " %s] ", color, \
-             g_tm_info.tm_hour, g_tm_info.tm_min, g_tm_info.tm_sec, module);
-
-  log_tpl
-#undef E
-}
-
-sirius_api void sirius_log(int log_level, const char *color, const char *module,
-                           const char *file, const char *func, int line,
-                           const char *fmt, ...) {
-#define E(type) \
-  g_size = \
-    snprintf(g_buf, sizeof(g_buf), \
-             "%s[%02d:%02d:%02d " #type " %s %" PRIu64 " %s (%s|%d)] ", color, \
-             g_tm_info.tm_hour, g_tm_info.tm_min, g_tm_info.tm_sec, module, \
-             sirius_thread_id, file, func, line);
-
-  log_tpl
-#undef E
+  write_log(level, buf, len);
 }

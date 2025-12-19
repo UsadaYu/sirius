@@ -1,3 +1,4 @@
+# Based on Clang 22.0.0 git documentation, Clang-Format Style Options.
 # @ref en: https://clang.llvm.org/docs/ClangFormatStyleOptions.html
 # @ref cn: https://clang.llvm.net.cn/docs/ClangFormatStyleOptions.html
 
@@ -186,7 +187,9 @@ TabWidth: 2
 # TypeNames:
 # TypenameMacros:
 UseTab: Never
+# VariableTemplates:
 # VerilogBreakBetweenInstancePorts:
 # WhitespaceSensitiveMacros:
+WrapNamespaceBodyWithEmptyLines: Never
 ---
 

@@ -1,17 +1,18 @@
 #ifndef SIRIUS_THREAD_H
 #define SIRIUS_THREAD_H
 
-#include "sirius/custom/thread.h"
-#include "sirius/sirius_attributes.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "sirius/internal/thread.h"
 
 /**
  * @brief Get the thread id, the result is of type `uint64_t`.
  */
-#define sirius_thread_id (sirius_custom_thread_id())
+#define sirius_thread_id (sirius_internal_thread_id())
+
+typedef struct sirius_thread_s *sirius_thread_t;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @brief On POSIX system, under the `SCHED_OTHER` policy, the priority is
@@ -29,16 +30,9 @@ extern "C" {
  */
 #define sirius_thread_priority_max (99)
 
-#ifdef _WIN32
-typedef HANDLE sirius_thread_t;
-#else
-typedef pthread_t sirius_thread_t;
-#endif
-
 typedef enum {
   sirius_thread_detach_none = -1,
 
-#ifndef _WIN32
   /**
    * @brief The thread can be synchronized using the `sirius_thread_join`
    * function.
@@ -50,16 +44,16 @@ typedef enum {
    * function.
    */
   sirius_thread_detached = 1,
-#else
-  sirius_thread_joinable = sirius_thread_detach_none,
-  sirius_thread_detached = sirius_thread_detach_none,
-#endif
 } sirius_thread_detach_state_t;
 
 typedef enum {
   sirius_thread_sched_none = -1,
 
-#ifndef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
+  sirius_thread_sched_other = sirius_thread_sched_none,
+  sirius_thread_sched_fifo = sirius_thread_sched_none,
+  sirius_thread_sched_rr = sirius_thread_sched_none,
+#else
   /**
    * @brief Not real-time.
    */
@@ -74,10 +68,6 @@ typedef enum {
    * @brief Real-time, first-in, first-out, system permissions may be required.
    */
   sirius_thread_sched_rr = 2,
-#else
-  sirius_thread_sched_other = sirius_thread_sched_none,
-  sirius_thread_sched_fifo = sirius_thread_sched_none,
-  sirius_thread_sched_rr = sirius_thread_sched_none,
 #endif
 } sirius_thread_sched_policy_t;
 
@@ -85,7 +75,10 @@ typedef struct {
   /**
    * @brief Thread rotation policy.
    *
-   * @note Only takes effect on POSIX system.
+   * @note
+   * ------------------------------------------
+   * --- Only takes effect on POSIX system. ---
+   * ------------------------------------------
    */
   sirius_thread_sched_policy_t sched_policy;
 
@@ -131,7 +124,10 @@ typedef struct {
 typedef enum {
   sirius_thread_inherit_none = -1,
 
-#ifndef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
+  sirius_thread_inherit_sched = sirius_thread_inherit_none,
+  sirius_thread_explicit_sched = sirius_thread_inherit_none,
+#else
   /**
    * @brief Inherits the scheduling policy and scheduling parameters of the
    * caller thread.
@@ -143,16 +139,16 @@ typedef enum {
    * for the thread.
    */
   sirius_thread_explicit_sched = 1,
-#else
-  sirius_thread_inherit_sched = sirius_thread_inherit_none,
-  sirius_thread_explicit_sched = sirius_thread_inherit_none,
 #endif
 } sirius_thread_inherit_t;
 
 typedef enum {
   sirius_thread_scope_none = -1,
 
-#ifndef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
+  sirius_thread_scope_system = sirius_thread_scope_none,
+  sirius_thread_scope_process = sirius_thread_scope_none,
+#else
   /**
    * @brief Compete with all threads in the system for the CPU time.
    */
@@ -163,39 +159,48 @@ typedef enum {
    * system permissions may be required.
    */
   sirius_thread_scope_process = 1,
-#else
-  sirius_thread_scope_system = sirius_thread_scope_none,
-  sirius_thread_scope_process = sirius_thread_scope_none,
 #endif
 } sirius_thread_scope_t;
 
 typedef struct {
   /**
-   * @note Only takes effect on POSIX system.
+   * @brief Detach state.
    */
   sirius_thread_detach_state_t detach_state;
 
   /**
-   * @note Only takes effect on POSIX system.
+   * @note
+   * ------------------------------------------
+   * --- Only takes effect on POSIX system. ---
+   * ------------------------------------------
    */
   sirius_thread_inherit_t inherit_sched;
 
   /**
-   * @note Only takes effect on POSIX system.
+   * @note
+   * ------------------------------------------
+   * --- Only takes effect on POSIX system. ---
+   * ------------------------------------------
    */
   sirius_thread_scope_t scope;
 
   /**
    * @brief Specifies the starting address of the thread stack.
    *
-   * @note Only takes effect on POSIX system.
+   * @note
+   * ------------------------------------------
+   * --- Only takes effect on POSIX system. ---
+   * ------------------------------------------
    */
   void *stackaddr;
 
   /**
    * @brief Alert buffer size at the end of the thread stack.
    *
-   * @note Only takes effect on POSIX system.
+   * @note
+   * ------------------------------------------
+   * --- Only takes effect on POSIX system. ---
+   * ------------------------------------------
    */
   size_t guardsize;
 
@@ -209,8 +214,6 @@ typedef struct {
 
 /**
  * @brief Create a thread.
- * Equivalent to the `pthread_create` function on POSIX system;
- * Equivalent to the `CreateThread` function on Windows MSVC environment.
  *
  * @param[out] thread Thread handle.
  * @param[in] attr Thread attributes.
@@ -220,11 +223,9 @@ typedef struct {
  *
  * @return 0 on success, or an `errno` value on failure.
  *
- * @note If the thread is created successfully, but attributes setting fails,
- * the function will still return success.
- *
  * @example
- * void *foo(void *args) {
+ * void *foo(void *arg) {
+ *   (void)arg;
  *   return NULL;
  * }
  *
@@ -235,61 +236,38 @@ typedef struct {
  *   return 0;
  * }
  */
-sirius_api int sirius_thread_create(sirius_thread_t *__restrict thread,
-                                    const sirius_thread_attr_t *__restrict attr,
-                                    void *(*start_routine)(void *),
-                                    void *__restrict arg);
+sirius_api int sirius_thread_create(sirius_thread_t *thread,
+                                    const sirius_thread_attr_t *attr,
+                                    void *(*start_routine)(void *), void *arg);
+
+/**
+ * @brief Exit the thread.
+ *
+ * @param[out] retval A pointer to any data.
+ *
+ * This parameter can be `nullptr`, if it is needed, then this parameter needs
+ * to point to a non-temporary memory address.
+ */
+sirius_api void sirius_thread_exit(void *retval);
 
 /**
  * @brief Reclaim the resources of the thread.
- * Equivalent to the `pthread_join` function on POSIX system;
- * Equivalent to the `WaitForSingleObject(handle, INFINITE)` function on Windows
- * MSVC environment.
  *
  * @param[in] thread Thread handle.
- * @param[out] retval Data returned by the thread. This parameter only takes
- * effect on POSIX system.
+ * @param[out] retval Data returned by the thread.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
 sirius_api int sirius_thread_join(sirius_thread_t thread, void **retval);
 
-#ifndef _WIN32
 /**
  * @brief Detach the thread.
- * Equivalent to the `pthread_detach` function on POSIX system.
  *
  * @param[in] thread Thread handle.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
 sirius_api int sirius_thread_detach(sirius_thread_t thread);
-#else
-#  define sirius_thread_detach(thread) (0)
-#endif
-
-/**
- * @brief Exit the thread.
- * Equivalent to the `pthread_exit` function on POSIX system;
- * Equivalent to the `ExitThread` function on Windows MSVC environment.
- *
- * @param[out] retval On POSIX system, this parameter can be a pointer to any
- * data; on Windows MSVC environment, this parameter can only be a `DWORD` type
- * error code.
- *
- * This parameter can be `nullptr`, if it is needed, then:
- * On POSIX system, this parameter needs to point to a non-temporary memory
- * address;
- * On Windows MSVC environment, this parameter can point to a temporary memory
- * address.
- */
-sirius_api void sirius_thread_exit(
-#ifdef _WIN32
-  DWORD *
-#else
-  void *
-#endif
-    retval);
 
 /**
  * @brief Terminate the thread.
