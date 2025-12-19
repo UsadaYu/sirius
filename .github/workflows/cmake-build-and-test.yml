@@ -1,0 +1,73 @@
+name: CMake Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.os }} - ${{ matrix.compiler }} - ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        compiler: [gcc, clang, msvc]
+        build_type: [Release, Debug]
+        shared_libs: [ON, OFF]
+        exclude:
+          - os: ubuntu-latest
+            compiler: msvc
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Setup Windows Env
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Set Compiler Env
+        shell: bash
+        run: |
+          if [ "${{ matrix.compiler }}" == "gcc" ]; then
+            echo "CC=gcc" >> $GITHUB_ENV
+            echo "CXX=g++" >> $GITHUB_ENV
+          elif [ "${{ matrix.compiler }}" == "clang" ]; then
+            echo "CC=clang" >> $GITHUB_ENV
+            echo "CXX=clang++" >> $GITHUB_ENV
+          fi
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          if [ "${{ matrix.compiler }}" == "msvc" ]; then
+            cmake -B build \
+              -DCMAKE_CONFIGURATION_TYPES=${{ matrix.build_type }} \
+              -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+              \
+              -DSIRIUS_TEST_ENABLE=ON \
+              -S .
+          else
+            cmake -B build \
+              -G Ninja \
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+              \
+              -DSIRIUS_TEST_ENABLE=ON \
+              -S .
+          fi
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel 4
+
+      - name: Run Unit Tests
+        working-directory: build
+        run: ctest -C ${{ matrix.build_type }} --output-on-failure

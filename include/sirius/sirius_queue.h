@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "sirius/sirius_attributes.h"
+#include "sirius/sirius_common.h"
 #include "sirius/sirius_macro.h"
 
 #ifdef __cplusplus

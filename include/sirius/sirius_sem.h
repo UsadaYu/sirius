@@ -1,20 +1,16 @@
 #ifndef SIRIUS_SEM_H
 #define SIRIUS_SEM_H
 
-#include "sirius/custom/errno.h"
-#include "sirius/sirius_attributes.h"
-#include "sirius/sirius_common.h"
+#include "sirius/internal/errno.h"
+#include "sirius/internal/sem.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifdef _WIN32
-#  include <windows.h>
+#if defined(_WIN32) || defined(_WIN64)
 typedef HANDLE sirius_sem_t;
 #else
-#  include <semaphore.h>
-#  include <time.h>
 typedef sem_t sirius_sem_t;
 #endif
 
@@ -67,7 +63,12 @@ static inline int sirius_sem_timedwait(sirius_sem_t *sem,
  */
 static inline int sirius_sem_post(sirius_sem_t *sem);
 
-#ifndef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
+/**
+ * @note Not a real implementation on Windows.
+ */
+#  define sirius_sem_getvalue(sem, sval) (0)
+#else
 /**
  * @brief Obtain the current semaphore value.
  *
@@ -75,11 +76,6 @@ static inline int sirius_sem_post(sirius_sem_t *sem);
  */
 static inline int sirius_sem_getvalue(sirius_sem_t *__restrict sem,
                                       int *__restrict sval);
-#else
-/**
- * @note Not a real implementation on Windows.
- */
-#  define sirius_sem_getvalue(sem, sval) (0)
 #endif
 
 #ifdef __cplusplus
@@ -90,7 +86,7 @@ static inline int sirius_sem_getvalue(sirius_sem_t *__restrict sem,
  * @implements
  */
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 
 static inline int sirius_sem_init(sirius_sem_t *sem, int pshared,
                                   unsigned int value) {
@@ -106,7 +102,7 @@ static inline int sirius_sem_init(sirius_sem_t *sem, int pshared,
   HANDLE h = CreateSemaphore(NULL, initial, maximum, NULL);
   if (!h) {
     DWORD err = GetLastError();
-    return sirius_custom_win32err_to_errno(err);
+    return sirius_internal_winerr_to_errno(err);
   }
 
   *sem = h;
@@ -120,7 +116,7 @@ static inline int sirius_sem_destroy(sirius_sem_t *sem) {
   BOOL ok = CloseHandle(*sem);
   if (!ok) {
     DWORD err = GetLastError();
-    return sirius_custom_win32err_to_errno(err);
+    return sirius_internal_winerr_to_errno(err);
   }
 
   *sem = NULL;
@@ -136,7 +132,7 @@ static inline int sirius_sem_wait(sirius_sem_t *sem) {
   case WAIT_OBJECT_0:
     return 0;
   case WAIT_FAILED:
-    return sirius_custom_win32err_to_errno(GetLastError());
+    return sirius_internal_winerr_to_errno(GetLastError());
   case WAIT_ABANDONED:
     return EINVAL;
   default:
@@ -158,7 +154,7 @@ static inline int sirius_sem_trywait(sirius_sem_t *sem) {
      */
     return EBUSY;
   case WAIT_FAILED:
-    return sirius_custom_win32err_to_errno(GetLastError());
+    return sirius_internal_winerr_to_errno(GetLastError());
   case WAIT_ABANDONED:
     return EINVAL;
   default:
@@ -193,7 +189,7 @@ static inline int sirius_sem_timedwait(sirius_sem_t *sem,
       tm_prev = tm_cur;
       break;
     case WAIT_FAILED:
-      return sirius_custom_win32err_to_errno(GetLastError());
+      return sirius_internal_winerr_to_errno(GetLastError());
     case WAIT_ABANDONED:
       return EINVAL;
     default:
@@ -210,7 +206,7 @@ static inline int sirius_sem_post(sirius_sem_t *sem) {
 
   BOOL ok = ReleaseSemaphore(*sem, 1, NULL);
   if (!ok)
-    return sirius_custom_win32err_to_errno(GetLastError());
+    return sirius_internal_winerr_to_errno(GetLastError());
 
   return 0;
 }
@@ -283,7 +279,7 @@ static inline int sirius_sem_timedwait(sirius_sem_t *sem,
 
   int ret;
   do {
-    ret = sem_timedwait(sem, &ts);
+    ret = sirius_internal_sem_timedwait(sem, &ts);
   } while (ret == -1 && errno == EINTR);
 
   return ret == 0 ? 0 : errno;

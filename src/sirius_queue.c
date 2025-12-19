@@ -1,7 +1,6 @@
 #include "sirius/sirius_queue.h"
 
-#include "sirius/internal/decls.h"
-#include "sirius/internal/log.h"
+#include "internal/log.h"
 #include "sirius/sirius_cond.h"
 #include "sirius/sirius_mutex.h"
 

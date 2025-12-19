@@ -1,5 +1,4 @@
-#include "sirius/internal/decls.h"
-#include "sirius/internal/log.h"
+#include "internal/log.h"
 #include "sirius/sirius_mutex.h"
 #include "sirius/sirius_thread.h"
 
@@ -43,10 +42,17 @@ sirius_api void sirius_log_config(sirius_log_config_t cfg) {
   internal_log_fd_set(&g_fd_err, &g_fd_out);
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #  define localtime_r(a, b) localtime_s(b, a)
 #  define WRITE(fd, buf, size) _write((fd), (buf), (unsigned int)(size))
 #else
+/**
+ * @note Regarding the situation where the return value of the `write` function
+ * is not used, in the `Release` compilation mode of lower versions of gcc, it
+ * is regarded as a warning. This is usually considered an imperfect aspect of
+ * the older version of gcc.
+ * Higher versions of gcc have resolved similar false positive issues.
+ */
 #  define WRITE(fd, buf, size) write((fd), (buf), (size))
 #endif
 

@@ -1,6 +1,4 @@
-#include "sirius/internal/init.h"
-
-#include "sirius/internal/decls.h"
+#include "internal/init.h"
 
 bool sirius_init_state = false;
 

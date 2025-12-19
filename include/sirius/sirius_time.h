@@ -1,22 +1,13 @@
 #ifndef SIRIUS_TIME_H
 #define SIRIUS_TIME_H
 
-/**
- * @note The header file `Windows.h` must be included first.
- */
-#ifdef _WIN32
-#  include <Windows.h>
-#endif
+#include "sirius/internal/time.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #  include <limits.h>
 #  include <mmsystem.h>
 #  include <timeapi.h>
-#else
-#  include <errno.h>
-#  include <time.h>
 #endif
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -72,11 +63,15 @@ static inline uint64_t sirius_get_time_ns();
 }
 #endif
 
+/**
+ * @implements
+ */
+
 static inline void sirius_usleep(uint64_t usec) {
   if (usec == 0)
     return;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
   uint64_t sleep_ms = usec / 1000ULL;
   uint64_t remaining_usec = usec % 1000ULL;
 
@@ -126,7 +121,7 @@ static inline void sirius_usleep(uint64_t usec) {
   req.tv_sec = usec / 1000000ULL;
   req.tv_nsec = (usec % 1000000ULL) * 1000ULL;
 
-  while (nanosleep(&req, &rem) == -1) {
+  while (sirius_internal_nanosleep(&req, &rem) == -1) {
     if (errno == EINTR) {
       req.tv_sec = rem.tv_sec;
       req.tv_nsec = rem.tv_nsec;
@@ -141,7 +136,7 @@ static inline void sirius_nsleep(uint64_t nsec) {
   if (nsec == 0)
     return;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
   uint64_t sleep_ms = nsec / 1000000ULL;
   uint64_t remaining_nsec = nsec % 1000000ULL;
 
@@ -191,7 +186,7 @@ static inline void sirius_nsleep(uint64_t nsec) {
   req.tv_sec = nsec / 1000000000ULL;
   req.tv_nsec = nsec % 1000000000ULL;
 
-  while (nanosleep(&req, &rem) == -1) {
+  while (sirius_internal_nanosleep(&req, &rem) == -1) {
     if (errno == EINTR) {
       req.tv_sec = rem.tv_sec;
       req.tv_nsec = rem.tv_nsec;
@@ -204,13 +199,8 @@ static inline void sirius_nsleep(uint64_t nsec) {
 }
 
 static inline uint64_t sirius_get_time_us() {
-#ifdef _WIN32
-  static LARGE_INTEGER qpc_frequency_us
-#  ifdef __cplusplus
-    {};
-#  else
-    = {0};
-#  endif
+#if defined(_WIN32) || defined(_WIN64)
+  static LARGE_INTEGER qpc_frequency_us = {0};
   LARGE_INTEGER counter;
 
   if (qpc_frequency_us.QuadPart == 0) {
@@ -231,7 +221,7 @@ static inline uint64_t sirius_get_time_us() {
 
 #else
   struct timespec ts;
-  if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+  if (sirius_internal_clock_gettime_monotonic(&ts) == 0) {
     return (uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)ts.tv_nsec / 1000ULL;
   } else {
     return 0;
@@ -241,13 +231,8 @@ static inline uint64_t sirius_get_time_us() {
 }
 
 static inline uint64_t sirius_get_time_ns() {
-#ifdef _WIN32
-  static LARGE_INTEGER frequency
-#  ifdef __cplusplus
-    {};
-#  else
-    = {0};
-#  endif
+#if defined(_WIN32) || defined(_WIN64)
+  static LARGE_INTEGER frequency = {0};
   LARGE_INTEGER counter;
 
   if (frequency.QuadPart == 0) {
@@ -266,7 +251,7 @@ static inline uint64_t sirius_get_time_ns() {
 
 #else
   struct timespec ts;
-  if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+  if (sirius_internal_clock_gettime_monotonic(&ts) == 0) {
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
   } else {
     return 0;

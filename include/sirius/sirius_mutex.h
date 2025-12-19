@@ -27,7 +27,7 @@ typedef enum {
   sirius_mutex_recursive = 1,
 } sirius_mutex_type_t;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 /**
  * @brief Cross-platform mutex handle.
  * On Windows, this is a struct to accommodate different underlying lock types.
@@ -56,8 +56,13 @@ typedef pthread_mutex_t sirius_mutex_t;
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-static inline int sirius_mutex_init(sirius_mutex_t *__restrict mutex,
-                                    const sirius_mutex_type_t *__restrict type);
+#if defined(_WIN32) || defined(_WIN64)
+static inline
+#else
+sirius_api
+#endif
+  int sirius_mutex_init(sirius_mutex_t *__restrict mutex,
+                        const sirius_mutex_type_t *__restrict type);
 
 /**
  * @brief Destroy the mutex.
@@ -95,7 +100,7 @@ static inline int sirius_mutex_trylock(sirius_mutex_t *mutex);
  * @implements
  */
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 
 static inline int sirius_mutex_init(sirius_mutex_t *mutex,
                                     const sirius_mutex_type_t *type) {
@@ -183,35 +188,6 @@ static inline int sirius_mutex_trylock(sirius_mutex_t *mutex) {
 }
 
 #else
-
-static inline int sirius_mutex_init(sirius_mutex_t *mutex,
-                                    const sirius_mutex_type_t *type) {
-  if (unlikely(!mutex))
-    return EINVAL;
-
-  int ret;
-  pthread_mutexattr_t attr;
-
-  /**
-   * @note Default to a normal mutex if type is not specified or if `attr_init`
-   * fails.
-   */
-  if (!type || pthread_mutexattr_init(&attr) != 0)
-    return pthread_mutex_init(mutex, NULL);
-
-  int native_type = *type == sirius_mutex_recursive ? PTHREAD_MUTEX_RECURSIVE
-                                                    : PTHREAD_MUTEX_NORMAL;
-
-  ret = pthread_mutexattr_settype(&attr, native_type);
-  if (ret != 0) {
-    pthread_mutexattr_destroy(&attr);
-    return ret;
-  }
-
-  ret = pthread_mutex_init(mutex, &attr);
-  pthread_mutexattr_destroy(&attr);
-  return ret;
-}
 
 static inline int sirius_mutex_destroy(sirius_mutex_t *mutex) {
   if (unlikely(!mutex))

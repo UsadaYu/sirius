@@ -44,7 +44,7 @@
 #  endif
 #endif // weak_symbol
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #  ifndef sirius_api
 #    ifdef SIRIUS_BUILDING
 #      ifdef SIRIUS_WIN_DLL

@@ -1,9 +1,8 @@
 #ifndef SIRIUS_COND_H
 #define SIRIUS_COND_H
 
-#include "sirius/custom/errno.h"
+#include "sirius/internal/errno.h"
 #include "sirius/sirius_attributes.h"
-#include "sirius/sirius_common.h"
 #include "sirius/sirius_mutex.h"
 
 #ifdef __cplusplus
@@ -16,22 +15,22 @@ typedef enum {
    */
   sirius_cond_process_private = 0,
 
-#ifndef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
+  sirius_cond_process_shared = sirius_cond_process_private,
+#else
   /**
    * @brief Sharing within multiple processes.
    *
    * @note Supported on POSIX systems only.
    */
   sirius_cond_process_shared = 1,
-#else
-  sirius_cond_process_shared = sirius_cond_process_private,
 #endif
 } sirius_cond_type_t;
 
 /**
  * @brief Cross-platform condition variable handle.
  */
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 typedef CONDITION_VARIABLE sirius_cond_t;
 #else
 typedef pthread_cond_t sirius_cond_t;
@@ -92,7 +91,7 @@ static inline int sirius_cond_broadcast(sirius_cond_t *cond);
 }
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 
 static inline int sirius_cond_init(sirius_cond_t *__restrict cond,
                                    const sirius_cond_type_t *__restrict type) {
@@ -127,12 +126,12 @@ static inline int sirius_cond_wait(sirius_cond_t *__restrict cond,
   if (mutex->type == sirius_mutex_recursive) {
     if (!SleepConditionVariableCS(cond, &mutex->handle.critical_section,
                                   INFINITE)) {
-      return sirius_custom_win32err_to_errno(GetLastError());
+      return sirius_internal_winerr_to_errno(GetLastError());
     }
   } else {
     if (!SleepConditionVariableSRW(cond, &mutex->handle.srw_lock, INFINITE,
                                    0)) {
-      return sirius_custom_win32err_to_errno(GetLastError());
+      return sirius_internal_winerr_to_errno(GetLastError());
     }
   }
   return 0;
@@ -167,7 +166,7 @@ static inline int sirius_cond_timedwait(sirius_cond_t *__restrict cond,
           milliseconds -= tm_elapsed; \
           tm_prev = tm_cur; \
         } else { \
-          return sirius_custom_win32err_to_errno(dw_err); \
+          return sirius_internal_winerr_to_errno(dw_err); \
         } \
       } \
     } while (0)

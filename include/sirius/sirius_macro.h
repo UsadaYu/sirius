@@ -1,6 +1,8 @@
 #ifndef SIRIUS_MACRO_H
 #define SIRIUS_MACRO_H
 
+#include "sirius/sirius_common.h"
+
 #ifdef __cplusplus
 #  include <cstddef>
 #  include <cstdint>

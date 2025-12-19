@@ -1,0 +1,70 @@
+name: CMake Options
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    name: linux - OBJECT:${{ matrix.build_object_only }} - PIC:${{ matrix.pic_enable }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build_object_only: OFF
+            pic_enable: OFF
+          - build_object_only: ON
+            pic_enable: ON
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DBUILD_SHARED_LIBS=OFF \
+            \
+            -DSIRIUS_PIC_ENABLE=${{ matrix.pic_enable }} \
+            -DSIRIUS_BUILD_OBJECT_ONLY=${{ matrix.build_object_only }} \
+            -DSIRIUS_TEST_ENABLE=ON \
+            -DSIRIUS_TEST_PIE_ENABLE=ON \
+            -S .
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run Unit Tests
+        working-directory: build
+        run: ctest --output-on-failure
+
+  build_windows:
+    name: windows - OBJECT:ON
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Windows Env
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          cmake -B build \
+            -DSIRIUS_BUILD_OBJECT_ONLY=ON \
+            -DSIRIUS_TEST_ENABLE=ON \
+            -S .
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Run Unit Tests
+        working-directory: build
+        run: ctest -C Release --output-on-failure

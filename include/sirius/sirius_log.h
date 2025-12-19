@@ -1,8 +1,8 @@
 #ifndef SIRIUS_LOG_H
 #define SIRIUS_LOG_H
 
-#include "sirius/custom/log.h"
-#include "sirius/custom/macro.h"
+#include "sirius/internal/log.h"
+#include "sirius/internal/macro.h"
 #include "sirius/sirius_attributes.h"
 
 #ifdef __cplusplus
@@ -62,7 +62,7 @@ extern "C" {
  * Therefore, implicitly converting a `const char *` type to a `char *` type may
  * result in a compilation warning.
  */
-#define sirius_file (sirius_custom_basename(__FILE__))
+#define sirius_file (sirius_internal_basename(__FILE__))
 
 /**
  * @brief Log color.
@@ -122,87 +122,88 @@ sirius_api void sirius_log(int log_level, const char *color, const char *module,
 sirius_api void sirius_logsp(int log_level, const char *color,
                              const char *module, const char *fmt, ...);
 
-#define _LOG_WRITE(level, color, fmt, ...) \
+#define _SIRIUS_LOG_WRITE(level, color, fmt, ...) \
   do { \
     sirius_log(level, color, sirius_log_module_name, sirius_file, __func__, \
                __LINE__, fmt, ##__VA_ARGS__); \
   } while (0)
 
-#define _LOG_WRITESP(level, color, fmt, ...) \
+#define _SIRIUS_LOG_WRITESP(level, color, fmt, ...) \
   do { \
     sirius_logsp(level, color, sirius_log_module_name, fmt, ##__VA_ARGS__); \
   } while (0)
 
 #if (sirius_log_level >= sirius_log_level_error)
-#  define _ERROR(fmt, ...) \
-    _LOG_WRITE(sirius_log_level_error, log_red, fmt, ##__VA_ARGS__)
+#  define _SIRIUS_ERROR(fmt, ...) \
+    _SIRIUS_LOG_WRITE(sirius_log_level_error, log_red, fmt, ##__VA_ARGS__)
 #else
-#  define _ERROR(fmt, ...) \
+#  define _SIRIUS_ERROR(fmt, ...) \
     do { \
-      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
+      sirius_internal_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #endif
 
 #if (sirius_log_level >= sirius_log_level_warn)
-#  define _WARN(fmt, ...) \
-    _LOG_WRITE(sirius_log_level_warn, log_yellow, fmt, ##__VA_ARGS__)
-#  define _WARNSP(fmt, ...) \
-    _LOG_WRITESP(sirius_log_level_warn, log_yellow, fmt, ##__VA_ARGS__)
+#  define _SIRIUS_WARN(fmt, ...) \
+    _SIRIUS_LOG_WRITE(sirius_log_level_warn, log_yellow, fmt, ##__VA_ARGS__)
+#  define _SIRIUS_WARNSP(fmt, ...) \
+    _SIRIUS_LOG_WRITESP(sirius_log_level_warn, log_yellow, fmt, ##__VA_ARGS__)
 #else
-#  define _WARN(fmt, ...) \
+#  define _SIRIUS_WARN(fmt, ...) \
     do { \
-      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
+      sirius_internal_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
-#  define _WARNSP(fmt, ...) \
+#  define _SIRIUS_WARNSP(fmt, ...) \
     do { \
-      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
+      sirius_internal_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #endif
 
 #if (sirius_log_level >= sirius_log_level_info)
-#  define _INFO(fmt, ...) \
-    _LOG_WRITE(sirius_log_level_info, log_green, fmt, ##__VA_ARGS__)
-#  define _INFOSP(fmt, ...) \
-    _LOG_WRITESP(sirius_log_level_info, log_green, fmt, ##__VA_ARGS__)
+#  define _SIRIUS_INFO(fmt, ...) \
+    _SIRIUS_LOG_WRITE(sirius_log_level_info, log_green, fmt, ##__VA_ARGS__)
+#  define _SIRIUS_INFOSP(fmt, ...) \
+    _SIRIUS_LOG_WRITESP(sirius_log_level_info, log_green, fmt, ##__VA_ARGS__)
 #else
-#  define _INFO(fmt, ...) \
+#  define _SIRIUS_INFO(fmt, ...) \
     do { \
-      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
+      sirius_internal_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
-#  define _INFOSP(fmt, ...) \
+#  define _SIRIUS_INFOSP(fmt, ...) \
     do { \
-      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
+      sirius_internal_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #endif
 
 #if (sirius_log_level >= sirius_log_level_debg)
-#  define _DEBG(fmt, ...) \
-    _LOG_WRITE(sirius_log_level_debg, log_color_none, fmt, ##__VA_ARGS__)
-#  define _DEBGSP(fmt, ...) \
-    _LOG_WRITESP(sirius_log_level_debg, log_color_none, fmt, ##__VA_ARGS__)
+#  define _SIRIUS_DEBG(fmt, ...) \
+    _SIRIUS_LOG_WRITE(sirius_log_level_debg, log_color_none, fmt, ##__VA_ARGS__)
+#  define _SIRIUS_DEBGSP(fmt, ...) \
+    _SIRIUS_LOG_WRITESP(sirius_log_level_debg, log_color_none, fmt, \
+                        ##__VA_ARGS__)
 #else
-#  define _DEBG(fmt, ...) \
+#  define _SIRIUS_DEBG(fmt, ...) \
     do { \
-      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
+      sirius_internal_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
-#  define _DEBGSP(fmt, ...) \
+#  define _SIRIUS_DEBGSP(fmt, ...) \
     do { \
-      sirius_custom_swallow((void)fmt, __VA_ARGS__); \
+      sirius_internal_swallow((void)fmt, __VA_ARGS__); \
     } while (0)
 #endif
 
 #define sirius_log_write(level, color, fmt, ...) \
-  _LOG_WRITE(level, color, fmt, ##__VA_ARGS__)
-#define sirius_error(fmt, ...) _ERROR(fmt, ##__VA_ARGS__)
-#define sirius_warn(fmt, ...) _WARN(fmt, ##__VA_ARGS__)
-#define sirius_info(fmt, ...) _INFO(fmt, ##__VA_ARGS__)
-#define sirius_debg(fmt, ...) _DEBG(fmt, ##__VA_ARGS__)
+  _SIRIUS_LOG_WRITE(level, color, fmt, ##__VA_ARGS__)
+#define sirius_error(fmt, ...) _SIRIUS_ERROR(fmt, ##__VA_ARGS__)
+#define sirius_warn(fmt, ...) _SIRIUS_WARN(fmt, ##__VA_ARGS__)
+#define sirius_info(fmt, ...) _SIRIUS_INFO(fmt, ##__VA_ARGS__)
+#define sirius_debg(fmt, ...) _SIRIUS_DEBG(fmt, ##__VA_ARGS__)
 
 #define sirius_log_writesp(level, color, fmt, ...) \
-  _LOG_WRITESP(level, color, fmt, ##__VA_ARGS__)
-#define sirius_warnsp(fmt, ...) _WARNSP(fmt, ##__VA_ARGS__)
-#define sirius_infosp(fmt, ...) _INFOSP(fmt, ##__VA_ARGS__)
-#define sirius_debgsp(fmt, ...) _DEBGSP(fmt, ##__VA_ARGS__)
+  _SIRIUS_LOG_WRITESP(level, color, fmt, ##__VA_ARGS__)
+#define sirius_warnsp(fmt, ...) _SIRIUS_WARNSP(fmt, ##__VA_ARGS__)
+#define sirius_infosp(fmt, ...) _SIRIUS_INFOSP(fmt, ##__VA_ARGS__)
+#define sirius_debgsp(fmt, ...) _SIRIUS_DEBGSP(fmt, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 }

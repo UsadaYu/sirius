@@ -1,6 +1,6 @@
-#include "sirius/internal/log.h"
+#include "internal/log.h"
 
-#include "sirius/internal/decls.h"
+#include "internal/decls.h"
 
 static int g_fd_err = STDERR_FILENO;
 static int g_fd_out = STDOUT_FILENO;
@@ -9,7 +9,7 @@ static struct tm g_tm_info;
 static int g_size;
 static char g_buffer[WRITE_SIZE];
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #  define localtime_r(a, b) localtime_s(b, a)
 
 #  define dprintf(fd, ...) \
@@ -24,7 +24,7 @@ static char g_buffer[WRITE_SIZE];
   dprintf(g_fd_err, "[error %s %s %d] " fmt, sirius_log_module_name, \
           sirius_file, __LINE__, ##__VA_ARGS__)
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 static CRITICAL_SECTION cs;
 
 #  define log_mutex_lock() EnterCriticalSection(&cs)
@@ -103,7 +103,7 @@ void internal_log(int level, const char *color, const char *module,
 
   static va_list args;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #  define WRITE(fd, buf, size) _write((fd), (buf), (unsigned int)(size))
 #else
 #  define WRITE(fd, buf, size) write((fd), (buf), (size))
