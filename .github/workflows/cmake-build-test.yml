@@ -1,0 +1,142 @@
+name: CMake Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-all:
+    name: ${{ matrix.os }} - ${{ matrix.compiler }} - ${{ matrix.build_type }} - SHARED:${{ matrix.shared_libs }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        compiler: [gcc, clang, clang-cl, msvc]
+        build_type: [Release, Debug]
+        shared_libs: [ON, OFF]
+        exclude:
+          - os: ubuntu-latest
+            compiler: msvc
+          - os: ubuntu-latest
+            compiler: clang-cl
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Setup Windows Env
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Set Compiler Env
+        shell: bash
+        run: |
+          if [ "${{ matrix.compiler }}" == "gcc" ]; then
+            echo "CC=gcc" >> $GITHUB_ENV
+            echo "CXX=g++" >> $GITHUB_ENV
+          elif [ "${{ matrix.compiler }}" == "clang" ]; then
+            echo "CC=clang" >> $GITHUB_ENV
+            echo "CXX=clang++" >> $GITHUB_ENV
+          elif [ "${{ matrix.compiler }}" == "clang-cl" ]; then
+            echo "CC=clang-cl" >> $GITHUB_ENV
+            echo "CXX=clang-cl" >> $GITHUB_ENV
+          fi
+
+      - name: Configure CMake
+        shell: bash
+        # In some environments, MSVC does not support Ninja.
+        run: |
+          if [ "${{ matrix.compiler }}" == "msvc" ]; then
+            cmake -B build \
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DCMAKE_CONFIGURATION_TYPES=${{ matrix.build_type }} \
+              -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+              \
+              -DSIRIUS_TEST_ENABLE=ON \
+              -S .
+          else
+            cmake -B build \
+              -G Ninja \
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DBUILD_SHARED_LIBS=${{ matrix.shared_libs }} \
+              \
+              -DSIRIUS_TEST_ENABLE=ON \
+              -S .
+          fi
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel 4
+
+      - name: Run Tests
+        working-directory: build
+        run: ctest -C ${{ matrix.build_type }} --output-on-failure
+
+  build-options-linux:
+    name: ubuntu-latest - OBJECT:${{ matrix.build_object_only }} - PIC:${{ matrix.pic_enable }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build_object_only: OFF
+            pic_enable: OFF
+          - build_object_only: ON
+            pic_enable: ON
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DBUILD_SHARED_LIBS=OFF \
+            \
+            -DSIRIUS_PIC_ENABLE=${{ matrix.pic_enable }} \
+            -DSIRIUS_BUILD_OBJECT_ONLY=${{ matrix.build_object_only }} \
+            -DSIRIUS_TEST_ENABLE=ON \
+            -DSIRIUS_TEST_PIE_ENABLE=ON \
+            -S .
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run Tests
+        working-directory: build
+        run: ctest --output-on-failure
+
+  build-options-windows:
+    name: windows-latest - OBJECT:ON
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Windows Env
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          cmake -B build \
+            -DSIRIUS_BUILD_OBJECT_ONLY=ON \
+            -DSIRIUS_TEST_ENABLE=ON \
+            -S .
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Run Tests
+        working-directory: build
+        run: ctest -C Release --output-on-failure

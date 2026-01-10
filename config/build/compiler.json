@@ -1,0 +1,105 @@
+{
+  // ---
+  /**
+   * The compilation standards for the project are uniform.
+   *
+   * The compilation standards for testing are presented in a matrix format.
+   *
+   * For tests, the different compilation standards will be check in build
+   * scripts.
+   */
+  // ---
+  "gnu": {
+    "min_version": "13.2.0",
+    "project": {
+      "standards": {
+        "c": "-std=gnu17",
+        "cxx": "-std=gnu++20"
+      }
+    },
+    "test": {
+      "standards": {
+        "c": [
+          "-std=c17",
+          "-std=c23"
+        ],
+        "cxx": [
+          "-std=c++20",
+          "-std=c++23",
+          "-std=c++26"
+        ]
+      }
+    }
+  },
+  "clang": {
+    "min_version": "18.1.3",
+    "project": {
+      "standards": {
+        "c": "-std=gnu23",
+        "cxx": "-std=gnu++26"
+      }
+    },
+    "test": {
+      "standards": {
+        "c": [
+          "-std=c17",
+          "-std=c23"
+        ],
+        "cxx": [
+          "-std=c++20",
+          "-std=c++23",
+          "-std=c++26"
+        ]
+      }
+    }
+  },
+  /**
+   * --- NOTICE ---
+   * The compilation flags check effect of CMake for the `clang-cl` is
+   * extremely poor. Therefore, the test matrix only tests the compilation
+   * standards supported by the `min_version` of the compiler.
+   */
+  "clang-cl": {
+    "min_version": "18.1.3",
+    "project": {
+      "standards": {
+        "c": "/std:c17",
+        "cxx": "/std:c++20"
+      }
+    },
+    "test": {
+      "standards": {
+        "c": [
+          "/std:c11",
+          "/std:c17"
+        ],
+        "cxx": [
+          "/std:c++20"
+        ]
+      }
+    }
+  },
+  "msvc": {
+    "min_version": "19.42",
+    "project": {
+      "standards": {
+        "c": "/std:c17",
+        "cxx": "/std:c++20"
+      }
+    },
+    "test": {
+      "standards": {
+        "c": [
+          "/std:c11",
+          "/std:c17",
+          "/std:c23"
+        ],
+        "cxx": [
+          "/std:c++20",
+          "/std:c++23",
+          "/std:c++26"
+        ]
+      }
+    }
+  }
+}
