@@ -1,0 +1,15 @@
+option('target-namespace', type: 'string', value: 'Sirius',
+        description: 'The meson interaction file namespace of the target')
+option('target-library-name-libsirius', type: 'string', value: 'sirius',
+        description: 'The name of the target library `sirius`')
+option('build-object-only', type : 'boolean', value : false,
+        description : 'Build objects only')
+
+option('write_size', type: 'integer', value: 2048)
+option('log_level', type: 'integer', value: 3)
+option('module_print_name', type: 'string', value: 'Sirius::sirius')
+option('pic_enable', type: 'boolean', value: true)
+option('build_object_only', type: 'boolean', value: false)
+
+option('test-enable', type : 'boolean', value : false,
+        description : 'Enable test')

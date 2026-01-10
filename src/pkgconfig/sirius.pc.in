@@ -1,0 +1,9 @@
+prefix=@__pkgconfig_prefix@
+
+Name: @__pkgconfig_lib_name@
+Description: Sirius::sirius
+Version: @__pkgconfig_version@
+URL: https://github.com/UsadaYu/sirius
+Libs: @__pkgconfig_libs@
+Libs.private: @__pkgconfig_libs_private@
+Cflags: @__pkgconfig_cflags@
