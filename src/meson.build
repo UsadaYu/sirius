@@ -2,9 +2,9 @@
 
 # --- Compile Arguments ---
 sirius_args = [
-  '-Dsirius_log_module_name="@0@"'.format(get_option('module_print_name')),
-  '-DLOG_BUF_SIZE=@0@'.format(get_option('write_size')),
-  '-Dsirius_log_level=@0@'.format(get_option('internal_log_level')),
+  '-Dsirius_log_module_name="@0@"'.format(get_option('module-print-name')),
+  '-DLOG_BUF_SIZE=@0@'.format(get_option('log-buf-size')),
+  '-Dsirius_log_level=@0@'.format(get_option('log-level')),
   '-DSIRIUS_BUILDING'
 ]
 
@@ -29,12 +29,14 @@ endif
 
 # --- Source Files ---
 sources = [
-  'internal/init.c',
-  'internal/log.c',
+  'internal/initializer.c',
+  'internal/thread.cpp',
 
+  'sirius_cond.c',
   'sirius_log.c',
   'sirius_mutex.c',
   'sirius_queue.c',
+  'sirius_sem.c',
   'sirius_thread.c',
   'sirius_time.c'
 ]
@@ -48,7 +50,7 @@ libsirius = library(
   include_directories: inc_src,
   dependencies: deps,
   gnu_symbol_visibility: 'hidden',
-  pic: get_option('pic_enable'),
+  pic: get_option('pic-enable'),
   install: true,
   version: glob_version,
 )
@@ -59,7 +61,7 @@ libsirius = library(
 #   include_directories: include_directories('.'),
 #   dependencies: [deps_threads, depses],
 #   gnu_symbol_visibility: 'hidden',
-#   pic: get_option('pic_enable'),
+#   pic: get_option('pic-enable'),
 #   install: true,
 #   version: meson.project_version()
 # )
