@@ -7,13 +7,23 @@ import sys
 from typing import Dict, Final, Optional
 
 
+class ArgsAction:
+    MIN_VERSION = "min_version"
+    PROJECT_FLAGS = "project_flags"
+    TEST_MATRIX = "test_matrix"
+
+
 class JsK:
     LANG_C = "c"
     LANG_CXX = "cxx"
 
 
 class Utils:
-    ARGS_ACTION = ["min_version", "project_flags", "test_matrix"]
+    ARGS_ACTION = [
+        ArgsAction.MIN_VERSION,
+        ArgsAction.PROJECT_FLAGS,
+        ArgsAction.TEST_MATRIX,
+    ]
 
     AliasMap = Dict[str, set[str]]
     StandardNameMap = Dict[str, str]
@@ -27,7 +37,7 @@ class Utils:
         "gnu": {"gnu", "gnuc", "gcc", "g++"},
         "clang": {"clang", "clang++"},
         "clang-cl": {"clang-cl", "clang cl"},
-        "msvc": {"msvc", "cl", "cl.exe"},
+        "msvc": {"msvc", "cl"},
     }
 
     _COMPILER_ALIAS_TO_STANDARD: Optional[StandardNameMap] = None
@@ -191,14 +201,14 @@ def main():
             else:
                 lang = Utils.normalize_lang(args.lang)
 
-        if args.action == "min_version":
+        if args.action == ArgsAction.MIN_VERSION:
             print(config.get_compiler_min_version(), end="")
 
-        elif args.action == "project_flags":
+        elif args.action == ArgsAction.PROJECT_FLAGS:
             flags = config.get_project_flags()
             print(flags[lang], end="")
 
-        elif args.action == "test_matrix":
+        elif args.action == ArgsAction.TEST_MATRIX:
             matrix = config.get_test_matrix()
             print(";".join(matrix[lang]), end="")
 

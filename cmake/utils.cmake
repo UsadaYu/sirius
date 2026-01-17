@@ -98,6 +98,11 @@ else()
       CACHE INTERNAL "")
 endif()
 
+set_property(
+  DIRECTORY
+  APPEND
+  PROPERTY CMAKE_CONFIGURE_DEPENDS ${UTILS_COMPILER_JSON})
+
 function(utils_query_compiler_config)
   set(options "")
   set(one_value_keywords ACTION RESULT LANGUAGE)
@@ -167,11 +172,22 @@ function(utils_get_source_language FILE RESULT)
 endfunction()
 
 function(utils_check_compiler_flag LANG FLAG RESULT)
-  set(flag "${LANG}_COMPILER_HAVE_${FLAG}")
+  string(TOLOWER "${LANG}" lang_lower)
+  if(${lang_lower} STREQUAL "c")
+    set(lang "C")
+  elseif(${lang_lower} MATCHES "^(cxx|cpp|c\\+\\+)$")
+    set(lang "CXX")
+  elseif(${lang_lower} STREQUAL "fortran")
+    set(lang "Fortran")
+  else()
+    set(lang ${LANG})
+  endif()
+
+  set(flag "${lang}_COMPILER_HAVE_${FLAG}")
   string(REGEX REPLACE "[/:=]" "-" flag "${flag}")
   string(REGEX REPLACE "\\+\\+" "xx" flag "${flag}")
 
-  check_compiler_flag(${LANG} ${FLAG} ${flag})
+  check_compiler_flag(${lang} ${FLAG} ${flag})
   set(${RESULT}
       "${${flag}}"
       PARENT_SCOPE)

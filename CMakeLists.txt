@@ -22,14 +22,8 @@ unset(version)
 unset(data)
 unset(version_json)
 
-message(STATUS "CMAKE_GENERATOR: ${CMAKE_GENERATOR}")
-
 # --- Global Variables ---
-set(GLOB_SIRIUS_WIN_DLL
-    "SIRIUS_WIN_DLL"
-    CACHE INTERNAL "" FORCE)
-cmake_path(SET GLOB_INCLUDE NORMALIZE "")
-set(__cmake_target_export_name "${SIRIUS_TARGET_CMAKE_NAMESPACE}Targets")
+set(GLOB_LIBRARY_TYPE)
 
 # --- Include ---
 include(GNUInstallDirs)
@@ -37,11 +31,42 @@ include(GNUInstallDirs)
 include(cmake/utils.cmake)
 include(CMakeOptions.cmake)
 
+# --- Preprocessing ---
+if(SIRIUS_BUILD_OBJECT_ONLY)
+  set(GLOB_LIBRARY_TYPE
+      "OBJECT"
+      CACHE INTERNAL "" FORCE)
+else()
+  if(BUILD_SHARED_LIBS)
+    set(GLOB_LIBRARY_TYPE
+        "SHARED"
+        CACHE INTERNAL "" FORCE)
+  else()
+    set(GLOB_LIBRARY_TYPE
+        "STATIC"
+        CACHE INTERNAL "" FORCE)
+  endif()
+endif()
+
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  if(GLOB_LIBRARY_TYPE STREQUAL "SHARED")
+    unset(SIRIUS_PIC_ENABLE CACHE)
+    set(SIRIUS_PIC_ENABLE
+        ON
+        CACHE INTERNAL "" FORCE)
+  endif()
+
+  if(NOT SIRIUS_PIC_ENABLE)
+    unset(SIRIUS_TEST_PIE_ENABLE CACHE)
+    set(SIRIUS_TEST_PIE_ENABLE
+        OFF
+        CACHE INTERNAL "" FORCE)
+  endif()
+endif()
+
 # --- Global Dependencies ---
 # python3
 find_package(Python3 REQUIRED)
-set(ENV{PYTHONPATH} "${PROJECT_SOURCE_DIR}/scripts;$ENV{PYTHONPATH}")
-
 #[================================[
 set(python_paths "${PROJECT_SOURCE_DIR}/scripts" "$ENV{PYTHONPATH}")
 cmake_path(CONVERT "${python_paths}" TO_NATIVE_PATH_LIST native_python_path)
@@ -56,8 +81,8 @@ if(NOT CMAKE_C_COMPILER_ID STREQUAL CMAKE_CXX_COMPILER_ID)
     FATAL_ERROR
       "
   The compilers for C and CXX require the same type
-  C compiler:     ${CMAKE_C_COMPILER_ID}
-  CXX compiler:   ${CMAKE_CXX_COMPILER_ID}
+  C compiler: ${CMAKE_C_COMPILER_ID}
+  CXX compiler: ${CMAKE_CXX_COMPILER_ID}
   ")
 endif()
 
@@ -68,8 +93,8 @@ if(CMAKE_C_SIMULATE_ID OR CMAKE_CXX_SIMULATE_ID)
       FATAL_ERROR
         "
   The simulate for C and CXX require the same type
-  C simulate:     ${CMAKE_C_SIMULATE_ID}
-  CXX simulate:   ${CMAKE_CXX_SIMULATE_ID}
+  C simulate: ${CMAKE_C_SIMULATE_ID}
+  CXX simulate: ${CMAKE_CXX_SIMULATE_ID}
   ")
   endif()
 endif()
@@ -80,7 +105,7 @@ if(CMAKE_C_COMPILER_VERSION VERSION_LESS ${min_version})
     FATAL_ERROR
       "
   C compiler - ${CMAKE_C_COMPILER_ID}, whose version is not accepted
-  Current version:  ${CMAKE_C_COMPILER_VERSION}
+  Current version: ${CMAKE_C_COMPILER_VERSION}
   Required version: ${min_version}
   Please edit options and rebuild
   ")
@@ -90,32 +115,25 @@ if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${min_version})
     FATAL_ERROR
       "
   CXX compiler - ${CMAKE_CXX_COMPILER_ID}, whose version is not accepted
-  Current version:  ${CMAKE_CXX_COMPILER_VERSION}
+  Current version: ${CMAKE_CXX_COMPILER_VERSION}
   Required version: ${min_version}
   Please edit options and rebuild
   ")
 endif()
 unset(min_version)
 
-# --- Preprocessing ---
-add_subdirectory(include/sirius)
-
-list(APPEND GLOB_INCLUDE "${PROJECT_SOURCE_DIR}/include")
-install(
-  DIRECTORY "include/sirius"
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  COMPONENT "${PROJECT_NAME}"
-  FILES_MATCHING
-  PATTERN "*.def"
-  PATTERN "*.h"
-  PATTERN "*.hpp"
-  PATTERN "*.hxx"
-  PATTERN "*.in" EXCLUDE)
-
-# --- Sirius ---
-add_subdirectory(src)
+add_subdirectory(Sirius)
 
 if(SIRIUS_TEST_ENABLE)
   enable_testing()
   add_subdirectory(test)
 endif()
+
+message(STATUS "------------------------------------")
+message(STATUS "- Project Name: ${PROJECT_NAME}")
+message(STATUS "- Project Version: ${PROJECT_VERSION}")
+message(STATUS "- Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "- Library Type: ${GLOB_LIBRARY_TYPE}")
+message(STATUS "- Install Prefix: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "- CMAKE_GENERATOR: ${CMAKE_GENERATOR}")
+message(STATUS "------------------------------------")

@@ -1,3 +1,6 @@
+# --- Include ---
+include(CMakePackageConfigHelpers)
+
 cmake_path(SET cmake_package_install_dir NORMALIZE
            "${CMAKE_INSTALL_LIBDIR}/cmake/${SIRIUS_TARGET_CMAKE_NAMESPACE}")
 

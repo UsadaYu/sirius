@@ -1,4 +1,4 @@
-name: CMake Build and Test
+name: Meson Build and Test
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 jobs:
   build-all:
     name: |
-      ${{ matrix.os.env }} - ${{ matrix.compiler }} - ${{ matrix.build_type }} - ${{ matrix.lib_config.type }}
+      ${{ matrix.os.env }} - ${{ matrix.compiler }} - ${{ matrix.build_type }} - ${{ matrix.lib_type }}
     runs-on: ${{ matrix.os.label }}
     strategy:
       fail-fast: false
@@ -19,10 +19,8 @@ jobs:
           - { env: "Linux-x64", label: "ubuntu-latest" }
           - { env: "Windows-x64", label: "windows-latest" }
         compiler: [gcc, clang, clang-cl, msvc]
-        build_type: [Release, Debug]
-        lib_config:
-          - { type: "shared", flag: "ON" }
-          - { type: "static", flag: "OFF" }
+        build_type: [release, debug]
+        lib_type: [shared, static]
         exclude:
           - os: { env: "Linux-x64", label: "ubuntu-latest" }
             compiler: clang-cl
@@ -33,8 +31,13 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup Ninja
-        uses: seanmiddleditch/gha-setup-ninja@master
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.x"
+
+      - name: Install Meson & Ninja
+        run: pip install meson ninja
 
       - name: Setup Windows Env
         if: matrix.os.env == 'Windows-x64'
@@ -53,6 +56,9 @@ jobs:
             echo "CC=clang-cl" >> $GITHUB_ENV
             echo "CXX=clang-cl" >> $GITHUB_ENV
           elif [ "${{ matrix.compiler }}" == "msvc" ]; then
+            # Simple and brutal methods always work.
+            mv "C:/Program Files/Git/usr/bin/link.exe" "C:/Program Files/Git/usr/bin/link.exe.bak" || true
+
             echo "CC=cl" >> $GITHUB_ENV
             echo "CXX=cl" >> $GITHUB_ENV
           fi
@@ -60,79 +66,97 @@ jobs:
       - name: Configure
         shell: bash
         run: |
-          cmake \
-            -S . \
-            -B build \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DBUILD_SHARED_LIBS=${{ matrix.lib_config.flag }} \
+          meson \
+            setup builddir \
+            --vsenv \
+            -Dbuildtype=${{ matrix.build_type }} \
+            -Ddefault_library=${{ matrix.lib_type }} \
             \
-            -DSIRIUS_TEST_ENABLE=ON
+            -Dtest-enable=true
 
       - name: Compile
-        run: cmake --build build
+        run: meson compile -C builddir
 
       - name: Run Tests
         working-directory: .
-        run: ctest --test-dir build -j4 --output-on-failure
+        run: meson test -C builddir --num-processes 4 --print-errorlogs
 
   build-options-linux:
-    name: |
-      Linux-x64 - OBJECT:${{ matrix.build_object_only }} - PIC:${{ matrix.pic_enable }}
+    name: Linux-x64 - OBJECT:${{ matrix.build_object_only }} - PIC:${{ matrix.pic_enable }}
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
         include:
-          - build_object_only: OFF
-            pic_enable: OFF
-          - build_object_only: ON
-            pic_enable: ON
+          - build_object_only: false
+            pic_enable: false
+          - build_object_only: true
+            pic_enable: true
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.x"
+
+      - name: Install Meson & Ninja
+        run: pip install meson ninja
+
+      - name: Set Compiler Env
+        shell: bash
+        run: |
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+
       - name: Configure
         shell: bash
         run: |
-          cmake \
-            -S . \
-            -B build \
-            -DCMAKE_C_COMPILER=clang \
-            -DCMAKE_CXX_COMPILER=clang++ \
-            -DBUILD_SHARED_LIBS=ON \
-            -DSIRIUS_BUILD_OBJECT_ONLY=${{ matrix.build_object_only }} \
+          meson \
+            setup builddir \
+            -Ddefault_library=shared \
+            -Dbuild-object-only=${{ matrix.build_object_only }} \
             \
-            -DSIRIUS_PIC_ENABLE=${{ matrix.pic_enable }} \
+            -Dpic-enable=${{ matrix.pic_enable }} \
             \
-            -DSIRIUS_TEST_ENABLE=ON \
-            -DSIRIUS_TEST_PIE_ENABLE=ON
+            -Dtest-enable=true \
+            -Dtest-pie-enable=true
 
       - name: Compile
-        run: cmake --build build --parallel 4
+        run: meson compile -C builddir
 
       - name: Run Tests
         working-directory: .
-        run: ctest --test-dir build -j4 --output-on-failure
+        run: meson test -C builddir --num-processes 4 --print-errorlogs
 
   build-options-windows:
-    name: Windows-x64 - OBJECT:ON
+    name: Windows-x64 - OBJECT:true
     runs-on: windows-latest
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.x"
+
+      - name: Install Meson & Ninja
+        run: pip install meson ninja
+
       - name: Setup Windows Env
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Configure
-        run: cmake -S . -B build -DSIRIUS_BUILD_OBJECT_ONLY=ON -DSIRIUS_TEST_ENABLE=ON
+        run: meson setup builddir -Dbuild-object-only=true -Dtest-enable=true
 
       - name: Compile
-        run: cmake --build build --config Release --parallel 4
+        run: meson compile -C builddir
 
       - name: Run Tests
         working-directory: .
-        run: ctest --test-dir build -C Release -j4 --output-on-failure
+        run: meson test -C builddir --num-processes 4 --print-errorlogs

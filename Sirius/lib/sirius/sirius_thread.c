@@ -579,6 +579,9 @@ sirius_api int sirius_thread_join(sirius_thread_t thread, void **retval) {
     *retval = thread->retval;
   }
 
+  /**
+   * @note Here, operate without a lock.
+   */
   if (!thread->resource_is_free) {
     thread->resource_is_free = true;
     CloseHandle(thread->handle);

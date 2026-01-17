@@ -1,15 +1,125 @@
-option('target-namespace', type: 'string', value: 'Sirius',
-        description: 'The meson interaction file namespace of the target')
-option('target-library-name-libsirius', type: 'string', value: 'sirius',
-        description: 'The name of the target library `sirius`')
-option('build-object-only', type : 'boolean', value : false,
-        description : 'Build objects only')
+# --- Global ---
+option(
+  'build-object-only',
+  type: 'boolean',
+  value: false,
+  description: 'Build objects only')
 
-option('write_size', type: 'integer', value: 2048)
-option('log_level', type: 'integer', value: 3)
-option('module_print_name', type: 'string', value: 'Sirius::sirius')
-option('pic_enable', type: 'boolean', value: true)
-option('build_object_only', type: 'boolean', value: false)
+# --- Sirius ---
+# Sirius
+option(
+  'target-namespace',
+  type: 'string',
+  value: 'Sirius',
+  description: 'The meson interaction file namespace of the target')
 
-option('test-enable', type : 'boolean', value : false,
-        description : 'Enable test')
+option(
+  'warning-all',
+  type: 'boolean',
+  value: true,
+  description: 'Enable all compile warnings')
+
+option(
+  'warning-as-error',
+  type: 'boolean',
+  value: false,
+  description: 'Regard all warnings as errors')
+
+option(
+  'pic-enable',
+  type: 'boolean',
+  value: true,
+  description: 'Position independent, enable `-fPIC/-fPIE`')
+
+option(
+  'log-level',
+  type: 'integer', value: 3,
+  description: '''
+  Log level: 0: disable the log; 1: error; 2: warn; 3: info; 4: debug''')
+
+option(
+  'asan',
+  type: 'boolean',
+  value: false,
+  description: 'Enable address sanitizer')
+
+# For example, on Windows, msvc and clang might have used the same-named
+# libraries but with different sources.
+option(
+  'asan-fallback-enable',
+  type: 'boolean',
+  value: false,
+  description: 'Whether to fall back to custom ASAN libs')
+
+option(
+  'asan-fallback-libs',
+  type: 'array',
+  value: [
+    'clang_rt.asan_dynamic-x86_64',
+    'clang_rt.asan_dynamic_runtime_thunk-x86_64',
+  ],
+  description: 'Libraries')
+
+option(
+  'asan-fallback-libdirs',
+  type: 'array',
+  value: [
+    'D:/070_Code/110_LLVM/lib/clang/21/lib/windows',
+  ],
+  description: 'The search path for `asan-fallback-libs`')
+
+# Sirius::sirius
+option(
+  'sirius-library-name',
+  type: 'string',
+  value: 'sirius',
+  description: 'The name of the target library `sirius`')
+
+option(
+  'sirius-print-name',
+  type: 'string',
+  value: 'Sirius::sirius',
+  description: '`Sirius::sirius` module print name')
+
+option(
+  'sirius-log-buf-size',
+  type: 'integer',
+  value: 2048,
+  description: '''
+  The maximum number of bytes written to the file descriptor at a single time''')
+
+# --- Test ---
+option(
+  'test-enable',
+  type: 'boolean',
+  value: false,
+  description: 'Enable test')
+
+option(
+  'test-pie-enable',
+  type: 'boolean',
+  value: false,
+  description: 'Position independent, enable `-fPIC/-fPIE`')
+
+option(
+  'test-extra-link-directories',
+  type: 'array',
+  value: [],
+  description: '''
+  The directory of `libs` that require additional links to the `sirius test`,
+  e.g., "[\'/path/lib1\', \'/path/lib2\']"''')
+
+option(
+  'test-extra-link-libraries',
+  type: 'array',
+  value: [],
+  description: '''
+  The name of `libs` that require additional links to the `sirius test`,
+  e.g., "[\'pthread\', \'stdc++\']"''')
+
+option(
+  'test-log-level',
+  type: 'integer',
+  value: 3,
+  description: '''
+  Test log level: 0: disable the log; 1: error; 2: warn; 3: info; 4: debug''')

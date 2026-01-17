@@ -1,3 +1,8 @@
+/**
+ * @note This test case will try to join the detached thread.
+ * This is unsafe. Tools like asan may report `abort`.
+ */
+
 #include <sirius/sirius_spinlock.h>
 #include <sirius/sirius_thread.h>
 
@@ -77,7 +82,7 @@ int main() {
   sirius_logsp_impl(
     sirius_log_level_warn, log_level_str_warn, log_red, sirius_log_module_name,
     log_purple
-    "- This is unsafe. Tools like asan might abort here\n" log_color_none);
+    "- This is unsafe. Tools like asan may abort here\n" log_color_none);
   sirius_warnsp("- sirius_thread_join: %d\n",
                 sirius_thread_join(threads[index], nullptr));
   sirius_warnsp("- sirius_thread_join: %d\n",
@@ -109,7 +114,7 @@ int main() {
   sirius_logsp_impl(
     sirius_log_level_warn, log_level_str_warn, log_red, sirius_log_module_name,
     log_purple
-    "- This is unsafe. Tools like asan might abort here\n" log_color_none);
+    "- This is unsafe. Tools like asan may abort here\n" log_color_none);
   sirius_warnsp("- sirius_thread_join: %d\n",
                 sirius_thread_join(threads[index], nullptr));
   sirius_warnsp("- sirius_thread_join: %d\n",

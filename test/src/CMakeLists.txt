@@ -2,44 +2,59 @@
 include(CheckCompilerFlag)
 
 # --- Global Dependencies of Testing ---
-set(GLOB_TEST_DEPS_SIRIUS
-    "${SIRIUS_TARGET_CMAKE_NAMESPACE}::${SIRIUS_TARGET_LIBRARY_NAME_LIBSIRIUS}")
+set(TEST_DEP_SIRIUS
+    "${SIRIUS_TARGET_CMAKE_NAMESPACE}::${SIRIUS_SIRIUS_LIBRARY_NAME}")
 
 # --- Global Variables of Testing ---
-set(GLOB_TEST_COMPILE_DEFINITIONS "")
-set(GLOB_TEST_COMPILE_OPTIONS "")
-set(GLOB_TEST_INCLUDE_DIRECTORIES "")
-set(GLOB_TEST_LINK_DIRECTORIES "")
-set(GLOB_TEST_LINK_LIBRARIES "")
-set(GLOB_TEST_LINK_OPTIONS "")
-set(GLOB_TEST_SYSTEM_INCLUDE_DIRECTORIES "")
+set(TEST_COMPILE_DEFINITIONS "")
+set(TEST_COMPILE_OPTIONS "")
+set(TEST_INCLUDE_DIRECTORIES "")
+set(TEST_LINK_DIRECTORIES "")
+set(TEST_LINK_LIBRARIES "")
+set(TEST_LINK_OPTIONS "")
+set(TEST_SYSTEM_INCLUDE_DIRECTORIES "")
+
+set(test_c_stds "")
+set(test_cxx_stds "")
+
+# --- Preprocessing ---
+foreach(lang "c" "cxx")
+  utils_query_compiler_config(ACTION "test_matrix" RESULT stds LANGUAGE ${lang})
+  set(test_${lang}_stds ${stds})
+  foreach(std IN LISTS stds)
+    utils_check_compiler_flag(${lang} ${std} std_ret)
+    if(NOT std_ret)
+      list(REMOVE_ITEM test_${lang}_stds ${std})
+    endif()
+  endforeach()
+endforeach()
 
 # --- Compile Definitions ---
-list(APPEND GLOB_TEST_COMPILE_DEFINITIONS
+list(APPEND TEST_COMPILE_DEFINITIONS
      "sirius_log_level=${SIRIUS_TEST_LOG_LEVEL}")
 
 # --- Compile Options ---
 if(MSVC)
-  list(APPEND GLOB_TEST_COMPILE_OPTIONS "/W4")
+  list(APPEND TEST_COMPILE_OPTIONS "/W4")
 else()
-  list(APPEND GLOB_TEST_COMPILE_OPTIONS "-Wall")
+  list(APPEND TEST_COMPILE_OPTIONS "-Wall")
 endif()
 
 if(MSVC)
   # ``__cplusplus`` is not used in the code to make version judgments, here just
   # for insurance.
-  list(APPEND GLOB_TEST_COMPILE_OPTIONS "/Zc:__cplusplus")
+  list(APPEND TEST_COMPILE_OPTIONS "/Zc:__cplusplus")
 endif()
 
 # --- Include Directories ---
-list(APPEND GLOB_TEST_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR})
+list(APPEND TEST_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR})
 
 # --- Link Directories ---
-list(APPEND GLOB_TEST_LINK_DIRECTORIES ${SIRIUS_TEST_EXTRA_LINK_DIRECTORIES})
+list(APPEND TEST_LINK_DIRECTORIES ${SIRIUS_TEST_EXTRA_LINK_DIRECTORIES})
 
 # --- Link Libraries ---
-list(APPEND GLOB_TEST_LINK_LIBRARIES ${GLOB_TEST_DEPS_SIRIUS})
-list(APPEND GLOB_TEST_LINK_LIBRARIES ${SIRIUS_TEST_EXTRA_LINK_LIBRARIES})
+list(APPEND TEST_LINK_LIBRARIES ${TEST_DEP_SIRIUS})
+list(APPEND TEST_LINK_LIBRARIES ${SIRIUS_TEST_EXTRA_LINK_LIBRARIES})
 
 # --- Link Options ---
 
@@ -48,15 +63,15 @@ list(APPEND GLOB_TEST_LINK_LIBRARIES ${SIRIUS_TEST_EXTRA_LINK_LIBRARIES})
 # --- Pic ---
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
   if(SIRIUS_TEST_PIE_ENABLE)
-    list(APPEND GLOB_TEST_COMPILE_OPTIONS "-fPIC")
-    list(APPEND GLOB_TEST_COMPILE_OPTIONS "-fPIE")
+    list(APPEND TEST_COMPILE_OPTIONS "-fPIC")
+    list(APPEND TEST_COMPILE_OPTIONS "-fPIE")
 
-    list(APPEND GLOB_TEST_LINK_OPTIONS "-pie")
+    list(APPEND TEST_LINK_OPTIONS "-pie")
   else()
-    list(APPEND GLOB_TEST_COMPILE_OPTIONS "-fno-PIC")
-    list(APPEND GLOB_TEST_COMPILE_OPTIONS "-fno-PIE")
+    list(APPEND TEST_COMPILE_OPTIONS "-fno-PIC")
+    list(APPEND TEST_COMPILE_OPTIONS "-fno-PIE")
 
-    list(APPEND GLOB_TEST_LINK_OPTIONS "-no-pie")
+    list(APPEND TEST_LINK_OPTIONS "-no-pie")
   endif()
 endif()
 
@@ -95,29 +110,26 @@ function(test_add_single_test)
   target_compile_definitions(${ARG_TARGET}
                              PRIVATE "sirius_log_module_name=\"${ARG_TARGET}\"")
 
-  target_compile_definitions(${ARG_TARGET}
-                             PRIVATE ${GLOB_TEST_COMPILE_DEFINITIONS})
-  target_compile_options(${ARG_TARGET} PRIVATE ${GLOB_TEST_COMPILE_OPTIONS})
-  target_include_directories(${ARG_TARGET}
-                             PRIVATE ${GLOB_TEST_INCLUDE_DIRECTORIES})
-  target_link_directories(${ARG_TARGET} PRIVATE ${GLOB_TEST_LINK_DIRECTORIES})
-  target_link_libraries(${ARG_TARGET} PRIVATE ${GLOB_TEST_LINK_LIBRARIES})
-  target_link_options(${ARG_TARGET} PRIVATE ${GLOB_TEST_LINK_OPTIONS})
+  target_compile_definitions(${ARG_TARGET} PRIVATE ${TEST_COMPILE_DEFINITIONS})
+  target_compile_options(${ARG_TARGET} PRIVATE ${TEST_COMPILE_OPTIONS})
+  target_include_directories(${ARG_TARGET} PRIVATE ${TEST_INCLUDE_DIRECTORIES})
+  target_link_directories(${ARG_TARGET} PRIVATE ${TEST_LINK_DIRECTORIES})
+  target_link_libraries(${ARG_TARGET} PRIVATE ${TEST_LINK_LIBRARIES})
+  target_link_options(${ARG_TARGET} PRIVATE ${TEST_LINK_OPTIONS})
   target_include_directories(${ARG_TARGET} SYSTEM
-                             PRIVATE ${GLOB_TEST_SYSTEM_INCLUDE_DIRECTORIES})
+                             PRIVATE ${TEST_SYSTEM_INCLUDE_DIRECTORIES})
 
   add_test(
     NAME ${ARG_TARGET}
     COMMAND ${ARG_TARGET}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
-  if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND SIRIUS_BUILD_TYPE STREQUAL
+  if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND GLOB_LIBRARY_TYPE STREQUAL
                                               "SHARED")
     set_tests_properties(
       ${ARG_TARGET}
-      PROPERTIES
-        ENVIRONMENT_MODIFICATION
-        "PATH=path_list_prepend:$<TARGET_FILE_DIR:${GLOB_TEST_DEPS_SIRIUS}>")
+      PROPERTIES ENVIRONMENT_MODIFICATION
+                 "PATH=path_list_prepend:$<TARGET_FILE_DIR:${TEST_DEP_SIRIUS}>")
   endif()
 endfunction()
 
@@ -169,23 +181,21 @@ function(test_add_exes_and_tests)
     set(target_lang ${ARG_LANGUAGE})
   endif()
   string(TOUPPER "${target_lang}" target_lang)
-  set(valid_langs "C" "CXX")
-  if(NOT ${target_lang} IN_LIST valid_langs)
+  set(std_flags "")
+  if(target_lang STREQUAL "C")
+    set(std_flags ${test_c_stds})
+  elseif(target_lang STREQUAL "CXX")
+    set(std_flags ${test_cxx_stds})
+  else()
     message(
       FATAL_ERROR "Unsupported or undetectable language for `${ARG_MAIN}`")
   endif()
 
-  utils_query_compiler_config(ACTION "test_matrix" RESULT std_flags LANGUAGE
-                              ${target_lang})
   get_filename_component(main_name ${ARG_MAIN} NAME_WE)
 
   set(created_targets "")
 
   foreach(std_flag IN LISTS std_flags)
-    utils_check_compiler_flag(${target_lang} ${std_flag} std_ret)
-    if(NOT std_ret)
-      continue()
-    endif()
     utils_get_safe_name(std_flag suffix)
     set(target "${main_name}_${suffix}")
     if(TARGET ${target})

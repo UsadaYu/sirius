@@ -9,7 +9,7 @@
 
 #include "internal/utils.h"
 
-static constexpr int NB_THREADS = 24;
+static constexpr int NB_THREADS = 48;
 
 static std::random_device rd;
 static std::mt19937 gen(rd());
@@ -21,7 +21,7 @@ static void *foo(void *arg) {
   char var[512];
   memset(var, 'q', sizeof(var));
 
-  sirius_usleep(20 * 1000);
+  sirius_usleep(100 * 1000);
 
   if (dis(gen) == 1)
     return nullptr;

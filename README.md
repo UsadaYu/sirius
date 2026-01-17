@@ -1,8 +1,10 @@
-# sirius-0.1.0
+# sirius-0.1.1
 
 ---
 
-# 1 Build
+
+
+# 1 Build and Compile
 
 ## 1.1 CMake
 
@@ -13,14 +15,15 @@ cmake \
 -B build \
 -DCMAKE_BUILD_TYPE=Release \
 -DBUILD_SHARED_LIBS=ON \
--DSIRIUS_TEST_ENABLE=ON \
--DCMAKE_INSTALL_PREFIX="/usr/local"
+-DCMAKE_INSTALL_PREFIX="/usr/local" \
+\
+-DSIRIUS_TEST_ENABLE=ON
 
-# --- Build ---
+# --- Compile and Install ---
 cmake --build build --target install
 
 # --- Run Tests ---
-cd build ; ctest ; cd -
+ctest --test-dir build --verbose
 ```
 
 
@@ -28,7 +31,20 @@ cd build ; ctest ; cd -
 ## 1.2 Meson
 
 ```shell
-# Not yet
+# --- Configure ---
+meson \
+setup builddir \
+-Dbuildtype=release \
+-Ddefault_library=shared \
+-Dprefix="/usr/local" \
+\
+-Dtest-enable=true
+
+# --- Compile and Install ---
+meson compile -C builddir install
+
+# --- Run Tests ---
+meson test -C builddir --verbose
 ```
 
 

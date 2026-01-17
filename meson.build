@@ -1,91 +1,111 @@
-# \rm -rf builddir ; meson setup builddir -Dbuildtype=release -Ddefault_library=shared
-# ninja -C builddir --verbose
-
 project(
-  'sirius',
+  'Sirius',
   'c', 'cpp',
   default_options: [
     'buildtype=debugoptimized',
     'b_ndebug=if-release',
-    'c_std=c17',
-    'cpp_std=c++20',
   ],
-  meson_version: '>=1.8.3',
+  meson_version: '>=1.10.0',
   version: run_command(
-    'scripts/build/json_reader.py',
-    'config/build/version.json',
-    'version',
+    find_program('python'),
+    join_paths('scripts', 'build', 'version.py'),
+    '--json', join_paths('config', 'build', 'version.json'),
     check: true
-  ).stdout(),
+  ).stdout().strip(),
 )
 
-# --- Global Dependencies ---
-# compiler
+# --- Global Variables ---
 c = meson.get_compiler('c')
 cpp = meson.get_compiler('cpp')
+
+glob_version = meson.project_version().split()[0]
+glob_version_major = glob_version.split('.')[0]
+glob_version_minor = glob_version.split('.')[1]
+glob_version_patch = glob_version.split('.')[2]
+
+glob_compiler_script = join_paths(
+  meson.project_source_root(), 'scripts', 'build', 'compiler.py'
+)
+glob_compiler_json = join_paths(
+  meson.project_source_root(), 'config', 'build', 'compiler.json'
+)
+
+if get_option('build-object-only')
+  glob_library_type = 'object'
+else
+  if get_option('default_library') == 'shared'
+    glob_library_type = 'shared'
+  else
+    glob_library_type = 'static'
+    if get_option('default_library') != 'static'
+      warning(
+        'Override the original option `@0@` of `default_library` with `static`'
+        .format(get_option('default_library')))
+    endif
+  endif
+endif
+
+# Sirius
+glob_sirius_pic_enable = glob_library_type == 'shared' \
+  ? true \
+  : get_option('pic-enable')
+glob_sirius_asan_enable = get_option('b_sanitize') == 'address' \
+  ? true \
+  : get_option('asan')
+
+# test
+glob_test_pie_enable = glob_sirius_pic_enable \
+  ? get_option('test-pie-enable') \
+  : false
+
+# --- Preprocessing ---
+
+# --- Global Dependencies ---
+# python3
+python3 = import('python').find_installation('python3', required: true)
+
+# compiler
 if c.get_id() != cpp.get_id()
   error('''
   The compilers for C and CXX require the same type
-  C compiler:     @0@
-  CXX compiler:   @1@'''
+  C compiler: @0@
+  CXX compiler: @1@'''
   .format(c.get_id(), cpp.get_id()))
 endif
 
-#############################
-message('-------- @0@ --------'.format(c.get_id()))
-#############################
-
-compiler_groups = [
-  ['gcc', 'gnu'],
-  ['clang', 'clang'],
-  ['msvc', 'msvc'],
-]
-foreach group : compiler_groups
-  compiler_id = group[0]
-  deps_key = group[1]
-  deps_json = 'config/build/deps.json'
-  script = 'scripts/build/json_reader.py'
-  res = run_command(
-    'python3', script, deps_json, deps_key, 'version', check: true)
-  version = res.stdout().strip()
-  if c.get_id() == compiler_id
-    if c.version().version_compare('<@0@'.format(version))
+_min_version = run_command(
+  python3, glob_compiler_script,
+  '--json', glob_compiler_json,
+  '--compiler', cpp.get_id(),
+  '--action', 'min_version',
+  check: true
+).stdout().strip()
+if c.version().version_compare('<@0@'.format(_min_version))
       error('''
   C compiler - @0@, whose version is not accepted
   Current version: @1@
   Required version: @2@
   Please edit options and rebuild'''
-    .format(c.get_id(), c.version(), version))
-    endif
-
-    if cpp.version().version_compare('<' + version)
+    .format(c.get_id(), c.version(), _min_version))
+endif
+if cpp.version().version_compare('<@0@'.format(_min_version))
       error('''
   CXX compiler - @0@, whose version is not accepted
   Current version: @1@
   Required version: @2@
   Please edit options and rebuild'''
-    .format(cpp.get_id(), cpp.version(), version))
-    endif
-  endif
-endforeach
+    .format(cpp.get_id(), cpp.version(), _min_version))
+endif
+_min_version = ''
 
-add_project_arguments('-D_GNU_SOURCE', language: 'c')
+subdir('Sirius')
 
-# --- Global Variables ---
-glob_version = meson.project_version().split()[0]
-glob_sirius_sirius = get_option('target-library-name-libsirius')
-glob_sirius_win_dll = 'SIRIUS_WIN_DLL'
-glob_include = []
-
-glob_include += include_directories(join_paths('include'))
-
-# --- Preprocessing ---
-subdir(join_paths('include', 'sirius'))
-
-# --- Sirius ---
-subdir('src')
-
-# --- Unit Tests ---
 if get_option('test-enable')
   subdir('test')
 endif
+
+summary({
+    'Build Type': get_option('buildtype'),
+    'Library Type': glob_library_type,
+    'Install Prefix': get_option('prefix'),
+}, section: 'Configuration')

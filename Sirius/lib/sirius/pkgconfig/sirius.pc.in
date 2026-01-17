@@ -1,0 +1,11 @@
+prefix=@__pkgconfig_prefix@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+
+Name: @__pkgconfig_lib_name@
+Description: Sirius::sirius
+URL: https://github.com/UsadaYu/sirius
+Version: @__pkgconfig_version@
+Libs: -L${libdir} -l@__pkgconfig_lib_name@ @__pkgconfig_libs@
+Libs.private: @__pkgconfig_libs_private@
+Cflags: -I${includedir} @__pkgconfig_cflags@

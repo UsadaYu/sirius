@@ -1,23 +1,37 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import argparse
 import json
 import os
 import sys
 
+try:
+    # Python 2
+    from io import open
+except ImportError:
+    # Python 3
+    pass
+
+try:
+    # Python 3
+    JSONDecodeError = json.JSONDecodeError
+except AttributeError:
+    # Python 2
+    JSONDecodeError = ValueError
+
 
 def load_json(json_path):
     """Load the json file."""
     if not os.path.exists(json_path):
-        raise FileNotFoundError(f"No such file: {json_path}")
+        raise IOError("No such file: {}".format(json_path))
 
     try:
         with open(json_path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid json format: {e}")
+    except JSONDecodeError as e:
+        raise ValueError("Invalid json format: {}".format(e))
     except Exception as e:
-        raise RuntimeError(f"Failed to read the file: {e}")
+        raise RuntimeError("Failed to read the file: {}".format(e))
 
 
 def main():
@@ -27,9 +41,9 @@ def main():
 
     try:
         data = load_json(args.json)
-        print(data["version"], end="")
+        sys.stdout.write(str(data["version"]))
     except Exception as e:
-        sys.stderr.write("\033[0;31m" f"Error: {str(e)}\n" "\033[0m")
+        sys.stderr.write("\033[0;31mError: {}\033[0m\n".format(str(e)))
         sys.exit(1)
 
 

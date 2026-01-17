@@ -4,6 +4,7 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 
+#  include <atomic>
 #  include <mutex>
 #  include <set>
 
@@ -63,6 +64,34 @@ class ThreadResourceManager {
   std::mutex mtx;
   std::set<sirius_thread_t> active_threads;
 
+  ~ThreadResourceManager() {
+    manager_is_alive() = false;
+
+    std::lock_guard<std::mutex> lock(mtx);
+    for (auto thr : active_threads) {
+      if (thr && !thr->resource_is_free) {
+        thr->resource_is_free = true;
+
+        /**
+         * @note Don't close the handle here, because the thread might still
+         * seem to be running (suspended).
+         */
+
+        sirius_spin_destroy(&thr->spin);
+        free(thr);
+      }
+    }
+  }
+
+  /**
+   * @note The validity of static memory addresses is not affected by
+   * destructors.
+   */
+  static bool &manager_is_alive() {
+    static bool alive = true;
+    return alive;
+  }
+
   inline void mark(sirius_thread_t thr) {
     std::lock_guard<std::mutex> lock(mtx);
     active_threads.insert(thr);
@@ -78,23 +107,6 @@ class ThreadResourceManager {
       sirius_spin_destroy(&thr->spin);
       CloseHandle(thr->handle);
       free(thr);
-    }
-  }
-
-  ~ThreadResourceManager() {
-    std::lock_guard<std::mutex> lock(mtx);
-    for (auto thr : active_threads) {
-      if (thr && !thr->resource_is_free) {
-        thr->resource_is_free = true;
-
-        /**
-         * @note Don't close the handle here, because the thread might still
-         * seem to be running (suspended).
-         */
-
-        sirius_spin_destroy(&thr->spin);
-        free(thr);
-      }
     }
   }
 };
@@ -135,30 +147,57 @@ static inline int win_try_cleanup(sirius_thread_t thr) {
   return 0;
 }
 
+static inline bool has_been_destructed() {
+  if (ThreadResourceManager::manager_is_alive())
+    return false;
+
+  static std::atomic<bool> once_print = false;
+
+  if (once_print.load())
+    return true;
+
+  once_print.store(true);
+
+  sirius_logsp_impl(0, log_level_str_error, log_red, sirius_log_module_name,
+                    log_purple
+                    "\n"
+                    "---------- Fatal Error ----------\n"
+                    "- The thread manager has been destructed\n"
+                    "- The `main` function may have already ended\n"
+                    "- Or some unknown errors occurred\n"
+                    "- There should be no further operations on the thread\n"
+                    "---------------------------------\n" log_color_none);
+
+  return true;
+}
+
 #endif
 
 // --- Internal Interface ---
 #if defined(_WIN32) || defined(_WIN64)
 
 extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
-  DWORD dw_err;
   thread_wrapper_arg_s warg = *(thread_wrapper_arg_s *)pv;
-  sirius_thread_t thr = warg.thr;
-
   free(pv);
 
-  if (!TlsSetValue(g_tls_index, thr)) {
-    /**
-     * @note This function usually does not fail to be called. If it does fail,
-     * it is usually due to an environmental issue or incorrect usage of the
-     * API, such as terminating the entire process directly when the detach
-     * thread has not ended. If this happens, the destruction of dependencies on
-     * `g_manager` can generally prevent memory leaks.
-     */
+  sirius_thread_t thr = warg.thr;
 
-    dw_err = GetLastError();
+  if (!TlsSetValue(g_tls_index, thr)) {
+    if (has_been_destructed()) {
+      /**
+       * @note Here it will not return an error unless it's necessary after the
+       * main function has ended, lest some tools treat the error code as a
+       * fatal error.
+       */
+      return 0;
+    }
+
+    DWORD dw_err = GetLastError();
     internal_win_fmt_error(dw_err, "TlsSetValue");
-    return UINT_MAX;
+
+    win_try_cleanup(thr);
+
+    return internal_winerr_to_errno(dw_err);
   }
 
   try {

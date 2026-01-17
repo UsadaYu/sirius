@@ -1,50 +1,20 @@
 # --- Global ---
+option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+
+option(SIRIUS_BUILD_OBJECT_ONLY "Build objects only" OFF)
+
+# --- Sirius ---
+# Sirius
 set(SIRIUS_TARGET_CMAKE_NAMESPACE
     "Sirius"
     CACHE STRING "The cmake interaction file namespace of the target")
 
-set(SIRIUS_TARGET_LIBRARY_NAME_LIBSIRIUS
-    "sirius"
-    CACHE STRING "The name of the target library `sirius`")
-
-option(SIRIUS_BUILD_OBJECT_ONLY "Build objects only" OFF)
-
-option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
-
-if(SIRIUS_BUILD_OBJECT_ONLY)
-  set(SIRIUS_BUILD_TYPE
-      "OBJECT"
-      CACHE INTERNAL "" FORCE)
-else()
-  if(BUILD_SHARED_LIBS)
-    set(SIRIUS_BUILD_TYPE
-        "SHARED"
-        CACHE INTERNAL "" FORCE)
-  else()
-    set(SIRIUS_BUILD_TYPE
-        "STATIC"
-        CACHE INTERNAL "" FORCE)
-  endif()
-endif()
-
-# --- Sirius ---
-# Sirius
 option(SIRIUS_WARNING_ALL "Enable all compile warnings" ON)
 
 option(SIRIUS_WARNING_AS_ERROR "Regard all warnings as errors" OFF)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  if(SIRIUS_BUILD_TYPE STREQUAL "SHARED")
-    if(DEFINED SIRIUS_PIC_ENABLE)
-      message(STATUS "Ignore the option: SIRIUS_PIC_ENABLE")
-    endif()
-    unset(SIRIUS_PIC_ENABLE CACHE)
-    set(SIRIUS_PIC_ENABLE
-        ON
-        CACHE INTERNAL "" FORCE)
-  else()
-    option(SIRIUS_PIC_ENABLE "Position independent, enable `-fPIC/-fPIE`" ON)
-  endif()
+  option(SIRIUS_PIC_ENABLE "Position independent, enable `-fPIC/-fPIE`" ON)
 endif()
 
 set(SIRIUS_LOG_LEVEL
@@ -54,12 +24,29 @@ set(SIRIUS_LOG_LEVEL
 
 option(SIRIUS_ASAN "Enable address sanitizer" OFF)
 
-# Sirius::sirius
-set(SIRIUS_MODULE_PRINT_NAME
-    "${SIRIUS_TARGET_CMAKE_NAMESPACE}::${SIRIUS_TARGET_LIBRARY_NAME_LIBSIRIUS}"
-    CACHE STRING "Sirius module print name")
+# For example, on Windows, msvc and clang might have used the same-named
+# libraries but with different sources.
+option(SIRIUS_ASAN_FALLBACK_ENABLE "Whether to fall back to custom ASAN libs"
+       OFF)
 
-set(SIRIUS_LOG_BUF_SIZE
+set(SIRIUS_ASAN_FALLBACK_LIBS
+    "clang_rt.asan_dynamic-x86_64;clang_rt.asan_dynamic_runtime_thunk-x86_64"
+    CACHE STRING "Libraries")
+
+set(SIRIUS_ASAN_FALLBACK_LIBDIRS
+    "D:/070_Code/110_LLVM/lib/clang/21/lib/windows"
+    CACHE STRING "The search path for `SIRIUS_ASAN_FALLBACK_LIBS`")
+
+# Sirius::sirius
+set(SIRIUS_SIRIUS_LIBRARY_NAME
+    "sirius"
+    CACHE STRING "The name of the target library `sirius`")
+
+set(SIRIUS_SIRIUS_PRINT_NAME
+    "${SIRIUS_TARGET_CMAKE_NAMESPACE}::${SIRIUS_SIRIUS_LIBRARY_NAME}"
+    CACHE STRING "`Sirius::sirius` module print name")
+
+set(SIRIUS_SIRIUS_LOG_BUF_SIZE
     "2048"
     CACHE
       STRING
@@ -70,18 +57,7 @@ set(SIRIUS_LOG_BUF_SIZE
 option(SIRIUS_TEST_ENABLE "Enable test" OFF)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  if(NOT SIRIUS_PIC_ENABLE)
-    if(DEFINED SIRIUS_TEST_PIE_ENABLE)
-      message(STATUS "Ignore the option: SIRIUS_TEST_PIE_ENABLE")
-    endif()
-    unset(SIRIUS_TEST_PIE_ENABLE CACHE)
-    set(SIRIUS_TEST_PIE_ENABLE
-        OFF
-        CACHE INTERNAL "" FORCE)
-  else()
-    option(SIRIUS_TEST_PIE_ENABLE "Position independent, enable `-fPIC/-fPIE`"
-           ON)
-  endif()
+  option(SIRIUS_TEST_PIE_ENABLE "Position independent, enable `-fPIC/-fPIE`" ON)
 endif()
 
 set(SIRIUS_TEST_EXTRA_LINK_DIRECTORIES
