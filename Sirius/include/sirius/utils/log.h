@@ -1,4 +1,0 @@
-#ifndef SIRIUS_UTILS_LOG_H
-#define SIRIUS_UTILS_LOG_H
-
-#endif // SIRIUS_UTILS_LOG_H

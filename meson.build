@@ -5,7 +5,7 @@ project(
     'buildtype=debugoptimized',
     'b_ndebug=if-release',
   ],
-  meson_version: '>=1.10.0',
+  meson_version: '>=1.10.1',
   version: run_command(
     find_program('python'),
     join_paths('scripts', 'build', 'version.py'),
@@ -98,7 +98,7 @@ if cpp.version().version_compare('<@0@'.format(_min_version))
 endif
 _min_version = ''
 
-subdir('Sirius')
+subdir('sirius')
 
 if get_option('test-enable')
   subdir('test')

@@ -29,7 +29,7 @@ set(GLOB_LIBRARY_TYPE)
 include(GNUInstallDirs)
 
 include(cmake/utils.cmake)
-include(CMakeOptions.cmake)
+include(CMake_options.cmake)
 
 # --- Preprocessing ---
 if(SIRIUS_BUILD_OBJECT_ONLY)
@@ -122,7 +122,7 @@ if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${min_version})
 endif()
 unset(min_version)
 
-add_subdirectory(Sirius)
+add_subdirectory(sirius)
 
 if(SIRIUS_TEST_ENABLE)
   enable_testing()

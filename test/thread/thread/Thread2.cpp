@@ -1,0 +1,123 @@
+#include <sirius/thread/thread.h>
+
+#include <algorithm>
+#include <array>
+#include <set>
+
+#include "internal/utils.h"
+
+static constexpr int NB_THREADS = 6;
+
+using HashPair = std::pair<std::string_view, std::string_view>;
+using IndexToHash = std::array<HashPair, NB_THREADS>;
+
+static const IndexToHash HASHES = {
+  {
+   {"97ce467c-534d-408c-a4c6-4548e5f0fbf0",
+     "36ad79d2-94e3-4172-9421-092a52f7ef98"},
+   {"cbab5212-bbbe-4730-9b3a-c069147e1c13",
+     "b4790ab4-da08-4888-a1ce-6ac88bf9c35b"},
+   {"e3aeed55-390a-4c3f-83d8-f1f28a937e07",
+     "b4f0e0c9-5d32-476d-8824-5c41ed2e3f75"},
+   {"10d48fa2-0180-4ef8-a18e-c15ffa3b7bf8",
+     "fea50995-f535-498f-8738-6303bd2c90c3"},
+   {"c43cc2fd-7498-4ecf-8a97-7230f32b55fe",
+     "f778e46c-fe1c-4da5-b653-2dda7087df6b"},
+   {"4ecc5c75-a008-4a35-8262-eb241e1c7b94",
+     "3f58a037-1cd6-49f4-92a0-df71d59b27e2"},
+   }
+};
+
+struct Arg {
+  int index;
+  std::string_view string;
+};
+
+void *foo(void *arg) {
+  auto *content = (Arg *)arg;
+  int index = content->index;
+  auto hash1 = HASHES[index].first;
+  auto hash2 = HASHES[index].second;
+
+  if (content->string == hash1) {
+    sirius_infosp(
+      "Sub-thread (index: %d). The `argument` was successfully verified\n",
+      index);
+  } else {
+    std::string es;
+    es = std::format(log_red
+                     "\n"
+                     "  Sub-thread (TID: %llu)\n"
+                     "  Fail to verifiy the `argument`:\n"
+                     "    Actual string:   {}\n"
+                     "    Expected string: {}\n" log_color_none,
+                     sirius_thread_id, content->string, hash1);
+    throw std::runtime_error(es);
+  }
+
+  sirius_thread_exit((void *)hash2.data());
+
+  return nullptr;
+}
+
+int main() {
+  int ret;
+  std::string es;
+  sirius_thread_attr_t attr {};
+  sirius_thread_t threads[NB_THREADS];
+  Arg args[NB_THREADS] {};
+  void *stackaddr = nullptr;
+
+  attr.inherit_sched = sirius_thread_explicit_sched;
+  attr.scope = sirius_thread_scope_system;
+  attr.stackaddr = stackaddr;
+  attr.guardsize = 4096;
+
+  for (int i = 0; i < NB_THREADS; ++i) {
+    args[i].index = i;
+    args[i].string = HASHES[i].first;
+    ret = sirius_thread_create(threads + i, &attr, foo, (void *)(args + i));
+    if (ret) {
+      es = std::format(log_red
+                       "\n"
+                       "  Main-Join (creating the index: %d)\n"
+                       "  `sirius_thread_create` error: {}\n" log_color_none,
+                       i, ret);
+      throw std::runtime_error(es);
+    }
+  }
+
+  const char *retval = nullptr;
+  for (int i = 0; i < NB_THREADS; ++i) {
+    ret = sirius_thread_join(threads[i], (void **)&retval);
+    if (ret) {
+      es = std::format(log_red
+                       "\n"
+                       "  Main-Join (joining the index: %d)\n"
+                       "  `sirius_thread_join` error: {}\n" log_color_none,
+                       i, ret);
+      throw std::runtime_error(es);
+    }
+
+    auto hash2 = HASHES[i].second;
+    if (retval == hash2.data()) {
+      sirius_infosp(
+        "Main-Join (joining the index: %d). The `retval` was successfully "
+        "verified\n",
+        i);
+    } else {
+      es = std::format(log_red
+                       "\n"
+                       "  Main-Join (joining the index: %d)\n"
+                       "  Fail to verifiy the `retval`:\n"
+                       "    Actual string:   {}\n"
+                       "    Expected string: {}\n" log_color_none,
+                       i, retval, hash2);
+      throw std::runtime_error(es);
+    }
+
+    retval = nullptr;
+  }
+
+  return 0;
+}

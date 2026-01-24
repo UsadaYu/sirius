@@ -1,0 +1,11 @@
+utils_generate_pkgconfig(
+  LIBNAME
+  ${LIB_TARGET}
+  VERSION
+  ${lib_version}
+  LIBS
+  "${pkgconfig_libs}"
+  LIBS_PRIVATE
+  "${pkgconfig_libs_private}"
+  CFLAGS
+  "${pkgconfig_cflags}")

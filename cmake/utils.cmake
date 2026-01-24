@@ -1,4 +1,4 @@
-macro(utils_error_if_var_is_null VAR)
+macro(sirius_error_if_var_is_null VAR)
   if(NOT ${VAR})
     message(FATAL_ERROR "Invalid argument. Null argument: ${VAR}")
   endif()
@@ -10,7 +10,7 @@ macro(utils_set_output_directory_to_mirror)
   set(_utils_multi_value_keywords "")
   cmake_parse_arguments(ARG "${_utils_options}" "${_utils_one_value_keywords}"
                         "${_utils_multi_value_keywords}" ${ARGN})
-  utils_error_if_var_is_null(ARG_TARGET)
+  sirius_error_if_var_is_null(ARG_TARGET)
 
   cmake_path(SET _utils_output_directory NORMALIZE "")
   if(ARG_DIRECTORY)
@@ -109,8 +109,8 @@ function(utils_query_compiler_config)
   set(multi_value_keywords "")
   cmake_parse_arguments(ARG "${options}" "${one_value_keywords}"
                         "${multi_value_keywords}" ${ARGN})
-  utils_error_if_var_is_null(ARG_ACTION)
-  utils_error_if_var_is_null(ARG_RESULT)
+  sirius_error_if_var_is_null(ARG_ACTION)
+  sirius_error_if_var_is_null(ARG_RESULT)
 
   set(language "")
   if(ARG_LANGUAGE)
@@ -191,4 +191,59 @@ function(utils_check_compiler_flag LANG FLAG RESULT)
   set(${RESULT}
       "${${flag}}"
       PARENT_SCOPE)
+endfunction()
+
+cmake_path(SET var NORMALIZE ${CMAKE_INSTALL_PREFIX})
+string(REPLACE " " "\\ " var "${var}")
+set(__pkgconfig_prefix
+    ${var}
+    CACHE INTERNAL "")
+
+cmake_path(SET var NORMALIZE "${PROJECT_SOURCE_DIR}/cmake/template.pc.in")
+set(UTILS_PKGCONFIG_TEMPLATE_IN
+    ${var}
+    CACHE INTERNAL "")
+
+unset(var)
+
+function(utils_generate_pkgconfig)
+  set(options "")
+  set(one_value_keywords LIBNAME VERSION)
+  set(multi_value_keywords LIBS LIBS_PRIVATE REQUIRES REQUIRES_PRIVATE CFLAGS)
+  cmake_parse_arguments(ARG "${options}" "${one_value_keywords}"
+                        "${multi_value_keywords}" ${ARGN})
+  sirius_error_if_var_is_null(ARG_LIBNAME)
+  sirius_error_if_var_is_null(ARG_VERSION)
+
+  set(__pkgconfig_lib_name ${ARG_LIBNAME})
+  set(__pkgconfig_version ${ARG_VERSION})
+
+  set(__pkgconfig_libs "")
+  set(__pkgconfig_libs_private "")
+  set(__pkgconfig_requires "")
+  set(__pkgconfig_requires_private "")
+  set(__pkgconfig_cflags "")
+
+  macro(string_std DST SRC)
+    foreach(var IN LISTS ${SRC})
+      string(REPLACE " " "\\ " var "${var}")
+      set(${DST} "${${DST}}${var} ")
+    endforeach()
+    unset(var)
+    string(STRIP "${${DST}}" ${DST})
+  endmacro()
+
+  string_std(__pkgconfig_libs ARG_LIBS)
+  string_std(__pkgconfig_libs_private ARG_LIBS_PRIVATE)
+  string_std(__pkgconfig_requires ARG_REQUIRES)
+  string_std(__pkgconfig_requires_private ARG_REQUIRES_PRIVATE)
+  string_std(__pkgconfig_cflags ARG_CFLAGS)
+
+  cmake_path(SET pkg_file NORMALIZE
+             "${CMAKE_CURRENT_BINARY_DIR}/${ARG_LIBNAME}.pc")
+  configure_file(${UTILS_PKGCONFIG_TEMPLATE_IN} ${pkg_file} @ONLY)
+  install(
+    FILES ${pkg_file}
+    COMPONENT "${PROJECT_NAME}"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/pkgconfig")
 endfunction()

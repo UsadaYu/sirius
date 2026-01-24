@@ -1,4 +1,4 @@
-# sirius-0.1.1
+# sirius-0.2.0
 
 ---
 
@@ -19,11 +19,14 @@ cmake \
 \
 -DSIRIUS_TEST_ENABLE=ON
 
-# --- Compile and Install ---
+# --- Compile ---
+cmake --build build --verbose
+
+# --- Install ---
 cmake --build build --target install
 
 # --- Run Tests ---
-ctest --test-dir build --verbose
+ctest --test-dir build --verbose -j4
 ```
 
 
@@ -40,11 +43,14 @@ setup builddir \
 \
 -Dtest-enable=true
 
-# --- Compile and Install ---
-meson compile -C builddir install
+# --- Compile ---
+meson compile -C builddir --verbose
+
+# --- Install ---
+meson install -C builddir
 
 # --- Run Tests ---
-meson test -C builddir --verbose
+meson test -C builddir --verbose --num-processes 4
 ```
 
 
