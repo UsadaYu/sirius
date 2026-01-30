@@ -131,7 +131,7 @@ sirius_api void sirius_nsleep(uint64_t nsec) {
 #endif
 }
 
-sirius_api uint64_t sirius_get_time_us() {
+sirius_api uint64_t sirius_get_clock_monotonic_us() {
 #if defined(_WIN32) || defined(_WIN64)
   static LARGE_INTEGER qpc_frequency_us = {0};
   LARGE_INTEGER counter;
@@ -162,7 +162,7 @@ sirius_api uint64_t sirius_get_time_us() {
 #endif
 }
 
-sirius_api uint64_t sirius_get_time_ns() {
+sirius_api uint64_t sirius_get_clock_monotonic_ns() {
 #if defined(_WIN32) || defined(_WIN64)
   static LARGE_INTEGER frequency = {0};
   LARGE_INTEGER counter;

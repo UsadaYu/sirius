@@ -1,64 +1,57 @@
 #pragma once
 
 #include "sirius/utils/log.h"
-#include "utils/config.h"
+#include "utils/utils.h"
 
-#if defined(_WIN32) || defined(_WIN64)
-#  define _utils_strerror_r(errnum, buf, size) strerror_s(buf, size, errnum)
-#else
-#  include <string.h>
-#  define _utils_strerror_r strerror_r
-#endif
-
-#define utils_string_error(err_c, fun) \
+#define utils_string_error(error_code, funcion) \
   do { \
     char e[sirius_log_buf_size]; \
-    if (likely(0 == _utils_strerror_r(err_c, e, sizeof(e)))) { \
-      sirius_error(fun ": %d, %s\n", err_c, e); \
+    if (likely(0 == UTILS_STRERROR_R(error_code, e, sizeof(e)))) { \
+      sirius_error(funcion ": %d, %s\n", error_code, e); \
     } else { \
-      sirius_error(fun ": %d\n", err_c); \
+      sirius_error(funcion ": %d\n", error_code); \
     } \
   } while (0)
 
-#define utils_string_warn(err_c, fun) \
+#define utils_string_warn(error_code, funcion) \
   do { \
     char e[sirius_log_buf_size]; \
-    if (likely(0 == _utils_strerror_r(err_c, e, sizeof(e)))) { \
-      sirius_warn(fun ": %d, %s\n", err_c, e); \
+    if (likely(0 == UTILS_STRERROR_R(error_code, e, sizeof(e)))) { \
+      sirius_warn(funcion ": %d, %s\n", error_code, e); \
     } else { \
-      sirius_warn(fun ": %d\n", err_c); \
+      sirius_warn(funcion ": %d\n", error_code); \
     } \
   } while (0)
 
 #if defined(_WIN32) || defined(_WIN64)
 
-#  define utils_win_format_error(err_c, fun) \
+#  define utils_win_format_error(error_code, funcion) \
     do { \
       char e[sirius_log_buf_size]; \
       DWORD flags = \
         FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS; \
-      DWORD size = FormatMessage(flags, nullptr, err_c, \
+      DWORD size = FormatMessage(flags, nullptr, error_code, \
                                  MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), e, \
                                  sizeof(e) / sizeof(TCHAR), nullptr); \
       if (unlikely(size == 0)) { \
-        sirius_error(fun ": %d\n", err_c); \
+        sirius_error(funcion ": %d\n", error_code); \
       } else { \
-        sirius_error(fun ": %d, %s", err_c, e); \
+        sirius_error(funcion ": %d, %s", error_code, e); \
       } \
     } while (0)
 
-#  define utils_win_format_warn(err_c, fun) \
+#  define utils_win_format_warn(error_code, funcion) \
     do { \
       char e[sirius_log_buf_size]; \
       DWORD flags = \
         FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS; \
-      DWORD size = FormatMessage(flags, nullptr, err_c, \
+      DWORD size = FormatMessage(flags, nullptr, error_code, \
                                  MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), e, \
                                  sizeof(e) / sizeof(TCHAR), nullptr); \
       if (unlikely(size == 0)) { \
-        sirius_warn(fun ": %d\n", err_c); \
+        sirius_warn(funcion ": %d\n", error_code); \
       } else { \
-        sirius_warn(fun ": %d, %s", err_c, e); \
+        sirius_warn(funcion ": %d, %s", error_code, e); \
       } \
     } while (0)
 

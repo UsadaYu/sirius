@@ -32,26 +32,26 @@ sirius_api void sirius_usleep(uint64_t usec);
 sirius_api void sirius_nsleep(uint64_t usec);
 
 /**
- * @brief Get high-resolution system timestamp in microseconds.
+ * @brief Get a monotonic clock in microseconds.
  *
- * @return System timestamp in microseconds.
+ * @return The monotonic cloc in microseconds.
  * On Windows, this is based on `QueryPerformanceCounter`.
  * On other systems, this is based on `clock_gettime(CLOCK_MONOTONIC)`.
  *
  * Returns 0 if the high-resolution timer is not available or fails.
  */
-sirius_api uint64_t sirius_get_time_us();
+sirius_api uint64_t sirius_get_clock_monotonic_us();
 
 /**
- * @brief Get high-resolution system timestamp in nanoseconds.
+ * @brief Get a monotonic clock in nanoseconds.
  *
- * @return System timestamp in nanoseconds.
+ * @return The monotonic cloc in nanoseconds.
  * On Windows, this is based on `QueryPerformanceCounter`.
  * On other systems, this is based on `clock_gettime(CLOCK_MONOTONIC)`.
  *
  * Returns 0 if the high-resolution timer is not available or fails.
  */
-sirius_api uint64_t sirius_get_time_ns();
+sirius_api uint64_t sirius_get_clock_monotonic_ns();
 
 #ifdef __cplusplus
 }

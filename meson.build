@@ -30,6 +30,7 @@ glob_compiler_json = join_paths(
   meson.project_source_root(), 'config', 'build', 'compiler.json'
 )
 
+# --- Preprocessing ---
 if get_option('build-object-only')
   glob_library_type = 'object'
 else
@@ -45,20 +46,18 @@ else
   endif
 endif
 
-# Sirius
-glob_sirius_pic_enable = glob_library_type == 'shared' \
-  ? true \
-  : get_option('pic-enable')
+if host_machine.system() == 'windows'
+  glob_sirius_pic_enable = glob_library_type == 'shared' \
+    ? true \
+    : get_option('pic-enable')
+  glob_test_pie_enable = glob_sirius_pic_enable \
+    ? get_option('test-pie-enable') \
+    : false
+endif
+
 glob_sirius_asan_enable = get_option('b_sanitize') == 'address' \
   ? true \
   : get_option('asan')
-
-# test
-glob_test_pie_enable = glob_sirius_pic_enable \
-  ? get_option('test-pie-enable') \
-  : false
-
-# --- Preprocessing ---
 
 # --- Global Dependencies ---
 # python3

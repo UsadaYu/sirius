@@ -34,11 +34,11 @@ static void thread_func() {
 }
 
 int main() {
+  utils_init();
+
   int fd;
   int std_fd;
   sirius_log_config_t cfg = {};
-
-  utils_init();
 
 #if defined(_WIN32) || defined(_WIN64)
   errno_t err = _sopen_s(&fd, GEN_FILE_NAME, _O_RDWR | _O_CREAT | _O_TRUNC,
@@ -51,7 +51,7 @@ int main() {
 
   cfg.fd_err = &fd;
   cfg.fd_out = &fd;
-  // sirius_log_configure(cfg);
+  sirius_log_configure(cfg);
 
   std::thread threads[NB_THREADS];
   for (int i = 0; i < NB_THREADS; ++i) {
@@ -61,17 +61,17 @@ int main() {
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   std_fd = 1;
   cfg.fd_out = &std_fd;
-  // sirius_log_configure(cfg);
+  sirius_log_configure(cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
   std_fd = 2;
   cfg.fd_err = &std_fd;
-  // sirius_log_configure(cfg);
+  sirius_log_configure(cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
   cfg.fd_err = &fd;
   cfg.fd_out = &fd;
-  // sirius_log_configure(cfg);
+  sirius_log_configure(cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   g_exit_flag = true;
@@ -93,7 +93,7 @@ int main() {
   std_fd = 2;
   cfg.fd_err = &std_fd;
   cfg.fd_out = &std_fd;
-  // sirius_log_configure(cfg);
+  sirius_log_configure(cfg);
   sirius_warnsp("--------------------------------\n");
   sirius_warnsp("- Ultra-long log printing test\n");
   char ultra_long_string[40960] = {0};
@@ -104,7 +104,6 @@ int main() {
                 strlen(ultra_long_string));
   sirius_logsp_impl(sirius_log_level_none, "Ultra", log_purple,
                     sirius_log_module_name, "- %s\n", ultra_long_string);
-  utils_dprintf(std_fd, "\n");
   sirius_warnsp("--------------------------------\n");
 
   utils_deinit();

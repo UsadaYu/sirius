@@ -49,6 +49,10 @@ endforeach()
 list(APPEND TEST_COMPILE_DEFINITIONS
      "sirius_log_level=${SIRIUS_TEST_LOG_LEVEL}")
 
+if(SIRIUS_TEST_WIN_CRTDBG AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  list(APPEND TEST_COMPILE_DEFINITIONS "_SIRIUS_TEST_WIN_CRTDBG")
+endif()
+
 # --- Compile Options ---
 if(MSVC)
   list(APPEND TEST_COMPILE_OPTIONS "/W4")
@@ -77,21 +81,6 @@ list(APPEND TEST_LINK_LIBRARIES
 # --- Link Options ---
 
 # --- System Include Directories ---
-
-# --- Pic ---
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  if(SIRIUS_TEST_PIE_ENABLE)
-    list(APPEND TEST_COMPILE_OPTIONS "-fPIC")
-    list(APPEND TEST_COMPILE_OPTIONS "-fPIE")
-
-    list(APPEND TEST_LINK_OPTIONS "-pie")
-  else()
-    list(APPEND TEST_COMPILE_OPTIONS "-fno-PIC")
-    list(APPEND TEST_COMPILE_OPTIONS "-fno-PIE")
-
-    list(APPEND TEST_LINK_OPTIONS "-no-pie")
-  endif()
-endif()
 
 # ---
 
@@ -136,6 +125,9 @@ function(test_add_single_test)
   target_link_options(${ARG_TARGET} PRIVATE ${TEST_LINK_OPTIONS})
   target_include_directories(${ARG_TARGET} SYSTEM
                              PRIVATE ${TEST_SYSTEM_INCLUDE_DIRECTORIES})
+
+  set_target_properties(${ARG_TARGET} PROPERTIES POSITION_INDEPENDENT_CODE
+                                                 ${SIRIUS_TEST_PIE_ENABLE})
 
   add_test(
     NAME ${ARG_TARGET}

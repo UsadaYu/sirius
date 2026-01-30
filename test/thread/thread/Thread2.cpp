@@ -61,6 +61,8 @@ void *foo(void *arg) {
 }
 
 int main() {
+  auto init = Utils::Init();
+
   int ret;
   std::string es;
   sirius_thread_attr_t attr {};

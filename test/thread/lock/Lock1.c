@@ -127,7 +127,7 @@ static inline bool test_multi_thread_contention() {
 
   g_counter = 0;
 
-  uint64_t start = sirius_get_time_us();
+  uint64_t start = sirius_get_clock_monotonic_us();
   for (int i = 0; i < NB_THREADS; ++i) {
     thread_indexs[i] = i;
     ret = sirius_thread_create(threads + i, nullptr, thread_func,
@@ -141,7 +141,7 @@ static inline bool test_multi_thread_contention() {
   for (int i = 0; i < NB_THREADS; ++i) {
     sirius_thread_join(threads[i], nullptr);
   }
-  uint64_t end = sirius_get_time_us();
+  uint64_t end = sirius_get_clock_monotonic_us();
 
   // Verify the result
   long expected = NB_THREADS * ITERATIONS;
@@ -312,9 +312,9 @@ static inline bool test_fairness() {
 }
 
 int main() {
-  bool ret = true;
-
   utils_init();
+
+  bool ret = true;
 
   ret &= test_basic_functionality();
   ret &= test_multi_thread_contention();

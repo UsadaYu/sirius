@@ -1,11 +1,20 @@
 #pragma once
 
+#include "internal/config.h"
+
 #if defined(__cplusplus)
 #  if defined(_MSVC_LANG)
 #    define _internal_cxx_std _MSVC_LANG
 #  else
 #    define _internal_cxx_std __cplusplus
 #  endif
+#endif
+
+#ifdef sirius_test_win_crtdbg
+#  define _CRTDBG_MAP_ALLOC
+#  include <crtdbg.h>
+#  include <stdlib.h>
+#  include <string.h>
 #endif
 
 #if defined(__cplusplus)
@@ -59,6 +68,7 @@ extern "C" {
 #include <string.h>
 
 // sirius::utils
+#include <sirius/cpu.h>
 #include <sirius/utils/log.h>
 
 #if (defined(_WIN32) || defined(_WIN64)) && defined(_MSC_VER)
@@ -114,6 +124,12 @@ static inline void utils_deinit() {
 }
 
 static inline void utils_init() {
+#ifdef sirius_test_win_crtdbg
+  _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+  _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+  _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
+#endif
+
   _utils_xinit("test begins");
 }
 

@@ -12,9 +12,7 @@ option(SIRIUS_WARNING_ALL "Enable all compile warnings" ON)
 
 option(SIRIUS_WARNING_AS_ERROR "Regard all warnings as errors" OFF)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  option(SIRIUS_PIC_ENABLE "Position independent, enable `-fPIC/-fPIE`" ON)
-endif()
+option(SIRIUS_PIC_ENABLE "Position independent, enable `-fPIC/-fPIE`" ON)
 
 set(SIRIUS_LOG_LEVEL
     "3"
@@ -57,7 +55,7 @@ set(SIRIUS_UTILS_LIBRARY_NAME
     CACHE STRING "The name of the target library `sirius_utils`")
 
 set(SIRIUS_UTILS_LOG_BUF_SIZE
-    "2048"
+    "4096"
     CACHE
       STRING
       "The maximum number of bytes written to the file descriptor at a single time"
@@ -66,9 +64,9 @@ set(SIRIUS_UTILS_LOG_BUF_SIZE
 # --- Test ---
 option(SIRIUS_TEST_ENABLE "Enable test" OFF)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  option(SIRIUS_TEST_PIE_ENABLE "Position independent, enable `-fPIC/-fPIE`" ON)
-endif()
+option(SIRIUS_TEST_PIE_ENABLE "Position independent, enable `-fPIC/-fPIE`" ON)
+
+option(SIRIUS_TEST_WIN_CRTDBG "On windows, enable `_CRTDBG_MAP_ALLOC`" OFF)
 
 set(SIRIUS_TEST_EXTRA_LINK_DIRECTORIES
     ""

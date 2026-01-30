@@ -54,22 +54,6 @@ struct sirius_queue_t {
     } \
   } while (0)
 
-static inline size_t next_power_of_2(size_t n) {
-  if (n == 0)
-    return 2;
-  n--;
-  n |= n >> 1;
-  n |= n >> 2;
-  n |= n >> 4;
-  n |= n >> 8;
-  n |= n >> 16;
-#if __SIZEOF_SIZE_T__ == 8 // 64-bit
-  n |= n >> 32;
-#endif
-  n++;
-  return n;
-}
-
 static inline bool is_power_of_2(size_t n) {
   return (n > 0) && ((n & (n - 1)) == 0);
 }
@@ -90,7 +74,7 @@ sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
 
   size_t requested_capacity = arg->elem_count;
   if (!is_power_of_2(requested_capacity)) {
-    q->capacity = next_power_of_2(requested_capacity);
+    q->capacity = utils_next_power_of_2(requested_capacity);
     sirius_debugsp("Queue capacity adjusted from `%zu` to `%zu`\n",
                    requested_capacity, q->capacity);
   } else {

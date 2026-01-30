@@ -1,6 +1,6 @@
 #include "thread/internal/thread.h"
 
-#include "utils/macro.h"
+#include "utils/utils.h"
 
 #define WIN_THREAD_PRIORITY_MAX (31)
 #define PRIORITY_MAP_RATIO \
@@ -709,8 +709,8 @@ sirius_api int sirius_thread_getschedparam(sirius_thread_t thread,
     return ret;
 
   posix_priority = thread_param.sched_priority;
-  param->priority = internal_min(posix_priority, sirius_thread_priority_max);
-  param->priority = internal_max(posix_priority, sirius_thread_priority_none);
+  param->priority = UTILS_MIN(posix_priority, sirius_thread_priority_max);
+  param->priority = UTILS_MAX(posix_priority, sirius_thread_priority_none);
 
   return 0;
 }

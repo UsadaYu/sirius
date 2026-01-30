@@ -57,8 +57,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   endif()
 endif()
 
-list(APPEND LIB_PRIVATE_COMPILE_DEFINITIONS "_SIRIUS_BUILDING"
-     "sirius_log_level=${SIRIUS_LOG_LEVEL}")
+list(APPEND LIB_PRIVATE_COMPILE_DEFINITIONS
+     "_SIRIUS_NAMESPACE=\"${SIRIUS_TARGET_CMAKE_NAMESPACE}\""
+     "_SIRIUS_BUILDING" "sirius_log_level=${SIRIUS_LOG_LEVEL}")
 
 # --- Compile Options ---
 foreach(lang "C" "CXX")
@@ -101,28 +102,6 @@ list(APPEND LIB_PRIVATE_INCLUDE_DIRECTORIES ${GLOB_INCLUDE}
 # --- Link Directories ---
 
 # --- Link Libraries ---
-
-list(APPEND LIB_PRIVATE_LINK_LIBRARIES "Threads::Threads")
-
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  check_linker_flag(CXX "-pthread" CXX_LINKER_HAVE_PTHREAD)
-  if(CXX_LINKER_HAVE_PTHREAD)
-    list(APPEND LIB_PKGCONFIG_LIBS_PRIVATE "-pthread")
-  else()
-    check_linker_flag(CXX "-lpthread" CXX_LINKER_HAVE_LIB_PTHREAD)
-    if(CXX_LINKER_HAVE_LIB_PTHREAD)
-      list(APPEND LIB_PKGCONFIG_LIBS_PRIVATE "-lpthread")
-    else()
-      message(
-        WARNING
-          "
-  The thread link option cannot be found
-  You may need to check the generated `pkg-config` file
-  If you do not use it, please ignore
-  ")
-    endif()
-  endif()
-endif()
 
 # --- Link Options ---
 
@@ -206,6 +185,9 @@ foreach(lib IN LISTS _sirius_libraries)
     INTERFACE
       "$<BUILD_INTERFACE:$<JOIN:${LIB_PRIVATE_INCLUDE_DIRECTORIES},$<SEMICOLON>>>"
       "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>")
+
+  set_target_properties(${lib} PROPERTIES POSITION_INDEPENDENT_CODE
+                                          ${SIRIUS_PIC_ENABLE})
 endforeach()
 unset(lib)
 

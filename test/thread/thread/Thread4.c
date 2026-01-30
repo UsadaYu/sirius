@@ -27,13 +27,13 @@ static void *foo(void *arg) {
 }
 
 int main() {
+  utils_init();
+
   int ret;
   sirius_thread_attr_t attr;
   int index = INDEX_INIT;
   sirius_thread_t threads[NB_GROUPS];
   const char *args[NB_GROUPS];
-
-  utils_init();
 
   sirius_spin_init(&g_spin, SIRIUS_THREAD_PROCESS_PRIVATE);
 

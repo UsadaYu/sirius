@@ -9,6 +9,7 @@
 #endif
 
 #ifdef __cplusplus
+#  include <chrono>
 #  include <cstddef>
 #  include <cstdint>
 #  include <cstdio>
