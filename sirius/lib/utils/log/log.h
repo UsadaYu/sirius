@@ -7,7 +7,7 @@
   do { \
     char e[sirius_log_buf_size]; \
     if (likely(0 == UTILS_STRERROR_R(error_code, e, sizeof(e)))) { \
-      sirius_error(funcion ": %d, %s\n", error_code, e); \
+      sirius_error(funcion ": %d. %s\n", error_code, e); \
     } else { \
       sirius_error(funcion ": %d\n", error_code); \
     } \
@@ -17,7 +17,7 @@
   do { \
     char e[sirius_log_buf_size]; \
     if (likely(0 == UTILS_STRERROR_R(error_code, e, sizeof(e)))) { \
-      sirius_warn(funcion ": %d, %s\n", error_code, e); \
+      sirius_warn(funcion ": %d. %s\n", error_code, e); \
     } else { \
       sirius_warn(funcion ": %d\n", error_code); \
     } \
@@ -36,7 +36,7 @@
       if (unlikely(size == 0)) { \
         sirius_error(funcion ": %d\n", error_code); \
       } else { \
-        sirius_error(funcion ": %d, %s", error_code, e); \
+        sirius_error(funcion ": %d. %s", error_code, e); \
       } \
     } while (0)
 
@@ -51,7 +51,7 @@
       if (unlikely(size == 0)) { \
         sirius_warn(funcion ": %d\n", error_code); \
       } else { \
-        sirius_warn(funcion ": %d, %s", error_code, e); \
+        sirius_warn(funcion ": %d. %s", error_code, e); \
       } \
     } while (0)
 

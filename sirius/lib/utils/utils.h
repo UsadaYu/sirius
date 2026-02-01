@@ -6,6 +6,8 @@
 
 #ifdef __cplusplus
 #  include <filesystem>
+
+#  include "utils/time.hpp"
 #endif
 
 // --- max / min ---
@@ -95,15 +97,29 @@ constexpr size_t next_power_of_2(size_t n) {
   return n;
 }
 } // namespace Utils
+} // namespace Utils
+#else
+static inline size_t utils_next_power_of_2(size_t n) {
+  if (n <= 1)
+    return 2;
 
-namespace Time {
-static inline uint64_t get_sys_clock_ms() {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(
-           std::chrono::system_clock::now().time_since_epoch())
-    .count();
+  n--;
+  n |= n >> 1;
+  n |= n >> 2;
+  n |= n >> 4;
+  n |= n >> 8;
+  n |= n >> 16;
+#  if defined(__SIZEOF_SIZE_T__) && __SIZEOF_SIZE_T__ == 8
+  n |= n >> 32;
+#  endif
+  n++;
+
+  return n;
 }
-} // namespace Time
+#endif
 
+#ifdef __cplusplus
+namespace Utils {
 namespace File {
 #  if !defined(_WIN32) && !defined(_WIN64)
 static inline mode_t string_to_mode(const std::string &mode_str) {
@@ -154,22 +170,4 @@ static inline bool set_permissions_safe(const std::filesystem::path &path,
 }
 } // namespace File
 } // namespace Utils
-#else
-static inline size_t utils_next_power_of_2(size_t n) {
-  if (n <= 1)
-    return 2;
-
-  n--;
-  n |= n >> 1;
-  n |= n >> 2;
-  n |= n >> 4;
-  n |= n >> 8;
-  n |= n >> 16;
-#  if defined(__SIZEOF_SIZE_T__) && __SIZEOF_SIZE_T__ == 8
-  n |= n >> 32;
-#  endif
-  n++;
-
-  return n;
-}
 #endif

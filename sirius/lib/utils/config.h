@@ -44,10 +44,10 @@
  * @brief The capatity of the shared memory in the log module.
  *
  * @example
- * CFLAGS += -D_SIRIUS_LOG_SHARED_CAPACITY=$(_SIRIUS_LOG_SHARED_CAPACITY)
+ * CFLAGS += -D_SIRIUS_LOG_SHM_CAPACITY=$(_SIRIUS_LOG_SHM_CAPACITY)
  */
-#ifndef _SIRIUS_LOG_SHARED_CAPACITY
-#  define _SIRIUS_LOG_SHARED_CAPACITY 128
+#ifndef _SIRIUS_LOG_SHM_CAPACITY
+#  define _SIRIUS_LOG_SHM_CAPACITY 128
 #endif
 
 /**
@@ -91,10 +91,10 @@
 #endif
 #define sirius_user_key _SIRIUS_USER_KEY
 
-#ifndef sirius_log_shared_capacity
-#  undef sirius_log_shared_capacity
+#ifndef sirius_log_shm_capacity
+#  undef sirius_log_shm_capacity
 #endif
-#define sirius_log_shared_capacity _SIRIUS_LOG_SHARED_CAPACITY
+#define sirius_log_shm_capacity _SIRIUS_LOG_SHM_CAPACITY
 
 #ifdef sirius_log_buf_size
 #  undef sirius_log_buf_size
