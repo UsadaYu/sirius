@@ -1,9 +1,8 @@
 #include "sirius/kit/queue.h"
 
+#include "lib/utils/log/log.h"
 #include "sirius/thread/cond.h"
 #include "sirius/thread/mutex.h"
-#include "utils/decls.h"
-#include "utils/log/log.h"
 
 struct sirius_queue_t {
   /**

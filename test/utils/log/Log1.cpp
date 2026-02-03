@@ -36,7 +36,7 @@ static void thread_func() {
 int main() {
   utils_init();
 
-  int fd;
+  int fd = 1;
   int std_fd;
   sirius_log_config_t cfg = {};
 

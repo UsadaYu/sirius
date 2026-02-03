@@ -3,11 +3,39 @@ option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 
 option(SIRIUS_BUILD_OBJECT_ONLY "Build objects only" OFF)
 
-# --- sirius ---
-set(SIRIUS_TARGET_CMAKE_NAMESPACE
+# --- Config ---
+set(SIRIUS_NAMESPACE
     "sirius"
-    CACHE STRING "The cmake interaction file namespace of the target")
+    CACHE STRING "The namespace of `sirius`.")
 
+set(SIRIUS_POSIX_FILE_MODE
+    "0775"
+    CACHE STRING "On POSIX, the permissions of the created files")
+
+set(SIRIUS_POSIX_TMP_DIR
+    "/var/tmp/"
+    CACHE STRING "On POSIX, the temporary directory for the files")
+
+set(SIRIUS_USER_KEY
+    "d32d87be6fe35062a7945ffd4f4a69d4"
+    CACHE STRING "User-defined key")
+
+set(SIRIUS_LOG_SHM_CAPACITY
+    "128"
+    CACHE STRING "The capatity of the shared memory in the log module")
+
+set(SIRIUS_LOG_BUF_SIZE
+    "2048"
+    CACHE
+      STRING
+      "The maximum number of bytes written to the file descriptor at a single time"
+)
+
+set(SIRIUS_EXE_DAEMON_NAME
+    "${SIRIUS_NAMESPACE}_daemon"
+    CACHE STRING "The name of the daemon executable file")
+
+# --- Sirius ---
 option(SIRIUS_WARNING_ALL "Enable all compile warnings" ON)
 
 option(SIRIUS_WARNING_AS_ERROR "Regard all warnings as errors" OFF)

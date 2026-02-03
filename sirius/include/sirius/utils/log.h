@@ -53,12 +53,38 @@ extern "C" {
 #define log_level_str_warn "Warn "
 #define log_level_str_error "Error"
 
+// --- Not Yet ---
+typedef enum {
+  sirius_log_process_shared = 0,
+  sirius_log_process_private,
+} sirius_log_process_shared_t;
+
 typedef struct {
-  int *fd_err;
-  int *fd_out;
+  const char *log_path;
+
+  /**
+   * @note Only takes effect when the `log_path` is `nullptr`.
+   */
+  int fd;
+  int fd_enable;
+
+  sirius_log_process_shared_t shared;
+} sirius_log_fs_t;
+
+typedef struct {
+  int disable_color;
+
+  sirius_log_fs_t out;
+  sirius_log_fs_t err;
 } sirius_log_config_t;
 
-sirius_api void sirius_log_configure(sirius_log_config_t cfg);
+/**
+ * @brief Set the path of the daemon executable file.
+ * Currently, it is only necessary to do it under Windows.
+ */
+sirius_api int sirius_log_set_daemon_path(const char *path);
+
+sirius_api void sirius_log_configure(sirius_log_config_t *cfg);
 
 sirius_api void sirius_log_impl(int level, const char *level_str,
                                 const char *color, const char *module,

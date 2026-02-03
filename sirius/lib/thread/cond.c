@@ -1,6 +1,6 @@
 #include "sirius/thread/cond.h"
 
-#include "thread/internal/mutex.h"
+#include "lib/thread/internal/mutex.h"
 #include "utils/errno.h"
 
 #if defined(_WIN32) || defined(_WIN64)

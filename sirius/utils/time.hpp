@@ -21,9 +21,8 @@ inline uint64_t get_process_cputime_ns() noexcept {
   return total100ns * 100ull;
 #else
   struct timespec ts {};
-  if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0) [[unlikely]] {
+  if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0) [[unlikely]]
     return 0;
-  }
 
   return (static_cast<uint64_t>(ts.tv_sec) * 1000000000ull +
           static_cast<uint64_t>(ts.tv_nsec));

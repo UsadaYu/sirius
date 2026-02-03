@@ -6,8 +6,6 @@
 
 #ifdef __cplusplus
 #  include <filesystem>
-
-#  include "utils/time.hpp"
 #endif
 
 // --- max / min ---
@@ -168,6 +166,59 @@ static inline bool set_permissions_safe(const std::filesystem::path &path,
     return false;
   }
 }
+
+static inline std::filesystem::path
+get_exe_path_matrix(std::string exe_name, std::filesystem::path base_dir) {
+  if (exe_name.empty() || base_dir.empty())
+    return "";
+
+  std::filesystem::path exe_path = base_dir / exe_name;
+
+  if (std::filesystem::exists(exe_path))
+    return exe_path;
+
+#  if defined(_WIN32) || defined(_WIN64)
+  const std::string suffix = ".exe";
+  if (exe_name.ends_with(suffix)) {
+    exe_path =
+      base_dir / exe_name.substr(0, exe_name.length() - suffix.length());
+  } else {
+    exe_path = base_dir / (exe_name + suffix);
+  }
+
+  if (std::filesystem::exists(exe_path))
+    return exe_path;
+#  endif
+
+  return "";
+}
 } // namespace File
+} // namespace Utils
+#endif
+
+#ifdef __cplusplus
+namespace Utils {
+namespace Env {
+static inline std::string get_env(const char *name) {
+  if (!name)
+    return "";
+
+#  if defined(_MSC_VER)
+  char *buf = nullptr;
+  size_t sz = 0;
+  if (_dupenv_s(&buf, &sz, name) == 0 && buf != nullptr) {
+    std::string var(buf);
+    free(buf);
+    return var;
+  }
+#  else
+  const char *var = std::getenv(name);
+  if (var)
+    return std::string(var);
+#  endif
+
+  return "";
+}
+} // namespace Env
 } // namespace Utils
 #endif

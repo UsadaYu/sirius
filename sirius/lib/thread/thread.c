@@ -1,6 +1,4 @@
-#include "thread/internal/thread.h"
-
-#include "utils/utils.h"
+#include "lib/thread/internal/thread.h"
 
 #define WIN_THREAD_PRIORITY_MAX (31)
 #define PRIORITY_MAP_RATIO \
@@ -107,7 +105,7 @@ static inline int posix_sched_policy_posix_to_sirius(int *dst, int src) {
     break;
   }
 
-  sirius_warn("Invalid argument. Posix sched: %d\n", src);
+  sirius_warn("Invalid argument. POSIX sched: %d\n", src);
   return EINVAL;
 }
 

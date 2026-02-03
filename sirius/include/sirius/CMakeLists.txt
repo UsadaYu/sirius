@@ -10,8 +10,8 @@ configure_file(${template} ${gen} @ONLY)
 # ---
 list(APPEND include_directories "${CMAKE_CURRENT_BINARY_DIR}/..")
 list(APPEND include_directories "${CMAKE_CURRENT_SOURCE_DIR}/..")
-set(GLOB_INCLUDE
-    ${include_directories}
+set(GLOB_PRIVATE_INCLUDE_DIRECTORIES
+    ${GLOB_PRIVATE_INCLUDE_DIRECTORIES} ${include_directories}
     PARENT_SCOPE)
 
 # ---
@@ -45,7 +45,7 @@ set(api_files "${subdir}/cond.h" "${subdir}/mutex.h" "${subdir}/sem.h"
 api_install(subdir api_files)
 
 set(subdir "utils")
-set(api_files "${subdir}/log.h" "${subdir}/thread.h")
+set(api_files "${subdir}/fs.h" "${subdir}/log.h" "${subdir}/thread.h")
 api_install(subdir api_files)
 
 set(subdir ".")

@@ -10,7 +10,7 @@ set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 set(sources "time.c")
 
 add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})
-add_library(${SIRIUS_TARGET_CMAKE_NAMESPACE}::${LIB_TARGET} ALIAS ${LIB_TARGET})
+add_library(${SIRIUS_NAMESPACE}::${LIB_TARGET} ALIAS ${LIB_TARGET})
 unset(sources)
 
 utils_set_output_directory_to_mirror(TARGET ${LIB_TARGET})
@@ -27,8 +27,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 endif()
 
 target_link_libraries(
-  ${LIB_TARGET}
-  PRIVATE "${SIRIUS_TARGET_CMAKE_NAMESPACE}::${SIRIUS_UTILS_LIBRARY_NAME}")
+  ${LIB_TARGET} PRIVATE "${SIRIUS_NAMESPACE}::${SIRIUS_UTILS_LIBRARY_NAME}")
 list(APPEND pkgconfig_requires_private ${SIRIUS_UTILS_LIBRARY_NAME})
 
 # --- Pkg Config ---

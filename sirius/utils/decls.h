@@ -4,11 +4,11 @@
 #  ifndef WIN32_LEAN_AND_MEAN
 #    define WIN32_LEAN_AND_MEAN
 #  endif
-
 #  include <Windows.h>
 #endif
 
 #ifdef __cplusplus
+#  include <cerrno>
 #  include <chrono>
 #  include <cstddef>
 #  include <cstdint>
@@ -32,18 +32,14 @@
 #include <time.h>
 
 #ifdef __cplusplus
-
 #  if __cplusplus >= 201103L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201103L)
 #    include <atomic>
 #  endif
-
 #else
-
 #  ifdef __STDC_VERSION__
 #    if (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
 #      include <stdatomic.h>
 #    endif
-
 #    if (__STDC_VERSION__ < 202311L)
 #      include <stdbool.h>
 #      ifndef nullptr
@@ -51,7 +47,6 @@
 #      endif
 #    endif
 #  endif
-
 #endif
 
 #if (defined(_WIN32) || defined(_WIN64)) && defined(_MSC_VER)
@@ -75,15 +70,12 @@
 #  include <sys/ipc.h>
 #  include <sys/select.h>
 #  include <sys/shm.h>
-
 #  if defined(__linux__)
 #    include <sys/syscall.h>
 #  endif
-
 #  if defined(__FreeBSD__)
 #    include <pthread_np.h>
 #  endif
-
 #  if defined(__NetBSD__)
 #    include <lwp.h>
 #  endif
@@ -91,8 +83,6 @@
 #elif defined(_WIN32) || defined(_WIN64)
 #  include <io.h>
 #  include <synchapi.h>
-
 #else
 #  error "Unsupported operating system"
-
 #endif

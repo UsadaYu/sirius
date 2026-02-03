@@ -12,19 +12,18 @@ list(APPEND sources "thread/thread.c")
 list(APPEND sources "initializer.c")
 
 add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})
-add_library(${SIRIUS_TARGET_CMAKE_NAMESPACE}::${LIB_TARGET} ALIAS ${LIB_TARGET})
+add_library(${SIRIUS_NAMESPACE}::${LIB_TARGET} ALIAS ${LIB_TARGET})
 unset(sources)
 
 utils_set_output_directory_to_mirror(TARGET ${LIB_TARGET})
 
 # thread
 target_link_libraries(${LIB_TARGET} PRIVATE "Threads::Threads")
-list(APPEND pkgconfig_libs_private ${LIB_PKGCONFIG_THREAD})
+list(APPEND pkgconfig_libs_private ${GLOB_PKGCONFIG_LIBS_PRIVATE_THREAD})
 
 # --- Compile Definitions ---
-target_compile_definitions(
-  ${LIB_TARGET} PRIVATE "sirius_log_module_name=\"${LIB_TARGET}\""
-                        "_SIRIUS_LOG_BUF_SIZE=${SIRIUS_UTILS_LOG_BUF_SIZE}")
+target_compile_definitions(${LIB_TARGET}
+                           PRIVATE "sirius_log_module_name=\"${LIB_TARGET}\"")
 
 # --- Pkg Config ---
 add_subdirectory(pkgconfig)

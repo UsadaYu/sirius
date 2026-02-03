@@ -1,10 +1,12 @@
-#include "thread/internal/thread.h"
+#include "lib/thread/internal/thread.h"
 
-#include "utils/thread/thread.h"
+#ifndef LIB_UTILS_THREAD_THREAD_H_
+#  define LIB_UTILS_THREAD_THREAD_H_
+#endif
+#include "lib/utils/thread/thread.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 
-#  include <atomic>
 #  include <mutex>
 #  include <set>
 
@@ -17,6 +19,11 @@ struct SiriusThreadExitException {
 // --- Static Initialization ---
 #if defined(_WIN32) || defined(_WIN64)
 
+/**
+ * @note Global static initialization and deinitialization.
+ * These operations are generally safe since C++11.
+ * `std::mutex`; `std::set`; `malloc/new`; `free/delete`.
+ */
 class ThreadResourceManager {
  public:
   std::mutex mtx;

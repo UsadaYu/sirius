@@ -1,8 +1,12 @@
 #include "sirius/thread/thread.h"
 
-#include "utils/initializer.h"
-#include "utils/log/log.h"
-#include "utils/thread/thread.h"
+#include "lib/utils/initializer.h"
+#include "sirius/utils/log.h"
+
+#ifndef LIB_UTILS_THREAD_THREAD_H_
+#  define LIB_UTILS_THREAD_THREAD_H_
+#endif
+#include "lib/utils/thread/thread.h"
 
 #if defined(__linux__)
 
@@ -203,25 +207,19 @@ sirius_api uint64_t _sirius_get_tid() {
 static DWORD g_thread_tls_index = TLS_OUT_OF_INDEXES;
 
 void destructor_utils_thread() {
-  DWORD dw_err;
-
   if (g_thread_tls_index != TLS_OUT_OF_INDEXES) {
     if (!TlsFree(g_thread_tls_index)) {
-      dw_err = GetLastError();
-      utils_win_format_error(dw_err, "TlsFree");
+      OutputDebugStringA(log_level_str_error " TlsFree\n");
     }
     g_thread_tls_index = TLS_OUT_OF_INDEXES;
   }
 }
 
 bool constructor_utils_thread() {
-  DWORD dw_err;
-
   if (g_thread_tls_index == TLS_OUT_OF_INDEXES) {
     g_thread_tls_index = TlsAlloc();
     if (g_thread_tls_index == TLS_OUT_OF_INDEXES) {
-      dw_err = GetLastError();
-      utils_win_format_error(dw_err, "TlsAlloc");
+      OutputDebugStringA(log_level_str_error " TlsAlloc\n");
       return false;
     }
   }

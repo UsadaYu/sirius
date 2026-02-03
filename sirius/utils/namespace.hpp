@@ -7,8 +7,6 @@
 #include <sstream>
 #include <system_error>
 
-#include "utils/config.h"
-#include "utils/decls.h"
 #include "utils/utils.h"
 
 namespace Utils {
@@ -37,14 +35,14 @@ inline std::string u64_to_hex(uint64_t v) {
   return oss.str();
 }
 
-inline std::string sanitize_name(const std::string &s) {
+inline std::string sanitize_name(std::string_view s) {
   std::string out;
   out.reserve(s.size());
   for (unsigned char c : s) {
     if (std::isalnum(c) || c == '_' || c == '-' || c == '.') {
-      out.push_back(static_cast<char>(c));
+      out += static_cast<char>(c);
     } else {
-      out.push_back('_');
+      out += '_';
     }
   }
 
@@ -61,9 +59,10 @@ generate_namespace_prefix(const std::string &runtime_salt = "") {
   if (!runtime_salt.empty())
     base += "|" + runtime_salt;
 
-  std::transform(base.begin(), base.end(), base.begin(), [](unsigned char c) {
-    return std::tolower(c);
-  });
+  std::transform(base.begin(), base.end(), base.begin(),
+                 [](unsigned char c) -> char {
+                   return static_cast<char>(std::tolower(c));
+                 });
 
   uint64_t h = fnv1a64(base);
 

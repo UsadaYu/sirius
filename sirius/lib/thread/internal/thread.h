@@ -1,10 +1,9 @@
 #pragma once
 
+#include "lib/utils/log/log.h"
 #include "sirius/thread/spinlock.h"
 #include "sirius/thread/thread.h"
-#include "utils/decls.h"
 #include "utils/errno.h"
-#include "utils/log/log.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #  include <process.h>

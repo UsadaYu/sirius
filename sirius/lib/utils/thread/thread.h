@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef LIB_UTILS_THREAD_THREAD_H_
+#  error "This header file can only be included by the thread module"
+#endif
+
 #include "utils/attributes.h"
 #include "utils/decls.h"
 

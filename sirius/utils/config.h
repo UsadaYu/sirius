@@ -1,5 +1,7 @@
 #pragma once
 
+// --- External ---
+
 /**
  * @brief The namespace of `sirius`.
  *
@@ -69,7 +71,27 @@
 #  endif
 #endif
 
-// ---
+/**
+ * @brief The directory of executables.
+ *
+ * @example
+ * CFLAGS += -D_SIRIUS_EXE_DIR='"$(_SIRIUS_EXE_DIR)"'
+ */
+#ifndef _SIRIUS_EXE_DIR
+#  define _SIRIUS_EXE_DIR "/usr/bin"
+#endif
+
+/**
+ * @brief The name of the daemon executable file.
+ *
+ * @example
+ * CFLAGS += -D_SIRIUS_EXE_DAEMON_NAME='"$(_SIRIUS_EXE_DAEMON_NAME)"'
+ */
+#ifndef _SIRIUS_EXE_DAEMON_NAME
+#  define _SIRIUS_EXE_DAEMON_NAME _SIRIUS_NAMESPACE "_daemon"
+#endif
+
+// --- Internal ---
 
 #ifdef sirius_namespace
 #  undef sirius_namespace
@@ -100,3 +122,13 @@
 #  undef sirius_log_buf_size
 #endif
 #define sirius_log_buf_size _SIRIUS_LOG_BUF_SIZE
+
+#ifdef sirius_exe_daemon_name
+#  undef sirius_exe_daemon_name
+#endif
+#define sirius_exe_daemon_name _SIRIUS_EXE_DAEMON_NAME
+
+#ifdef sirius_exe_dir
+#  undef sirius_exe_dir
+#endif
+#define sirius_exe_dir _SIRIUS_EXE_DIR

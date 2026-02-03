@@ -67,7 +67,7 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
-// sirius::utils
+// --- sirius::utils ---
 #include <sirius/cpu.h>
 #include <sirius/utils/log.h>
 

@@ -1,9 +1,8 @@
 #include "sirius/thread/sem.h"
 
+#include "lib/utils/log/log.h"
 #include "utils/attributes.h"
-#include "utils/decls.h"
 #include "utils/errno.h"
-#include "utils/log/log.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 internal_check_sizeof(sirius_sem_t, HANDLE);
