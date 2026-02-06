@@ -3,25 +3,23 @@
 #if (defined(__cplusplus) && __cplusplus >= 202002L) || \
   (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L) || \
   (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L)
-
 #  if defined(__FILE_NAME__)
-#    define sirius_file_name (__FILE_NAME__)
+#    define SIRIUS_FILE_NAME (__FILE_NAME__)
 #  endif
-
 #endif
 
-#ifndef sirius_file_name
+#ifndef SIRIUS_FILE_NAME
 #  if defined(__has_builtin)
 #    if __has_builtin(__builtin_FILE_NAME)
-#      define sirius_file_name (__builtin_FILE_NAME())
+#      define SIRIUS_FILE_NAME (__builtin_FILE_NAME())
 #    endif
 #  endif
 #endif
 
-#ifndef sirius_file_name
+#ifndef SIRIUS_FILE_NAME
 #  include <string.h>
 
-static inline const char *sirius_internal_basename(const char *path) {
+static inline const char *_sirius_basename(const char *path) {
   const char *p = path;
   const char *last = path;
 
@@ -38,5 +36,5 @@ static inline const char *sirius_internal_basename(const char *path) {
   return last;
 }
 
-#  define sirius_file_name (sirius_internal_basename(__FILE__))
+#  define SIRIUS_FILE_NAME (_sirius_basename(__FILE__))
 #endif

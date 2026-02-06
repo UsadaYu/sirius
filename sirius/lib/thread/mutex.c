@@ -1,15 +1,14 @@
 #include "lib/thread/internal/mutex.h"
 
 #if defined(_WIN32) || defined(_WIN64)
-
 sirius_api int sirius_mutex_init(sirius_mutex_t *mutex,
-                                 const sirius_mutex_type_t *type) {
+                                 const enum SiriusMutexType *type) {
   sirius_mutex_s *m = (sirius_mutex_s *)mutex;
-  sirius_mutex_type_t mt = type ? *type : sirius_mutex_normal;
+  enum SiriusMutexType mt = type ? *type : kSiriusMutexNormal;
 
   m->type = mt;
 
-  if (mt == sirius_mutex_recursive) {
+  if (mt == kSiriusMutexRecursive) {
 /**
  * @note `CRITICAL_SECTION` can raise an exception on low memory, but
  * doesn't return an error. Here use structured exception handling to be
@@ -24,7 +23,7 @@ sirius_api int sirius_mutex_init(sirius_mutex_t *mutex,
       return ENOMEM;
     }
 #  endif
-  } else { // sirius_mutex_normal
+  } else { // kSiriusMutexNormal
     InitializeSRWLock(&m->handle.srw_lock);
   }
 
@@ -38,7 +37,7 @@ sirius_api int sirius_mutex_destroy(sirius_mutex_t *mutex) {
    * @note `CRITICAL_SECTION` requires `DeleteCriticalSection`; `SRWLOCK`
    * doesn't need explicit destruction.
    */
-  if (m->type == sirius_mutex_recursive) {
+  if (m->type == kSiriusMutexRecursive) {
     DeleteCriticalSection(&m->handle.critical_section);
   } else {
     /**
@@ -53,7 +52,7 @@ sirius_api int sirius_mutex_destroy(sirius_mutex_t *mutex) {
 sirius_api int sirius_mutex_lock(sirius_mutex_t *mutex) {
   sirius_mutex_s *m = (sirius_mutex_s *)mutex;
 
-  if (m->type == sirius_mutex_recursive) {
+  if (m->type == kSiriusMutexRecursive) {
     EnterCriticalSection(&m->handle.critical_section);
   } else {
     AcquireSRWLockExclusive(&m->handle.srw_lock);
@@ -65,7 +64,7 @@ sirius_api int sirius_mutex_lock(sirius_mutex_t *mutex) {
 sirius_api int sirius_mutex_unlock(sirius_mutex_t *mutex) {
   sirius_mutex_s *m = (sirius_mutex_s *)mutex;
 
-  if (m->type == sirius_mutex_recursive) {
+  if (m->type == kSiriusMutexRecursive) {
     LeaveCriticalSection(&m->handle.critical_section);
   } else {
     ReleaseSRWLockExclusive(&m->handle.srw_lock);
@@ -77,7 +76,7 @@ sirius_api int sirius_mutex_unlock(sirius_mutex_t *mutex) {
 sirius_api int sirius_mutex_trylock(sirius_mutex_t *mutex) {
   sirius_mutex_s *m = (sirius_mutex_s *)mutex;
 
-  if (m->type == sirius_mutex_recursive) {
+  if (m->type == kSiriusMutexRecursive) {
     BOOL ok = TryEnterCriticalSection(&m->handle.critical_section);
     return ok ? 0 : EBUSY;
   } else {
@@ -85,11 +84,9 @@ sirius_api int sirius_mutex_trylock(sirius_mutex_t *mutex) {
     return ok ? 0 : EBUSY;
   }
 }
-
 #else
-
 sirius_api int sirius_mutex_init(sirius_mutex_t *mutex,
-                                 const sirius_mutex_type_t *type) {
+                                 const enum SiriusMutexType *type) {
   int ret;
   pthread_mutexattr_t attr;
 
@@ -100,8 +97,8 @@ sirius_api int sirius_mutex_init(sirius_mutex_t *mutex,
   if (ret)
     return ret;
 
-  int mt = *type == sirius_mutex_recursive ? PTHREAD_MUTEX_RECURSIVE
-                                           : PTHREAD_MUTEX_NORMAL;
+  int mt = *type == kSiriusMutexRecursive ? PTHREAD_MUTEX_RECURSIVE
+                                          : PTHREAD_MUTEX_NORMAL;
 
   ret = pthread_mutexattr_settype(&attr, mt);
   if (ret) {
@@ -111,6 +108,7 @@ sirius_api int sirius_mutex_init(sirius_mutex_t *mutex,
 
   ret = pthread_mutex_init((pthread_mutex_t *)mutex, &attr);
   pthread_mutexattr_destroy(&attr);
+
   return ret;
 }
 
@@ -129,5 +127,4 @@ sirius_api int sirius_mutex_unlock(sirius_mutex_t *mutex) {
 sirius_api int sirius_mutex_trylock(sirius_mutex_t *mutex) {
   return pthread_mutex_trylock((pthread_mutex_t *)mutex);
 }
-
 #endif

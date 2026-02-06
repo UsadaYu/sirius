@@ -2,6 +2,9 @@ message(STATUS "--------------")
 message(STATUS "--- SIRIUS ---")
 message(STATUS "--------------")
 
+# --- Include ---
+include(CheckLinkerFlag)
+
 # --- Global Variables ---
 set(GLOB_PKGCONFIG_LIBS_PRIVATE_THREAD "")
 set(GLOB_PKGCONFIG_LIBS_ASAN "")
@@ -88,7 +91,7 @@ endif()
 
 # --- Compile Definitions ---
 list(APPEND GLOB_PRIVATE_COMPILE_DEFINITIONS "_SIRIUS_BUILDING"
-     "sirius_log_level=${SIRIUS_LOG_LEVEL}")
+     "_SIRIUS_LOG_LEVEL=${SIRIUS_LOG_LEVEL}")
 list(
   APPEND
   GLOB_PRIVATE_COMPILE_DEFINITIONS

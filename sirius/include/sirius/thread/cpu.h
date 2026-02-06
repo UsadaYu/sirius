@@ -1,7 +1,6 @@
 #pragma once
 
 #if defined(_MSC_VER)
-
 #  if defined(_M_IX86) || defined(_M_X64)
 #    include <intrin.h>
 #    define sirius_cpu_relax() _mm_pause()
@@ -17,9 +16,7 @@
       do { \
       } while (0)
 #  endif
-
 #elif defined(__GNUC__) || defined(__clang__)
-
 #  if defined(__i386__) || defined(__x86_64__)
 #    ifdef __SSE2__
 #      include <emmintrin.h>
@@ -46,11 +43,8 @@
       do { \
       } while (0)
 #  endif
-
 #else
-
 #  define sirius_cpu_relax() \
     do { \
     } while (0)
-
 #endif

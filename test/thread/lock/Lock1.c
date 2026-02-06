@@ -1,5 +1,4 @@
 #include <sirius/c/time.h>
-#include <sirius/cpu.h>
 #include <sirius/thread/thread.h>
 
 #include "internal/utils.h"
@@ -106,7 +105,7 @@ static void *thread_func(void *arg) {
   }
 
   sirius_infosp("The thread ended. Index: %d; TID: %" PRIu64 "\n", thread_index,
-                sirius_thread_id);
+                SIRIUS_THREAD_ID);
   return nullptr;
 }
 
@@ -155,7 +154,7 @@ static inline bool test_multi_thread_contention() {
 
   double elapsed = (double)(end - start) / 1000 / 1000;
   sirius_infosp("Total time consumption: %.3f s\n", elapsed);
-  sirius_infosp("Operation " log_purple "%.0f" log_color_none
+  sirius_infosp("Operation " LOG_PURPLE "%.0f" LOG_COLOR_NONE
                 " times per second\n",
                 expected / elapsed);
 
@@ -185,7 +184,7 @@ static inline bool test_reentrancy() {
     return false;
   }
 #  else
-  sirius_mutex_type_t type = sirius_mutex_recursive;
+  enum SiriusMutexType type = kSiriusMutexRecursive;
   if (sirius_mutex_init(&lock, &type) != 0) {
     sirius_error("sirius_mutex_init\n");
     return false;
@@ -206,11 +205,11 @@ static inline bool test_reentrancy() {
 
   lock_lock(lock);
 
-  sirius_logsp_impl(sirius_log_level_warn, log_level_str_info, log_purple,
-                    sirius_log_module_name,
+  sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, LOG_LEVEL_STR_INFO, LOG_PURPLE,
+                    _SIRIUS_LOG_PRINT_NAME,
                     "Successfully lock for the second time\n");
-  sirius_logsp_impl(sirius_log_level_warn, log_level_str_info, log_purple,
-                    sirius_log_module_name,
+  sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, LOG_LEVEL_STR_INFO, LOG_PURPLE,
+                    _SIRIUS_LOG_PRINT_NAME,
                     "This should be a reentrable lock\n");
 
   lock_unlock(lock);
@@ -260,9 +259,9 @@ static void *thread_func_fairness(void *arg) {
     }
   }
 
-  sirius_infosp("The thread executed " log_purple "%d" log_color_none
+  sirius_infosp("The thread executed " LOG_PURPLE "%d" LOG_COLOR_NONE
                 " times. Thread index: %d; TID: %" PRIu64 "\n",
-                count, thread_index, sirius_thread_id);
+                count, thread_index, SIRIUS_THREAD_ID);
   return nullptr;
 }
 

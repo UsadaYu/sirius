@@ -35,17 +35,17 @@ int main() {
 
   // clang-format off
   sirius_warnsp(
-    log_purple
+    LOG_PURPLE
     "\n"
     "  Since the process is terminated before the detached threads,\n"
     "  this test case will cause a large amount of memory leaks\n"
-    log_color_none);
+    LOG_COLOR_NONE);
   // clang-format on
 
   sirius_thread_t threads[NB_THREADS];
   sirius_thread_attr_t attr {};
 
-  attr.detach_state = sirius_thread_detached;
+  attr.detach_state = kSiriusThreadCreateDetached;
 
   for (auto thread : threads) {
     int ret = sirius_thread_create(&thread, &attr, foo, nullptr);

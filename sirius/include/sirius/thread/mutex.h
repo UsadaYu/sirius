@@ -13,21 +13,21 @@ typedef struct {
 extern "C" {
 #endif
 
-typedef enum {
+enum SiriusMutexType {
   /**
    * @brief Default, non-recursive mutex.
    * On Windows, this uses `SRWLOCK` for high performance.
    * On POSIX, this uses `PTHREAD_MUTEX_NORMAL`.
    */
-  sirius_mutex_normal = 0,
+  kSiriusMutexNormal = 0,
 
   /**
    * @brief A recursive mutex. The same thread can lock it multiple times.
    * On Windows, this uses `CRITICAL_SECTION`.
    * On POSIX, this uses `PTHREAD_MUTEX_RECURSIVE`.
    */
-  sirius_mutex_recursive = 1,
-} sirius_mutex_type_t;
+  kSiriusMutexRecursive = 1,
+};
 
 /**
  * @brief Initialize a mutex.
@@ -39,7 +39,7 @@ typedef enum {
  * @return 0 on success, or an `errno` value on failure.
  */
 sirius_api int sirius_mutex_init(sirius_mutex_t *__restrict mutex,
-                                 const sirius_mutex_type_t *__restrict type);
+                                 const enum SiriusMutexType *__restrict type);
 
 /**
  * @brief Destroy the mutex.

@@ -18,7 +18,7 @@ utils_set_output_directory_to_mirror(TARGET ${LIB_TARGET})
 set_target_properties(${LIB_TARGET} PROPERTIES VERSION ${PROJECT_VERSION})
 
 target_compile_definitions(${LIB_TARGET}
-                           PRIVATE "sirius_log_module_name=\"${LIB_TARGET}\"")
+                           PRIVATE "_SIRIUS_LOG_PRINT_NAME=\"${LIB_TARGET}\"")
 
 # sirius_thread
 target_link_libraries(

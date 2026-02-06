@@ -13,7 +13,7 @@ sirius_api uint64_t _sirius_get_tid();
 }
 #endif
 
-static inline uint64_t _sirius_thread_id() {
+static inline uint64_t sirius_thread_id() {
 #if defined(__cplusplus)
   static thread_local uint64_t cache_tid = 0;
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L

@@ -71,7 +71,7 @@ endforeach
 
 # --- Compile Args ---
 test_compile_args += [
-  '-Dsirius_log_level=@0@'.format(get_option('test-log-level')),
+  '-D_SIRIUS_LOG_LEVEL=@0@'.format(get_option('test-log-level')),
 ]
 
 groups = [

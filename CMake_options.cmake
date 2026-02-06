@@ -3,6 +3,8 @@ option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 
 option(SIRIUS_BUILD_OBJECT_ONLY "Build objects only" OFF)
 
+option(SIRIUS_WIN_CRTDBG "On windows, enable `_CRTDBG_MAP_ALLOC`" OFF)
+
 # --- Config ---
 set(SIRIUS_NAMESPACE
     "sirius"
@@ -21,11 +23,11 @@ set(SIRIUS_USER_KEY
     CACHE STRING "User-defined key")
 
 set(SIRIUS_LOG_SHM_CAPACITY
-    "128"
+    "512"
     CACHE STRING "The capatity of the shared memory in the log module")
 
 set(SIRIUS_LOG_BUF_SIZE
-    "2048"
+    "4096"
     CACHE
       STRING
       "The maximum number of bytes written to the file descriptor at a single time"
@@ -35,7 +37,7 @@ set(SIRIUS_EXE_DAEMON_NAME
     "${SIRIUS_NAMESPACE}_daemon"
     CACHE STRING "The name of the daemon executable file")
 
-# --- Sirius ---
+# --- sirius ---
 option(SIRIUS_WARNING_ALL "Enable all compile warnings" ON)
 
 option(SIRIUS_WARNING_AS_ERROR "Regard all warnings as errors" OFF)
@@ -93,8 +95,6 @@ set(SIRIUS_UTILS_LOG_BUF_SIZE
 option(SIRIUS_TEST_ENABLE "Enable test" OFF)
 
 option(SIRIUS_TEST_PIE_ENABLE "Position independent, enable `-fPIC/-fPIE`" ON)
-
-option(SIRIUS_TEST_WIN_CRTDBG "On windows, enable `_CRTDBG_MAP_ALLOC`" OFF)
 
 set(SIRIUS_TEST_EXTRA_LINK_DIRECTORIES
     ""

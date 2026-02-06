@@ -17,7 +17,7 @@ static sirius_spinlock_t g_spin;
 static void *foo(void *arg) {
   const char *string = (const char *)arg;
 
-  sirius_infosp("[%s] Thread id: %" PRIu64 "\n", string, sirius_thread_id);
+  sirius_infosp("[%s] Thread id: %" PRIu64 "\n", string, SIRIUS_THREAD_ID);
 
   sirius_spin_lock(&g_spin);
   g_index++;
@@ -35,14 +35,14 @@ int main() {
   sirius_thread_t threads[NB_GROUPS];
   const char *args[NB_GROUPS];
 
-  sirius_spin_init(&g_spin, SIRIUS_THREAD_PROCESS_PRIVATE);
+  sirius_spin_init(&g_spin, kSiriusThreadProcessPrivate);
 
   // --- 01 ---
-  sirius_infosp("[Main-thread 01] Thread id: %" PRIu64 "\n", sirius_thread_id);
+  sirius_infosp("[Main-thread 01] Thread id: %" PRIu64 "\n", SIRIUS_THREAD_ID);
   index++;
   memset(&attr, 0, sizeof(sirius_thread_attr_t));
 
-  attr.detach_state = sirius_thread_detached;
+  attr.detach_state = kSiriusThreadCreateDetached;
 
   args[index] = "Sub-thread  01";
 
@@ -60,13 +60,13 @@ int main() {
                 sirius_thread_detach(threads[index]));
   sirius_warnsp("--------------------------------\n");
 
-  utils_dprintf(1, "\n");
+  UTILS_DPRINTF(1, "\n");
   // --- 02 ---
-  sirius_infosp("[Main-thread 02] Thread id: %" PRIu64 "\n", sirius_thread_id);
+  sirius_infosp("[Main-thread 02] Thread id: %" PRIu64 "\n", SIRIUS_THREAD_ID);
   index++;
   memset(&attr, 0, sizeof(sirius_thread_attr_t));
 
-  attr.detach_state = sirius_thread_detached;
+  attr.detach_state = kSiriusThreadCreateDetached;
 
   args[index] = "Sub-thread  02";
 
@@ -79,23 +79,23 @@ int main() {
   sirius_warnsp("--------------------------------\n");
   sirius_warnsp("- Try to join the thread detached during initialization\n");
   sirius_logsp_impl(
-    sirius_log_level_warn, log_level_str_warn, log_red, sirius_log_module_name,
-    log_purple
-    "- This is unsafe. Tools like asan may abort here\n" log_color_none);
+    SIRIUS_LOG_LEVEL_WARN, LOG_LEVEL_STR_WARN, LOG_RED, _SIRIUS_LOG_PRINT_NAME,
+    LOG_PURPLE
+    "- This is unsafe. Tools like asan may abort here\n" LOG_COLOR_NONE);
   sirius_warnsp("- sirius_thread_join: %d\n",
                 sirius_thread_join(threads[index], nullptr));
   sirius_warnsp("- sirius_thread_join: %d\n",
                 sirius_thread_join(threads[index], nullptr));
   sirius_warnsp("--------------------------------\n");
 
-  utils_dprintf(1, "\n");
+  UTILS_DPRINTF(1, "\n");
   // --- 03 ---
-  utils_dprintf(1, "\n");
-  sirius_infosp("[Main-thread 03] Thread id: %" PRIu64 "\n", sirius_thread_id);
+  UTILS_DPRINTF(1, "\n");
+  sirius_infosp("[Main-thread 03] Thread id: %" PRIu64 "\n", SIRIUS_THREAD_ID);
   index++;
   memset(&attr, 0, sizeof(sirius_thread_attr_t));
 
-  attr.detach_state = sirius_thread_joinable;
+  attr.detach_state = kSiriusThreadCreateJoinable;
 
   args[index] = "Sub-thread  03";
 
@@ -110,9 +110,9 @@ int main() {
   sirius_warnsp("--------------------------------\n");
   sirius_warnsp("- Try to join the thread manually detached\n");
   sirius_logsp_impl(
-    sirius_log_level_warn, log_level_str_warn, log_red, sirius_log_module_name,
-    log_purple
-    "- This is unsafe. Tools like asan may abort here\n" log_color_none);
+    SIRIUS_LOG_LEVEL_WARN, LOG_LEVEL_STR_WARN, LOG_RED, _SIRIUS_LOG_PRINT_NAME,
+    LOG_PURPLE
+    "- This is unsafe. Tools like asan may abort here\n" LOG_COLOR_NONE);
   sirius_warnsp("- sirius_thread_join: %d\n",
                 sirius_thread_join(threads[index], nullptr));
   sirius_warnsp("- sirius_thread_join: %d\n",

@@ -1,6 +1,6 @@
 #include "sirius/c/time.h"
 
-#include "sirius/cpu.h"
+#include "sirius/thread/cpu.h"
 #include "utils/decls.h"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -52,7 +52,6 @@ sirius_api void sirius_usleep(uint64_t usec) {
   if (period != 0) {
     timeEndPeriod(period);
   }
-
 #else
   struct timespec req, rem;
   req.tv_sec = usec / 1000000ULL;
@@ -113,7 +112,6 @@ sirius_api void sirius_nsleep(uint64_t nsec) {
   if (period != 0) {
     timeEndPeriod(period);
   }
-
 #else
   struct timespec req, rem;
   req.tv_sec = nsec / 1000000000ULL;
@@ -127,7 +125,6 @@ sirius_api void sirius_nsleep(uint64_t nsec) {
       break;
     }
   }
-
 #endif
 }
 
@@ -150,7 +147,6 @@ sirius_api uint64_t sirius_get_clock_monotonic_us() {
   uint64_t microseconds = whole_seconds * 1000000ULL;
   microseconds += (remainder_ticks * 1000000ULL) / qpc_frequency_us.QuadPart;
   return microseconds;
-
 #else
   struct timespec ts;
   if (likely(clock_gettime(CLOCK_MONOTONIC, &ts) == 0)) {
@@ -158,7 +154,6 @@ sirius_api uint64_t sirius_get_clock_monotonic_us() {
   } else {
     return 0;
   }
-
 #endif
 }
 
@@ -180,7 +175,6 @@ sirius_api uint64_t sirius_get_clock_monotonic_ns() {
   uint64_t nanoseconds = whole_seconds * 1000000000ULL;
   nanoseconds += (remainder_ticks * 1000000000ULL) / frequency.QuadPart;
   return nanoseconds;
-
 #else
   struct timespec ts;
   if (likely(clock_gettime(CLOCK_MONOTONIC, &ts) == 0)) {
@@ -188,6 +182,5 @@ sirius_api uint64_t sirius_get_clock_monotonic_ns() {
   } else {
     return 0;
   }
-
 #endif
 }

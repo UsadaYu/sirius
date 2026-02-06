@@ -1,7 +1,5 @@
 #pragma once
 
-// --- External ---
-
 /**
  * @brief The namespace of `sirius`.
  *
@@ -49,7 +47,7 @@
  * CFLAGS += -D_SIRIUS_LOG_SHM_CAPACITY=$(_SIRIUS_LOG_SHM_CAPACITY)
  */
 #ifndef _SIRIUS_LOG_SHM_CAPACITY
-#  define _SIRIUS_LOG_SHM_CAPACITY 128
+#  define _SIRIUS_LOG_SHM_CAPACITY 512
 #endif
 
 /**
@@ -60,7 +58,7 @@
  * CFLAGS += -D_SIRIUS_LOG_BUF_SIZE=$(_SIRIUS_LOG_BUF_SIZE)
  */
 #ifndef _SIRIUS_LOG_BUF_SIZE
-#  define _SIRIUS_LOG_BUF_SIZE 2048
+#  define _SIRIUS_LOG_BUF_SIZE 4096
 #else
 #  if _SIRIUS_LOG_BUF_SIZE > 40960
 #    undef _SIRIUS_LOG_BUF_SIZE
@@ -90,45 +88,3 @@
 #ifndef _SIRIUS_EXE_DAEMON_NAME
 #  define _SIRIUS_EXE_DAEMON_NAME _SIRIUS_NAMESPACE "_daemon"
 #endif
-
-// --- Internal ---
-
-#ifdef sirius_namespace
-#  undef sirius_namespace
-#endif
-#define sirius_namespace _SIRIUS_NAMESPACE
-
-#ifdef sirius_posix_file_mode
-#  undef sirius_posix_file_mode
-#endif
-#define sirius_posix_file_mode _SIRIUS_POSIX_FILE_MODE
-
-#ifdef sirius_posix_tmp_dir
-#  undef sirius_posix_tmp_dir
-#endif
-#define sirius_posix_tmp_dir _SIRIUS_POSIX_TMP_DIR
-
-#ifdef sirius_user_key
-#  undef sirius_user_key
-#endif
-#define sirius_user_key _SIRIUS_USER_KEY
-
-#ifndef sirius_log_shm_capacity
-#  undef sirius_log_shm_capacity
-#endif
-#define sirius_log_shm_capacity _SIRIUS_LOG_SHM_CAPACITY
-
-#ifdef sirius_log_buf_size
-#  undef sirius_log_buf_size
-#endif
-#define sirius_log_buf_size _SIRIUS_LOG_BUF_SIZE
-
-#ifdef sirius_exe_daemon_name
-#  undef sirius_exe_daemon_name
-#endif
-#define sirius_exe_daemon_name _SIRIUS_EXE_DAEMON_NAME
-
-#ifdef sirius_exe_dir
-#  undef sirius_exe_dir
-#endif
-#define sirius_exe_dir _SIRIUS_EXE_DIR

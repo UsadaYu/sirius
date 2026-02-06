@@ -5,15 +5,14 @@
 #include "utils/errno.h"
 
 #if defined(_WIN32) || defined(_WIN64)
-internal_check_sizeof(sirius_sem_t, HANDLE);
-internal_check_alignof(sirius_sem_t, HANDLE);
+utils_check_sizeof(sirius_sem_t, HANDLE);
+utils_check_alignof(sirius_sem_t, HANDLE);
 #else
-internal_check_sizeof(sirius_sem_t, sem_t);
-internal_check_alignof(sirius_sem_t, sem_t);
+utils_check_sizeof(sirius_sem_t, sem_t);
+utils_check_alignof(sirius_sem_t, sem_t);
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-
 sirius_api int sirius_sem_init(sirius_sem_t *sem, int pshared,
                                unsigned int value) {
   (void)pshared;
@@ -27,8 +26,8 @@ sirius_api int sirius_sem_init(sirius_sem_t *sem, int pshared,
   HANDLE h = CreateSemaphore(nullptr, initial, maximum, nullptr);
   if (!h) {
     DWORD dw_err = GetLastError();
-    utils_win_format_error(dw_err, "CreateSemaphore");
-    return internal_winerr_to_errno(dw_err);
+    UTILS_WIN_LAST_ERROR("CreateSemaphore");
+    return utils_winerr_to_errno(dw_err);
   }
 
   memcpy((HANDLE *)sem, &h, sizeof(h));
@@ -42,7 +41,7 @@ sirius_api int sirius_sem_destroy(sirius_sem_t *sem) {
 
   BOOL ok = CloseHandle(*((HANDLE *)sem));
   if (!ok)
-    return internal_winerr_to_errno(GetLastError());
+    return utils_winerr_to_errno(GetLastError());
 
   return 0;
 }
@@ -53,7 +52,7 @@ sirius_api int sirius_sem_wait(sirius_sem_t *sem) {
   case WAIT_OBJECT_0:
     return 0;
   case WAIT_FAILED:
-    return internal_winerr_to_errno(GetLastError());
+    return utils_winerr_to_errno(GetLastError());
   case WAIT_ABANDONED:
     return EINVAL;
   default:
@@ -72,7 +71,7 @@ sirius_api int sirius_sem_trywait(sirius_sem_t *sem) {
      */
     return EBUSY;
   case WAIT_FAILED:
-    return internal_winerr_to_errno(GetLastError());
+    return utils_winerr_to_errno(GetLastError());
   case WAIT_ABANDONED:
     return EINVAL;
   default:
@@ -103,7 +102,7 @@ sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
       tm_prev = tm_cur;
       break;
     case WAIT_FAILED:
-      return internal_winerr_to_errno(GetLastError());
+      return utils_winerr_to_errno(GetLastError());
     case WAIT_ABANDONED:
       return EINVAL;
     default:
@@ -117,13 +116,11 @@ sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
 sirius_api int sirius_sem_post(sirius_sem_t *sem) {
   BOOL ok = ReleaseSemaphore(*((HANDLE *)sem), 1, nullptr);
   if (!ok)
-    return internal_winerr_to_errno(GetLastError());
+    return utils_winerr_to_errno(GetLastError());
 
   return 0;
 }
-
 #else
-
 /**
  * @note On POSIX, the semaphore function returns 0 on success, -1 on error with
  * `errno` set.
@@ -184,5 +181,4 @@ sirius_api int sirius_sem_getvalue(sirius_sem_t *__restrict sem,
                                    int *__restrict sval) {
   return sem_getvalue((sem_t *)sem, sval) == 0 ? 0 : errno;
 }
-
 #endif

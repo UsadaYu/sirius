@@ -23,7 +23,7 @@ list(APPEND pkgconfig_libs_private ${GLOB_PKGCONFIG_LIBS_PRIVATE_THREAD})
 
 # --- Compile Definitions ---
 target_compile_definitions(${LIB_TARGET}
-                           PRIVATE "sirius_log_module_name=\"${LIB_TARGET}\"")
+                           PRIVATE "_SIRIUS_LOG_PRINT_NAME=\"${LIB_TARGET}\"")
 
 # --- Pkg Config ---
 add_subdirectory(pkgconfig)

@@ -25,7 +25,7 @@ endif
 
 private_compile_args += [
   '-D_SIRIUS_BUILDING',
-  '-Dsirius_log_level=@0@'.format(get_option('log-level')),
+  '-D_SIRIUS_LOG_LEVEL=@0@'.format(get_option('log-level')),
 ]
 
 langs = ['c', 'cpp']

@@ -1,63 +1,64 @@
 #pragma once
 
+#include "sirius/attributes.h"
 #include "sirius/internal/common.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef enum {
+enum SiriusOFlags {
   // --- Access Modes (mutual exclusion) ---
 
-  ss_fs_acc_rdonly = 0x01,
-  ss_fs_acc_wronly = 0x02,
-  ss_fs_acc_rdwr = 0x04,
+  kSIRIUS_O_RDONLY = 0x01,
+  kSIRIUS_O_WRONLY = 0x02,
+  kSIRIUS_O_RDWR = 0x04,
 
   // --- Modifiers (Combinable) ---
 
   /**
    * @brief Create if the file does not exist.
    */
-  ss_fs_opt_creat = 0x10,
+  kSIRIUS_O_CREAT = 0x10,
 
   /**
    * @brief If the file exists and is opened in write mode, then clear the file
    * (Truncate).
    */
-  ss_fs_opt_trunc = 0x20,
+  kSIRIUS_O_TRUNC = 0x20,
 
   /**
    * @brief Appended to the end of the file when writing.
    */
-  ss_fs_opt_append = 0x40,
+  kSIRIUS_O_APPEND = 0x40,
 
   /**
    * @brief Issue an error if the file exists (Must be used in conjunction with
    * `creat`).
    */
-  ss_fs_opt_excl = 0x80,
-} ss_fs_flags_t;
+  kSIRIUS_O_EXCL = 0x80,
+};
 
 // --- Permissions ---
-#define SS_FS_PERM_RW 0666 // Default read and write.
-#define SS_FS_PERM_RO 0444 // Read-only.
+#define SIRIUS_PERM_RW 0666 // Default read and write.
+#define SIRIUS_PERM_RO 0444 // Read-only.
 
 /**
  * @brief File opening function.
  *
- * @param path File path (UTF-8).
- * @param flags Combined flag.
- * (For example: ss_fs_acc_wronly | ss_fs_opt_creat | ss_fs_opt_trunc)
- * @param mode Permissions, works when `ss_fs_opt_creat` is specified).
+ * @param[in] path File path (UTF-8).
+ * @param[in] flags Combined flag.
+ * (For example: kSIRIUS_O_WRONLY | kSIRIUS_O_CREAT | kSIRIUS_O_TRUNC).
+ * @param[in] mode Permissions, works when `kSIRIUS_O_CREAT` is specified).
  *
  * @return 0 on success, -1 on failure.
  */
-int ss_fs_open(const char *path, int flags, int mode);
+sirius_api int sirius_open(const char *path, int flags, int mode);
 
 /**
  * @brief Close the file descriptor.
  */
-int ss_fs_close(int fd);
+sirius_api int sirius_close(int fd);
 
 #ifdef __cplusplus
 }

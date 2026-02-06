@@ -54,8 +54,8 @@ inline std::string sanitize_name(std::string_view s) {
  */
 inline std::string
 generate_namespace_prefix(const std::string &runtime_salt = "") {
-  std::string base = std::string(sirius_namespace) + "|" +
-    std::string(sirius_posix_file_mode) + "|" + std::string(sirius_user_key);
+  std::string base = std::string(_SIRIUS_NAMESPACE) + "|" +
+    std::string(_SIRIUS_POSIX_FILE_MODE) + "|" + std::string(_SIRIUS_USER_KEY);
   if (!runtime_salt.empty())
     base += "|" + runtime_salt;
 
@@ -79,14 +79,14 @@ inline std::string get_shm_name(const std::string &name) {
    * objects, which cannot be included as a partition.
    */
 
-  std::string prefix = std::string("Local\\") + std::string(sirius_namespace) +
+  std::string prefix = std::string("Local\\") + std::string(_SIRIUS_NAMESPACE) +
     "_" + generate_namespace_prefix();
   std::string nm = prefix + "_" + sanitize_name(name);
 
   return nm;
 #else
   std::string prefix =
-    std::string(sirius_namespace) + "_" + generate_namespace_prefix();
+    std::string(_SIRIUS_NAMESPACE) + "_" + generate_namespace_prefix();
   std::string nm = prefix + "_" + sanitize_name(name);
 
   return nm;
@@ -95,7 +95,7 @@ inline std::string get_shm_name(const std::string &name) {
 
 #if defined(_WIN32) || defined(_WIN64)
 inline std::string win_lock_name(const std::string &name) {
-  std::string prefix = std::string("Local\\") + std::string(sirius_namespace) +
+  std::string prefix = std::string("Local\\") + std::string(_SIRIUS_NAMESPACE) +
     "_" + generate_namespace_prefix();
   std::string nm = prefix + "_" + sanitize_name(name) + "_lock";
 
@@ -112,7 +112,7 @@ inline std::filesystem::path posix_lockfile_path(const std::string &name) {
   std::filesystem::path base = "";
   std::vector<std::filesystem::path> prefixes;
 
-  prefixes.push_back(sirius_posix_tmp_dir);
+  prefixes.push_back(_SIRIUS_POSIX_TMP_DIR);
 
   const char *xdg = std::getenv("XDG_RUNTIME_DIR");
   if (xdg) {
@@ -126,17 +126,17 @@ inline std::filesystem::path posix_lockfile_path(const std::string &name) {
       continue;
 
     try {
-      std::filesystem::path b = prefix / sirius_namespace;
+      std::filesystem::path b = prefix / _SIRIUS_NAMESPACE;
       std::filesystem::create_directories(b);
       base = b;
-      File::set_permissions_safe(base, sirius_posix_file_mode);
+      File::set_permissions_safe(base, _SIRIUS_POSIX_FILE_MODE);
       break;
     } catch (const std::filesystem::filesystem_error &e) {
-#  if (sirius_log_level >= sirius_log_level_debug)
+#  if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
       UTILS_DPRINTF(STDERR_FILENO, "`filesystem_error`: %s\n", e.what());
 #  endif
     } catch (const std::exception &e) {
-#  if (sirius_log_level >= sirius_log_level_debug)
+#  if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
       UTILS_DPRINTF(STDERR_FILENO, "`exception`: %s\n", e.what());
 #  endif
     }

@@ -30,9 +30,9 @@ void *foo(void *arg) {
       nspace = "\n";
     }
 
-    utils_dprintf(1, "Foo: %d%s| ", g_index.load(), nspace.c_str());
+    UTILS_DPRINTF(1, "Foo: %d%s| ", g_index.load(), nspace.c_str());
     if (g_index.load() % 8 == 0) {
-      utils_dprintf(1, "\n");
+      UTILS_DPRINTF(1, "\n");
     }
 
     g_index++;
@@ -49,20 +49,20 @@ int main() {
 
   // --- Join ---
   for (size_t i = 0; i < NB_THREADS; ++i) {
-    utils_assert(!sirius_thread_create(threads + i, nullptr, foo, nullptr));
+    UTILS_ASSERT(!sirius_thread_create(threads + i, nullptr, foo, nullptr));
   }
   for (size_t i = 0; i < NB_THREADS; ++i) {
-    utils_assert(!sirius_thread_join(threads[i], nullptr));
+    UTILS_ASSERT(!sirius_thread_join(threads[i], nullptr));
   }
 
   // --- Detach ---
   g_index = 1;
-  utils_dprintf(1, "\n");
+  UTILS_DPRINTF(1, "\n");
   memset(threads, 0, NB_THREADS * sizeof(sirius_thread_t));
   sirius_thread_attr_t attr {};
-  attr.detach_state = sirius_thread_detached;
+  attr.detach_state = kSiriusThreadCreateDetached;
   for (size_t i = 0; i < NB_THREADS; ++i) {
-    utils_assert(!sirius_thread_create(threads + i, &attr, foo, nullptr));
+    UTILS_ASSERT(!sirius_thread_create(threads + i, &attr, foo, nullptr));
   }
 
   while (g_index.load() <= NB_THREADS) {

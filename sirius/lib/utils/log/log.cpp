@@ -1,12 +1,15 @@
+/**
+ * @note Exception handling is required when the daemon is killed or crashed,
+ * which will be added later.
+ */
+
 #include "lib/utils/log/log.h"
 
 #include <mutex>
-#include <optional>
 #include <thread>
 #include <vector>
 
 #include "lib/utils/initializer.h"
-#include "sirius/utils/fs.h"
 #include "sirius/utils/thread.h"
 #include "utils/time.hpp"
 
@@ -19,37 +22,44 @@
 #include "utils/log/daemon.hpp"
 // clang-format on
 
+namespace StdType {
+enum class Put : int {
+  In = 0,
+  Out = 1,
+  Err = 2,
+};
+
+static inline bool check(Utils::Utils::IntegralOrEnum auto type) {
+  int index = static_cast<int>(type);
+
+  if (index < static_cast<int>(Put::In) || index > static_cast<int>(Put::Err))
+    [[unlikely]] {
+    return false;
+  }
+
+  return true;
+}
+} // namespace StdType
+
+namespace UL = Utils::Log;
+
 class LogManager {
  public:
-  std::mutex mutex;
-  int fd_out = STDOUT_FILENO;
-  int fd_err = STDERR_FILENO;
-
   LogManager()
       : is_activated_(false),
         is_creator_(false),
-        daemon_arg_(Daemon::arg()),
-        log_shm_(std::make_unique<LogShm>()) {}
-
-  ~LogManager() {
-    if (!is_activated_)
-      return;
-
-    sirius_log_config_t args {};
-    args.out.fd_enable = true;
-    args.out.fd = STDOUT_FILENO;
-    args.err.fd_enable = true;
-    args.err.fd = STDERR_FILENO;
-    fd_configure(&args);
-
-    is_activated_ = false;
-    deinit();
+        daemon_arg_(UL::Daemon::arg()),
+        log_shm_(std::make_unique<UL::Shm::Shm>()) {
+    fd_out_ = STDOUT_FILENO;
+    fd_err_ = STDERR_FILENO;
   }
 
+  ~LogManager() {}
+
   bool init() {
-    if (!ProcessMutex::create())
+    if (!UL::Shm::ProcessMutex::create())
       return false;
-    if (!ProcessMutex::lock())
+    if (!UL::Shm::ProcessMutex::lock())
       goto label_free1;
     if (!log_shm_->open_shm())
       goto label_free2;
@@ -59,7 +69,7 @@ class LogManager {
     if (!log_shm_->slots_init())
       goto label_free4;
 
-    ProcessMutex::unlock();
+    UL::Shm::ProcessMutex::unlock();
 
     if (is_creator_ && !start_daemon())
       goto label_free5;
@@ -71,112 +81,112 @@ class LogManager {
     return true;
 
   label_free5:
-    ProcessMutex::lock();
+    UL::Shm::ProcessMutex::lock();
     log_shm_->slots_deinit();
   label_free4:
     log_shm_->memory_unmap();
   label_free3:
     log_shm_->close_shm(is_creator_);
   label_free2:
-    ProcessMutex::unlock();
+    UL::Shm::ProcessMutex::unlock();
   label_free1:
-    ProcessMutex::destory();
+    UL::Shm::ProcessMutex::destory();
 
     return false;
   }
 
   void deinit() {
-    ProcessMutex::lock();
+    if (!is_activated_)
+      return;
+
+    is_activated_ = false;
+
+    UL::Shm::ProcessMutex::lock();
 
     log_shm_->slots_deinit();
     log_shm_->memory_unmap();
     log_shm_->close_shm(false);
 
-    ProcessMutex::unlock();
+    UL::Shm::ProcessMutex::unlock();
 
-    ProcessMutex::destory();
+    UL::Shm::ProcessMutex::destory();
+  }
+
+  void fs_configure(const sirius_log_fs_t &config, StdType::Put put_type) {
+    if (!StdType::check(put_type))
+      return;
+
+    size_t path_size = 0;
+
+    if (config.log_path) {
+      path_size =
+        Utils::File::path_length_check(config.log_path, UL::LOG_PATH_MAX - 1);
+      if (path_size == 0)
+        return;
+    }
+
+    if (config.shared == SiriusThreadProcess::kSiriusThreadProcessPrivate) {
+      fs_configure_private(config.log_path, path_size, put_type);
+    } else {
+      fs_configure_shared(config.log_path, path_size, put_type);
+    }
   }
 
   void produce(void *src, size_t size) {
-    if (!log_shm_->header->is_daemon_ready.load(std::memory_order_relaxed))
-      [[unlikely]] {
-      auto buffer = (LogBuffer *)src;
-      log_write(buffer->level, (void *)buffer->data, buffer->data_size);
+    if (produce_fallback(src)) [[unlikely]]
       return;
-    }
 
     uint64_t cur_write_idx =
       log_shm_->header->write_index.fetch_add(1, std::memory_order_acq_rel);
-    size_t slot_idx = cur_write_idx & (Utils::Log::SHM_CAPACITY - 1);
-    ShmSlot &slot = log_shm_->slots[slot_idx];
+    size_t slot_idx = cur_write_idx & (UL::SHM_CAPACITY - 1);
+    UL::Shm::Slot &slot = log_shm_->slots[slot_idx];
 
     int retries = 0;
-    while (slot.state.load(std::memory_order_acquire) != SlotState::FREE) {
-      if (++retries > 1000) {
+    while (slot.state.load(std::memory_order_acquire) !=
+           UL::Shm::SlotState::FREE) {
+      ++retries;
+      if (retries % 10 == 0) {
         std::this_thread::yield();
+      } else if (retries > 50) {
+        retries = 0;
+        std::this_thread::sleep_for(std::chrono::nanoseconds(100));
       }
     }
 
     slot.timestamp_ms.store(Utils::Time::get_monotonic_steady_ms(),
                             std::memory_order_relaxed);
-    slot.state.store(SlotState::WRITING, std::memory_order_release);
+    slot.state.store(UL::Shm::SlotState::WRITING, std::memory_order_release);
 
     std::memcpy(&slot.buffer, src, size);
 
-    slot.state.store(SlotState::READY, std::memory_order_release);
+    slot.state.store(UL::Shm::SlotState::READY, std::memory_order_release);
   }
 
   void log_write(int level, const void *buffer, size_t size) {
-    auto header = log_shm_->header;
+    std::lock_guard<std::mutex> lock(mutex_);
 
-    std::lock_guard<std::mutex> lock(mutex);
-
-    int fd = level <= sirius_log_level_warn ? fd_err : fd_out;
+    int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
 
     UTILS_WRITE(fd, buffer, size);
-  }
-
-  void fd_configure(sirius_log_config_t *cfg) {
-    auto &fs = log_shm_->header->fs;
-
-    auto handle_fd_config = [&](auto &config, int &target_fd, int &fs_fd,
-                                std::atomic<bool> &update_flag) {
-      if (config.log_path) {
-        if (int fd =
-              ss_fs_open(config.log_path,
-                         ss_fs_acc_wronly | ss_fs_opt_creat | ss_fs_opt_trunc,
-                         SS_FS_PERM_RW);
-            fd != -1) {
-          std::lock_guard lock(mutex);
-          target_fd = fd;
-          fs_fd = target_fd;
-          update_flag.store(true, std::memory_order_relaxed);
-        }
-      } else if (config.fd_enable && target_fd != config.fd) {
-        std::lock_guard lock(mutex);
-        target_fd = config.fd;
-        fs_fd = target_fd;
-        update_flag.store(true, std::memory_order_relaxed);
-      }
-    };
-
-    handle_fd_config(cfg->out, fd_out, fs.fd_out, fs.fd_out_update);
-    handle_fd_config(cfg->err, fd_err, fs.fd_err, fs.fd_err_update);
   }
 
  private:
   bool is_activated_;
   bool is_creator_;
   std::string daemon_arg_;
-  std::unique_ptr<LogShm> log_shm_;
+  std::unique_ptr<UL::Shm::Shm> log_shm_;
+
+  std::mutex mutex_;
+  int fd_out_;
+  int fd_err_;
 
 #if defined(_WIN32) || defined(_WIN64)
   bool start_daemon() {
-    auto daemon_exe = Daemon::Exe::path();
+    auto daemon_exe = UL::Daemon::Exe::path();
     if (daemon_exe.empty())
       return false;
 
-    std::string cmd_line = Daemon::arg();
+    std::string cmd_line = UL::Daemon::arg();
 
     STARTUPINFOA si {};
     si.cb = sizeof(STARTUPINFOA);
@@ -186,7 +196,7 @@ class LogManager {
       CreateProcessA(daemon_exe.string().c_str(), cmd_line.data(), nullptr,
                      nullptr, TRUE, 0, nullptr, nullptr, &si, &pi);
     if (!ret) {
-      Utils::Log::win_last_error("CreateProcessA");
+      UL::win_last_error("CreateProcessA");
       return false;
     }
 
@@ -194,8 +204,7 @@ class LogManager {
     CloseHandle(pi.hProcess);
 
     UTILS_DPRINTF(STDOUT_FILENO,
-                  log_level_str_info "%sTry to start the daemon\n",
-                  Utils::Log::NATIVE);
+                  LOG_LEVEL_STR_INFO "%sTry to start the daemon\n", UL::NATIVE);
 
     return true;
   }
@@ -210,18 +219,72 @@ class LogManager {
     while (!header->is_daemon_ready.load(std::memory_order_relaxed)) {
       if (retries++ > retry_times) {
         UTILS_DPRINTF(STDERR_FILENO,
-                      log_level_str_error "%sNo daemon was found\n",
-                      Utils::Log::NATIVE);
+                      LOG_LEVEL_STR_ERROR "%sNo daemon was found\n",
+                      UL::NATIVE);
         return false;
       }
       if (retries % 100 == 0) {
         UTILS_DPRINTF(STDOUT_FILENO,
-                      log_level_str_info
+                      LOG_LEVEL_STR_INFO
                       "%sTrying to acquire daemon. Total attempts: %d; "
                       "Attempted times: %d\n",
-                      Utils::Log::NATIVE, retry_times, retries);
+                      UL::NATIVE, retry_times, retries);
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    return true;
+  }
+
+  void fs_configure_shared(const char *log_path, size_t path_size,
+                           StdType::Put put_type) {
+    UL::Shm::Buffer buffer {};
+    auto &data = buffer.data.fs;
+
+    buffer.type = UL::Shm::DataType::Config;
+    buffer.level = put_type == StdType::Put::Out ? SIRIUS_LOG_LEVEL_DEBUG
+                                                 : SIRIUS_LOG_LEVEL_ERROR;
+
+    if (path_size) {
+      std::memcpy(data.path, log_path, path_size);
+      data.path[path_size] = '\0';
+      path_size += 1;
+      data.state = UL::Shm::FsState::File;
+    } else {
+      data.state = UL::Shm::FsState::Std;
+    }
+
+    produce(&buffer, sizeof(UL::Shm::Buffer) - UL::LOG_PATH_MAX + path_size);
+  }
+
+  void fs_configure_private(const char *log_path, size_t path_size,
+                            StdType::Put put_type) {
+    if (path_size) {
+      (void)log_path;
+      /* ----------------------------------------- */
+      /* ---------------- Not Yet ---------------- */
+      /* ----------------------------------------- */
+    } else {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (put_type == StdType::Put::Out) {
+        fd_out_ = STDOUT_FILENO;
+      } else {
+        fd_err_ = STDERR_FILENO;
+      }
+    }
+  }
+
+  bool produce_fallback(void *src) {
+    if (log_shm_->header->is_daemon_ready.load(std::memory_order_relaxed))
+      [[likely]] {
+      return false;
+    }
+
+    auto buffer = (UL::Shm::Buffer *)src;
+
+    if (buffer->type == UL::Shm::DataType::Log) [[likely]] {
+      log_write(buffer->level, (void *)buffer->data.log.buf,
+                buffer->data.log.buf_size);
     }
 
     return true;
@@ -268,6 +331,16 @@ static bool g_api_initialization = false;
 static std::mutex g_api_mutex;
 static std::unique_ptr<LogManager> g_log_manager;
 
+/**
+ * @note About Windows' DLL, if there are still unfinished threads in the
+ * process, there is still a risk of resource recovery failure, problems such as
+ * deadlocks may occur. When considering all aspects, using `std::atexit` can
+ * minimize this risk to the greatest extent.
+ */
+static void g_log_manager_deinit(void) {
+  g_log_manager->deinit();
+}
+
 static force_inline bool initialization_check() {
   if (g_api_initialization) [[likely]]
     return true;
@@ -281,6 +354,7 @@ static force_inline bool initialization_check() {
 
     if (g_api_initialization) {
       g_log_manager = std::move(log_manager);
+      std::atexit(g_log_manager_deinit);
     }
   }
 
@@ -294,7 +368,7 @@ extern "C" sirius_api int sirius_log_set_daemon_path(const char *path) {
     return EBUSY;
   }
 
-  return Daemon::Exe::set_path(path);
+  return UL::Daemon::Exe::set_path(path);
 }
 #else
 extern "C" sirius_api int sirius_log_set_daemon_path(const char *path) {
@@ -302,14 +376,13 @@ extern "C" sirius_api int sirius_log_set_daemon_path(const char *path) {
 }
 #endif
 
-extern "C" sirius_api void sirius_log_configure(sirius_log_config_t *cfg) {
-  if (!initialization_check()) [[unlikely]]
+extern "C" sirius_api void
+sirius_log_configure(const sirius_log_config_t *config) {
+  if (!initialization_check() || !config) [[unlikely]]
     return;
 
-  if (!cfg)
-    return;
-
-  g_log_manager->fd_configure(cfg);
+  g_log_manager->fs_configure(config->out, StdType::Put::Out);
+  g_log_manager->fs_configure(config->err, StdType::Put::Out);
 }
 
 #define ISSUE_ERROR_STANDARD_FUNCTION(function) \
@@ -318,7 +391,7 @@ extern "C" sirius_api void sirius_log_configure(sirius_log_config_t *cfg) {
       "\n" \
       "  The LOG module issues an ERROR\n" \
       "  " function " error\n"; \
-    g_log_manager->log_write(sirius_log_level_error, e, strlen(e)); \
+    g_log_manager->log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
   } while (0)
 
 #define ISSUE_ERROR_LOG_LOST() \
@@ -327,7 +400,7 @@ extern "C" sirius_api void sirius_log_configure(sirius_log_config_t *cfg) {
       "\n" \
       "  The LOG module issues an ERROR\n" \
       "  Log length exceeds the buffer, log will be lost\n"; \
-    g_log_manager->log_write(sirius_log_level_error, e, strlen(e)); \
+    g_log_manager->log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
   } while (0)
 
 #define ISSUE_WARNING_LOG_TRUNCATED() \
@@ -336,7 +409,7 @@ extern "C" sirius_api void sirius_log_configure(sirius_log_config_t *cfg) {
       "\n" \
       "  The LOG module issues a WARNING\n" \
       "  Log length exceeds the buffer, log will be truncated\n"; \
-    g_log_manager->log_write(sirius_log_level_error, e, strlen(e)); \
+    g_log_manager->log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
   } while (0)
 
 extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
@@ -347,9 +420,11 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
   if (!initialization_check()) [[unlikely]]
     return;
 
-  LogBuffer buffer {};
-  int len = 0;
+  UL::Shm::Buffer buffer {};
+  auto &data = buffer.data.log;
+  size_t len = 0;
 
+  buffer.type = UL::Shm::DataType::Log;
   buffer.level = level;
 
   time_t raw_time;
@@ -361,10 +436,10 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
    * @ref https://linux.die.net/man/3/snprintf
    */
   int written =
-    snprintf(buffer.data, sirius_log_buf_size,
+    snprintf(data.buf, UL::LOG_BUF_SIZE,
              "%s%s [%02d:%02d:%02d %s %" PRIu64 " %s (%s|%d)]%s ", color,
              level_str, tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, module,
-             _sirius_thread_id(), file, func, line, log_color_none);
+             sirius_thread_id(), file, func, line, LOG_COLOR_NONE);
 
   if (written < 0) {
     ISSUE_ERROR_STANDARD_FUNCTION("snprintf");
@@ -372,7 +447,7 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
   }
 
   len += written;
-  if (len >= sirius_log_buf_size) [[unlikely]] {
+  if (len >= UL::LOG_BUF_SIZE) [[unlikely]] {
     ISSUE_ERROR_LOG_LOST();
     return;
   }
@@ -382,7 +457,7 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
    */
   va_list args;
   va_start(args, fmt);
-  written = vsnprintf(buffer.data + len, sirius_log_buf_size - len, fmt, args);
+  written = vsnprintf(data.buf + len, UL::LOG_BUF_SIZE - len, fmt, args);
   va_end(args);
 
   if (written < 0) {
@@ -391,15 +466,15 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
   }
 
   len += written;
-  if (len >= sirius_log_buf_size) [[unlikely]] {
-    len = sirius_log_buf_size - 1;
+  if (len >= UL::LOG_BUF_SIZE) [[unlikely]] {
+    len = UL::LOG_BUF_SIZE - 1;
     ISSUE_WARNING_LOG_TRUNCATED();
   }
 
-  buffer.data_size = len;
+  data.buf_size = len;
 
   g_log_manager->produce(&buffer,
-                         sizeof(LogBuffer) - sirius_log_buf_size + len);
+                         sizeof(UL::Shm::Buffer) - UL::LOG_BUF_SIZE + len);
 }
 
 extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
@@ -409,9 +484,11 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
   if (!initialization_check()) [[unlikely]]
     return;
 
-  LogBuffer buffer {};
-  int len = 0;
+  UL::Shm::Buffer buffer {};
+  auto &data = buffer.data.log;
+  size_t len = 0;
 
+  buffer.type = UL::Shm::DataType::Log;
   buffer.level = level;
 
   time_t raw_time;
@@ -419,10 +496,9 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
   time(&raw_time);
   UTILS_LOCALTIME_R(&raw_time, &tm_info);
 
-  int written =
-    snprintf(buffer.data, sirius_log_buf_size, "%s%s [%02d:%02d:%02d %s]%s ",
-             color, level_str, tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec,
-             module, log_color_none);
+  int written = snprintf(
+    data.buf, UL::LOG_BUF_SIZE, "%s%s [%02d:%02d:%02d %s]%s ", color, level_str,
+    tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, module, LOG_COLOR_NONE);
 
   if (written < 0) {
     ISSUE_ERROR_STANDARD_FUNCTION("snprintf");
@@ -430,14 +506,14 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
   }
 
   len += written;
-  if (len >= sirius_log_buf_size) [[unlikely]] {
+  if (len >= UL::LOG_BUF_SIZE) [[unlikely]] {
     ISSUE_ERROR_LOG_LOST();
     return;
   }
 
   va_list args;
   va_start(args, fmt);
-  written = vsnprintf(buffer.data + len, sirius_log_buf_size - len, fmt, args);
+  written = vsnprintf(data.buf + len, UL::LOG_BUF_SIZE - len, fmt, args);
   va_end(args);
 
   if (written < 0) {
@@ -446,13 +522,13 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
   }
 
   len += written;
-  if (len >= sirius_log_buf_size) [[unlikely]] {
-    len = sirius_log_buf_size - 1;
+  if (len >= UL::LOG_BUF_SIZE) [[unlikely]] {
+    len = UL::LOG_BUF_SIZE - 1;
     ISSUE_WARNING_LOG_TRUNCATED();
   }
 
-  buffer.data_size = len;
+  data.buf_size = len;
 
   g_log_manager->produce(&buffer,
-                         sizeof(LogBuffer) - sirius_log_buf_size + len);
+                         sizeof(UL::Shm::Buffer) - UL::LOG_BUF_SIZE + len);
 }

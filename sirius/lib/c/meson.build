@@ -33,7 +33,7 @@ sirius_sources += [
 
 # --- Compile Args ---
 sirius_private_compile_args += [
-  '-Dsirius_log_module_name="@0@"'.format(get_option('sirius-print-name')),
+  '-D_SIRIUS_LOG_PRINT_NAME="@0@"'.format(get_option('sirius-print-name')),
   '-D_SIRIUS_LOG_BUF_SIZE=@0@'.format(get_option('sirius-log-buf-size')),
 ]
 

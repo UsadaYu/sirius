@@ -1,16 +1,14 @@
 #pragma once
 
-#include "internal/config.h"
-
 #if defined(__cplusplus)
 #  if defined(_MSVC_LANG)
-#    define _internal_cxx_std _MSVC_LANG
+#    define UTILS_CXX_STD _MSVC_LANG
 #  else
-#    define _internal_cxx_std __cplusplus
+#    define UTILS_CXX_STD __cplusplus
 #  endif
 #endif
 
-#ifdef sirius_test_win_crtdbg
+#ifdef _SIRIUS_WIN_CRTDBG
 #  define _CRTDBG_MAP_ALLOC
 #  include <crtdbg.h>
 #  include <stdlib.h>
@@ -29,13 +27,13 @@
 #  include <string>
 #  include <vector>
 
-#  if _internal_cxx_std < 201703L
+#  if UTILS_CXX_STD < 201703L
 #    error "The test module requires a standard of `c++17` or higher"
 #  else
 #    include <filesystem>
 #  endif
 
-#  if _internal_cxx_std < 202002L
+#  if UTILS_CXX_STD < 202002L
 #    error "The test module requires a standard of `c++20` or higher"
 #  else
 #    include <format>
@@ -67,14 +65,14 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
-// --- sirius::utils ---
-#include <sirius/cpu.h>
+// --- sirius ---
+#include <sirius/thread/cpu.h>
 #include <sirius/utils/log.h>
 
 #if (defined(_WIN32) || defined(_WIN64)) && defined(_MSC_VER)
 #  include <io.h>
 
-#  define utils_dprintf(fd, ...) \
+#  define UTILS_DPRINTF(fd, ...) \
     do { \
       char msg[4096] = {0}; \
       snprintf(msg, sizeof(msg), ##__VA_ARGS__); \
@@ -85,7 +83,7 @@ extern "C" {
 
 #  include <unistd.h>
 
-#  define utils_dprintf(fd, ...) \
+#  define UTILS_DPRINTF(fd, ...) \
     do { \
       char msg[4096]; \
       snprintf(msg, sizeof(msg), ##__VA_ARGS__); \
@@ -94,7 +92,7 @@ extern "C" {
 
 #endif
 
-#define utils_assert(expr) \
+#define UTILS_ASSERT(expr) \
   do { \
     if (unlikely(!(expr))) { \
       sirius_error("Assert: %s\n", #expr); \
@@ -110,13 +108,13 @@ static inline void _utils_xinit(const char *content) {
   memset(buf, 0, MAX_LEN);
   memset(bar_buf, 0, MAX_LEN);
 
-  len = snprintf(buf, sizeof(buf), "--- " sirius_log_module_name " %s ---",
+  len = snprintf(buf, sizeof(buf), "--- " _SIRIUS_LOG_PRINT_NAME " %s ---",
                  content);
   for (int i = 0; i < len && i < MAX_LEN - 1; i++) {
     bar_buf[i] = '-';
   }
 
-  utils_dprintf(1, "\n%s\n%s\n%s\n\n", bar_buf, buf, bar_buf);
+  UTILS_DPRINTF(1, "\n%s\n%s\n%s\n\n", bar_buf, buf, bar_buf);
 }
 
 static inline void utils_deinit() {
@@ -124,7 +122,7 @@ static inline void utils_deinit() {
 }
 
 static inline void utils_init() {
-#ifdef sirius_test_win_crtdbg
+#ifdef _SIRIUS_WIN_CRTDBG
   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
   _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
   _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);

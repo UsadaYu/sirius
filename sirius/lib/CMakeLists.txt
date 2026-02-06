@@ -1,6 +1,3 @@
-# --- Include ---
-include(CheckLinkerFlag)
-
 # --- Variables ---
 set(_sirius_win_dll
     "_SIRIUS_WIN_DLL"

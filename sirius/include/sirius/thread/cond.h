@@ -1,6 +1,13 @@
+/**
+ * @note
+ * - (1) `enum SiriusThreadProcess`: On Windows, inter-process sharing is not
+ * supported.
+ */
+
 #pragma once
 
 #include "sirius/attributes.h"
+#include "sirius/thread/macro.h"
 #include "sirius/thread/mutex.h"
 
 typedef struct {
@@ -10,24 +17,6 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef enum {
-  /**
-   * @brief Thread sharing within a single process.
-   */
-  sirius_cond_process_private = 0,
-
-#if defined(_WIN32) || defined(_WIN64)
-  sirius_cond_process_shared = sirius_cond_process_private,
-#else
-  /**
-   * @brief Sharing within multiple processes.
-   *
-   * @note Supported on POSIX systems only.
-   */
-  sirius_cond_process_shared = 1,
-#endif
-} sirius_cond_type_t;
 
 /**
  * @brief Initializes a condition variable.
@@ -39,8 +28,9 @@ typedef enum {
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_cond_init(sirius_cond_t *__restrict cond,
-                                const sirius_cond_type_t *__restrict type);
+sirius_api int
+sirius_cond_init(sirius_cond_t *__restrict cond,
+                 const enum SiriusThreadProcess *__restrict type);
 
 /**
  * @brief Destroy the condition variable.

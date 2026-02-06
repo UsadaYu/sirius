@@ -10,7 +10,6 @@
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-
 struct sirius_thread_s {
   HANDLE handle;
   uint64_t thread_id;
@@ -28,7 +27,6 @@ typedef struct {
   void *arg;
   sirius_thread_t thr;
 } thread_wrapper_arg_s;
-
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)

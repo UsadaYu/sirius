@@ -55,9 +55,9 @@
   },
   /**
    * --- NOTICE ---
-   * The compilation flags check effect of CMake for the `clang-cl` is
-   * extremely poor. Therefore, the test matrix only tests the compilation
-   * standards supported by the `min_version` of the compiler.
+   * The compilation flags check effect of CMake (cmake-4.2.1) for the
+   * `clang-cl` is extremely poor. Therefore, the test matrix only tests the
+   * compilation standards supported by the `min_version` of the compiler.
    */
   "clang-cl": {
     "min_version": "18.1.3",

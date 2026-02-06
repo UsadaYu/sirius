@@ -1,4 +1,4 @@
-#include "sirius/utils/fs.h"
+#include "sirius/c/fs.h"
 
 #include "utils/decls.h"
 
@@ -13,26 +13,26 @@ static int win_map_flags(int flags) {
 
   os_flags |= _O_BINARY;
 
-  if (flags & ss_fs_acc_rdonly) {
+  if (flags & kSIRIUS_O_RDONLY) {
     os_flags |= _O_RDONLY;
   }
-  if (flags & ss_fs_acc_wronly) {
+  if (flags & kSIRIUS_O_WRONLY) {
     os_flags |= _O_WRONLY;
   }
-  if (flags & ss_fs_acc_rdwr) {
+  if (flags & kSIRIUS_O_RDWR) {
     os_flags |= _O_RDWR;
   }
 
-  if (flags & ss_fs_opt_creat) {
+  if (flags & kSIRIUS_O_CREAT) {
     os_flags |= _O_CREAT;
   }
-  if (flags & ss_fs_opt_trunc) {
+  if (flags & kSIRIUS_O_TRUNC) {
     os_flags |= _O_TRUNC;
   }
-  if (flags & ss_fs_opt_append) {
+  if (flags & kSIRIUS_O_APPEND) {
     os_flags |= _O_APPEND;
   }
-  if (flags & ss_fs_opt_excl) {
+  if (flags & kSIRIUS_O_EXCL) {
     os_flags |= _O_EXCL;
   }
 
@@ -52,7 +52,7 @@ static int win_map_mode(int mode) {
   return os_mode;
 }
 
-int ss_fs_open(const char *path, int flags, int mode) {
+sirius_api int sirius_open(const char *path, int flags, int mode) {
   int fd = -1;
   int os_flags = win_map_flags(flags);
   int os_mode = win_map_mode(mode);
@@ -75,33 +75,33 @@ int ss_fs_open(const char *path, int flags, int mode) {
   return fd;
 }
 
-int ss_fs_close(int fd) {
+sirius_api int sirius_close(int fd) {
   return _close(fd);
 }
 #else
 static int posix_map_flags(int flags) {
   int os_flags = 0;
 
-  if (flags & ss_fs_acc_rdonly) {
+  if (flags & kSIRIUS_O_RDONLY) {
     os_flags |= O_RDONLY;
   }
-  if (flags & ss_fs_acc_wronly) {
+  if (flags & kSIRIUS_O_WRONLY) {
     os_flags |= O_WRONLY;
   }
-  if (flags & ss_fs_acc_rdwr) {
+  if (flags & kSIRIUS_O_RDWR) {
     os_flags |= O_RDWR;
   }
 
-  if (flags & ss_fs_opt_creat) {
+  if (flags & kSIRIUS_O_CREAT) {
     os_flags |= O_CREAT;
   }
-  if (flags & ss_fs_opt_trunc) {
+  if (flags & kSIRIUS_O_TRUNC) {
     os_flags |= O_TRUNC;
   }
-  if (flags & ss_fs_opt_append) {
+  if (flags & kSIRIUS_O_APPEND) {
     os_flags |= O_APPEND;
   }
-  if (flags & ss_fs_opt_excl) {
+  if (flags & kSIRIUS_O_EXCL) {
     os_flags |= O_EXCL;
   }
 
@@ -115,11 +115,11 @@ static int posix_map_flags(int flags) {
   return os_flags;
 }
 
-int ss_fs_open(const char *path, int flags, int mode) {
+sirius_api int sirius_open(const char *path, int flags, int mode) {
   return open(path, posix_map_flags(flags), (mode_t)mode);
 }
 
-int ss_fs_close(int fd) {
+sirius_api int sirius_close(int fd) {
   return close(fd);
 }
 #endif

@@ -8,7 +8,7 @@ extern "C" {
  * @note This variable only needs to be guaranteed to exist, not a public
  * variable.
  */
-int sirius_utils_link_anchor = 0;
+int sirius_utils_link_anchor_ = 0;
 
 #ifdef __cplusplus
 }
@@ -41,7 +41,6 @@ label_exit:
 }
 
 #if defined(_MSC_VER)
-
 /**
  * @note Ensure to execute before the static construction of C/C++.
  */
@@ -50,5 +49,4 @@ label_exit:
 
 __declspec(allocate(".CRT$XCS")) void(WINAPI *sirius_internal_init_ptr)(void) =
   init;
-
 #endif

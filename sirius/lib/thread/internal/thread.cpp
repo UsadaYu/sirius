@@ -6,19 +6,16 @@
 #include "lib/utils/thread/thread.h"
 
 #if defined(_WIN32) || defined(_WIN64)
-
 #  include <mutex>
 #  include <set>
 
 struct SiriusThreadExitException {
   void *retval;
 };
-
 #endif
 
 // --- Static Initialization ---
 #if defined(_WIN32) || defined(_WIN64)
-
 /**
  * @note Global static initialization and deinitialization.
  * These operations are generally safe since C++11.
@@ -37,10 +34,7 @@ class ThreadResourceManager {
       if (thr && !thr->resource_is_free) {
         thr->resource_is_free = true;
 
-        /**
-         * @note Don't close the handle here, because the thread might still
-         * seem to be running (suspended).
-         */
+        (void)TerminateThread(thr->handle, (DWORD)-1);
 
         sirius_spin_destroy(&thr->spin);
         free(thr);
@@ -77,12 +71,10 @@ class ThreadResourceManager {
 };
 
 static ThreadResourceManager g_manager;
-
 #endif
 
 // --- Static ---
 #if defined(_WIN32) || defined(_WIN64)
-
 /**
  * @return If the caller needs to terminate the thread immediately (by calling
  * `_endthreadex`), return 1; Otherwise, return 0.
@@ -123,25 +115,23 @@ static inline bool has_been_destructed() {
 
   once_print.store(true);
 
-  sirius_log_impl(0, log_level_str_error, log_red, sirius_log_module_name,
-                  sirius_file_name, __func__, __LINE__,
-                  log_purple
+  sirius_log_impl(0, LOG_LEVEL_STR_ERROR, LOG_RED, _SIRIUS_LOG_PRINT_NAME,
+                  SIRIUS_FILE_NAME, __func__, __LINE__,
+                  LOG_PURPLE
                   "\n"
                   "---------- Fatal Error ----------\n"
                   "- The thread manager has been destructed\n"
                   "- The `main` function may have already ended\n"
                   "- Or some unknown errors occurred\n"
                   "- There should be no further operations on the thread\n"
-                  "---------------------------------\n" log_color_none);
+                  "---------------------------------\n" LOG_COLOR_NONE);
 
   return true;
 }
-
 #endif
 
 // --- Internal Interface ---
 #if defined(_WIN32) || defined(_WIN64)
-
 extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
   thread_wrapper_arg_s warg = *(thread_wrapper_arg_s *)pv;
   free(pv);
@@ -159,11 +149,11 @@ extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
     }
 
     DWORD dw_err = GetLastError();
-    utils_win_format_error(dw_err, "TlsSetValue");
+    UTILS_WIN_LAST_ERROR("TlsSetValue");
 
     win_try_cleanup(thr);
 
-    return internal_winerr_to_errno(dw_err);
+    return utils_winerr_to_errno(dw_err);
   }
 
   try {
@@ -188,12 +178,10 @@ extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
 extern "C" void win_mark_detach(sirius_thread_t thr) {
   g_manager.mark(thr);
 }
-
 #endif
 
 // --- API Interface ---
 #if defined(_WIN32) || defined(_WIN64)
-
 extern "C" sirius_api void sirius_thread_exit(void *retval) _sirius_throw_spec {
   /**
    * @note An exception is thrown to trigger stack expansion, and the c++
@@ -242,5 +230,4 @@ extern "C" sirius_api int sirius_thread_detach(sirius_thread_t thread) {
 
   return 0;
 }
-
 #endif

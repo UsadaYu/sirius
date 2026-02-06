@@ -47,11 +47,7 @@ endforeach()
 
 # --- Compile Definitions ---
 list(APPEND TEST_COMPILE_DEFINITIONS
-     "sirius_log_level=${SIRIUS_TEST_LOG_LEVEL}")
-
-if(SIRIUS_TEST_WIN_CRTDBG AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  list(APPEND TEST_COMPILE_DEFINITIONS "_SIRIUS_TEST_WIN_CRTDBG")
-endif()
+     "_SIRIUS_LOG_LEVEL=${SIRIUS_TEST_LOG_LEVEL}")
 
 # --- Compile Options ---
 if(MSVC)
@@ -115,7 +111,7 @@ function(test_add_single_test)
                                        ${ARG_DIRECTORY})
 
   target_compile_definitions(${ARG_TARGET}
-                             PRIVATE "sirius_log_module_name=\"${ARG_TARGET}\"")
+                             PRIVATE "_SIRIUS_LOG_PRINT_NAME=\"${ARG_TARGET}\"")
 
   target_compile_definitions(${ARG_TARGET} PRIVATE ${TEST_COMPILE_DEFINITIONS})
   target_compile_options(${ARG_TARGET} PRIVATE ${TEST_COMPILE_OPTIONS})

@@ -121,6 +121,13 @@ if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${min_version})
 endif()
 unset(min_version)
 
+# --- Compile Definitions ---
+if(SIRIUS_WIN_CRTDBG AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  if(MSVC OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_definitions("_SIRIUS_WIN_CRTDBG")
+  endif()
+endif()
+
 add_subdirectory(sirius)
 
 if(SIRIUS_TEST_ENABLE)

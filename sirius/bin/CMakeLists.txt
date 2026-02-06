@@ -31,7 +31,7 @@ function(bin_set_exe_args)
                                        ${ARG_DIRECTORY})
 
   target_compile_definitions(${ARG_TARGET}
-                             PRIVATE "sirius_log_module_name=\"${ARG_TARGET}\"")
+                             PRIVATE "_SIRIUS_LOG_PRINT_NAME=\"${ARG_TARGET}\"")
 
   target_compile_definitions(${ARG_TARGET} PRIVATE ${BIN_COMPILE_DEFINITIONS})
   target_compile_options(${ARG_TARGET} PRIVATE ${BIN_COMPILE_OPTIONS})

@@ -11,12 +11,12 @@
 /**
  * @brief Timeout, no waiting.
  */
-#define sirius_timeout_none (0)
+#define SIRIUS_TIMEOUT_NO_WAITING (0)
 
 /**
  * @brief Timeout, infinite wait.
  */
-#define sirius_timeout_infinite (UINT64_MAX)
+#define SIRIUS_TIMEOUT_INFINITE (UINT64_MAX)
 
 #ifdef offsetof
 #  undef offsetof

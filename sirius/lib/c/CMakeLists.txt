@@ -7,7 +7,9 @@ set(pkgconfig_requires_private "")
 set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
 # --- sirius::c ---
-set(sources "time.c")
+set(sources "")
+list(APPEND sources "fcntl/fs.c")
+list(APPEND sources "time.c")
 
 add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})
 add_library(${SIRIUS_NAMESPACE}::${LIB_TARGET} ALIAS ${LIB_TARGET})
@@ -18,17 +20,13 @@ utils_set_output_directory_to_mirror(TARGET ${LIB_TARGET})
 set_target_properties(${LIB_TARGET} PROPERTIES VERSION ${lib_version})
 
 target_compile_definitions(${LIB_TARGET}
-                           PRIVATE "sirius_log_module_name=\"${LIB_TARGET}\"")
+                           PRIVATE "_SIRIUS_LOG_PRINT_NAME=\"${LIB_TARGET}\"")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   find_library(libwinmm winmm REQUIRED)
   target_link_libraries(${LIB_TARGET} PRIVATE ${libwinmm})
   list(APPEND pkgconfig_libs_private "-lwinmm")
 endif()
-
-target_link_libraries(
-  ${LIB_TARGET} PRIVATE "${SIRIUS_NAMESPACE}::${SIRIUS_UTILS_LIBRARY_NAME}")
-list(APPEND pkgconfig_requires_private ${SIRIUS_UTILS_LIBRARY_NAME})
 
 # --- Pkg Config ---
 add_subdirectory(pkgconfig)

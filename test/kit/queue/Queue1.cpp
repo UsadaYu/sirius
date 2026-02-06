@@ -28,12 +28,12 @@ class QueueTestContext {
   std::vector<std::vector<char>> memory_pool;
 
   QueueTestContext() {
-    sirius_queue_arg_t qarg {};
-    qarg.elem_count = QUEUE_DEPTH;
-    qarg.queue_type = sirius_queue_type_mtx;
+    sirius_queue_args_t qargs {};
+    qargs.elem_count = QUEUE_DEPTH;
+    qargs.queue_type = kSiriusQueueTypeMutex;
 
-    if (sirius_queue_alloc(&q_data, &qarg) != 0 ||
-        sirius_queue_alloc(&q_free, &qarg) != 0) {
+    if (sirius_queue_alloc(&q_data, &qargs) != 0 ||
+        sirius_queue_alloc(&q_free, &qargs) != 0) {
       sirius_error("sirius_queue_alloc\n");
       std::terminate();
     }
@@ -41,7 +41,7 @@ class QueueTestContext {
     memory_pool.resize(QUEUE_DEPTH);
     for (auto &buf : memory_pool) {
       buf.resize(MSG_BUF_SIZE);
-      sirius_queue_put(q_free, (size_t)buf.data(), sirius_timeout_none);
+      sirius_queue_put(q_free, (size_t)buf.data(), SIRIUS_TIMEOUT_NO_WAITING);
     }
   }
 
@@ -55,12 +55,12 @@ class QueueTestContext {
 
 void *producer_routine(void *arg) {
   auto *ctx = static_cast<QueueTestContext *>(arg);
-  uint64_t tid = sirius_thread_id;
+  uint64_t tid = SIRIUS_THREAD_ID;
 
   for (int i = 0; i < NB_MSGS_PER_THD; ++i) {
     void *buf_ptr = nullptr;
     if (sirius_queue_get(ctx->q_free, (size_t *)&buf_ptr,
-                         sirius_timeout_infinite) != 0) {
+                         SIRIUS_TIMEOUT_INFINITE) != 0) {
       sirius_error("sirius_queue_get\n");
       break;
     }
@@ -72,7 +72,7 @@ void *producer_routine(void *arg) {
              "Msg %d from Thread %" PRIu64, i, tid);
 
     if (sirius_queue_put(ctx->q_data, (size_t)buf_ptr,
-                         sirius_timeout_infinite) != 0) {
+                         SIRIUS_TIMEOUT_INFINITE) != 0) {
       sirius_error("sirius_queue_put\n");
       break;
     }
@@ -90,7 +90,7 @@ void *consumer_routine(void *arg) {
     void *buf_ptr = nullptr;
 
     if (sirius_queue_get(ctx->q_data, (size_t *)&buf_ptr,
-                         sirius_timeout_infinite) != 0) {
+                         SIRIUS_TIMEOUT_INFINITE) != 0) {
       break;
     }
 
@@ -106,7 +106,7 @@ void *consumer_routine(void *arg) {
     ctx->total_consumed.fetch_add(1, std::memory_order_relaxed);
 
     if (sirius_queue_put(ctx->q_free, (size_t)buf_ptr,
-                         sirius_timeout_infinite) != 0) {
+                         SIRIUS_TIMEOUT_INFINITE) != 0) {
       sirius_error("sirius_queue_put: consumer failed to recycle buffer\n");
     }
   }
@@ -143,7 +143,7 @@ int main() {
   }
   sirius_infosp("All producers finished\n");
 
-  sirius_queue_put(ctx.q_data, 0, sirius_timeout_infinite);
+  sirius_queue_put(ctx.q_data, 0, SIRIUS_TIMEOUT_INFINITE);
 
   sirius_thread_join(consumer_thd, nullptr);
 
@@ -157,7 +157,7 @@ int main() {
   sirius_infosp(" Total consumed: %zu\n", consumed);
 
   size_t free_count = 0;
-  sirius_queue_cache_num(ctx.q_free, &free_count);
+  sirius_queue_nb_cache(ctx.q_free, &free_count);
   sirius_infosp("Free queue count: %zu (expected: %d)\n", free_count,
                 QUEUE_DEPTH);
 

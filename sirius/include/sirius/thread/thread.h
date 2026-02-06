@@ -6,7 +6,7 @@
 /**
  * @brief Get the thread id, the result is of type `uint64_t`.
  */
-#define sirius_thread_id (_sirius_thread_id())
+#define SIRIUS_THREAD_ID (sirius_thread_id())
 
 typedef struct sirius_thread_s *sirius_thread_t;
 
@@ -18,87 +18,87 @@ extern "C" {
  * @brief On POSIX system, under the `SCHED_OTHER` policy, the priority is
  * always 0, corresponding to `none` here.
  */
-#define sirius_thread_priority_none (0)
+#define SIRIUS_THREAD_PRIORITY_NONE (0)
 
 /**
  * @brief Minimum thread priority.
  */
-#define sirius_thread_priority_min (1)
+#define SIRIUS_THREAD_PRIORITY_MIN (1)
 
 /**
  * @brief Maximum thread priority.
  */
-#define sirius_thread_priority_max (99)
+#define SIRIUS_THREAD_PRIORITY_MAX (99)
 
-typedef enum {
-  sirius_thread_detach_none = -1,
+enum SiriusThreadCreate {
+  kSiriusThreadCreateNone = -1,
 
   /**
    * @brief The thread can be synchronized using the `sirius_thread_join`
    * function.
    */
-  sirius_thread_joinable = 0,
+  kSiriusThreadCreateJoinable = 0,
 
   /**
    * @brief The thread cannot be synchronized using the `sirius_thread_join`
    * function.
    */
-  sirius_thread_detached = 1,
-} sirius_thread_detach_state_t;
+  kSiriusThreadCreateDetached = 1,
+};
 
-typedef enum {
-  sirius_thread_sched_none = -1,
+enum SiriusThreadSched {
+  kSiriusThreadSchedNone = -1,
 
 #if defined(_WIN32) || defined(_WIN64)
-  sirius_thread_sched_other = sirius_thread_sched_none,
-  sirius_thread_sched_fifo = sirius_thread_sched_none,
-  sirius_thread_sched_rr = sirius_thread_sched_none,
+  kSiriusThreadSchedOther = kSiriusThreadSchedNone,
+  kSiriusThreadSchedFifo = kSiriusThreadSchedNone,
+  kSiriusThreadSchedRR = kSiriusThreadSchedNone,
 #else
   /**
    * @brief Not real-time.
    */
-  sirius_thread_sched_other = 0,
+  kSiriusThreadSchedOther = 0,
 
   /**
    * @brief Real-time, rotational method, system permissions may be required.
    */
-  sirius_thread_sched_fifo = 1,
+  kSiriusThreadSchedFifo = 1,
 
   /**
    * @brief Real-time, first-in, first-out, system permissions may be required.
    */
-  sirius_thread_sched_rr = 2,
+  kSiriusThreadSchedRR = 2,
 #endif
-} sirius_thread_sched_policy_t;
+};
 
 typedef struct {
   /**
-   * @brief Thread rotation policy.
+   * @brief Thread scheduling policy.
    *
    * @note
    * ------------------------------------------
    * --- Only takes effect on POSIX system. ---
    * ------------------------------------------
    */
-  sirius_thread_sched_policy_t sched_policy;
+  enum SiriusThreadSched sched_policy;
 
   /**
    * @brief Thread priority.
    *
-   * @note This parameters usually range from `sirius_thread_priority_min` (1)
-   * to `sirius_thread_priority_max` (99), and it only affects the thread
+   * @note This parameters usually range from `SIRIUS_THREAD_PRIORITY_MIN` (1)
+   * to `SIRIUS_THREAD_PRIORITY_MAX` (99), and it only affects the thread
    * priority, not the process priority.
    *
    * - (1) On POSIX system, like `pthread`, this parameter needs to be used in
    * conjunction with the `sched_policy` parameter. When parameter
-   * `sched_policy` is set to `sirius_thread_sched_fifo` or
-   * `sirius_thread_sched_rr`, this parameter ranges from 1 to 99; when
-   * parameter `sched_policy` is configured to `sirius_thread_sched_other`, this
-   * parameter has a value of `sirius_thread_priority_none` (0) always.
+   * `sched_policy` is set to `kSiriusThreadSchedFifo` or
+   * `kSiriusThreadSchedRR`, this parameter ranges from 1 to 99; when
+   * parameter `sched_policy` is configured to `kSiriusThreadSchedOther`, this
+   * parameter has a value of `SIRIUS_THREAD_PRIORITY_NONE` (0) always.
    *
    * - (2) On Windows MSVC system, this parameter is valid regardless of the
    * `sched_policy` parameter. any configuration between
-   * `sirius_thread_priority_min` and `sirius_thread_priority_max` is converted
+   * `SIRIUS_THREAD_PRIORITY_MIN` and `SIRIUS_THREAD_PRIORITY_MAX` is converted
    * to a specific priority. In fact, the priority of threads on Windows is also
    * related to the process. The thread priority is configured on the interface
    * according to the current process priority. For details about rules of
@@ -119,54 +119,54 @@ typedef struct {
    * https://learn.microsoft.com/zh-cn/windows/win32/procthread/scheduling-priorities
    */
   int priority;
-} sirius_thread_sched_param_t;
+} sirius_thread_sched_args_t;
 
-typedef enum {
-  sirius_thread_inherit_none = -1,
+enum SiriusThreadInherit {
+  kSiriusThreadInheritNone = -1,
 
 #if defined(_WIN32) || defined(_WIN64)
-  sirius_thread_inherit_sched = sirius_thread_inherit_none,
-  sirius_thread_explicit_sched = sirius_thread_inherit_none,
+  kSiriusThreadInheritSched = kSiriusThreadInheritNone,
+  kSiriusThreadExplicitSched = kSiriusThreadInheritNone,
 #else
   /**
    * @brief Inherits the scheduling policy and scheduling parameters of the
    * caller thread.
    */
-  sirius_thread_inherit_sched = 0,
+  kSiriusThreadInheritSched = 0,
 
   /**
    * @brief Explicitly specifies the scheduling policy and scheduling parameters
    * for the thread.
    */
-  sirius_thread_explicit_sched = 1,
+  kSiriusThreadExplicitSched = 1,
 #endif
-} sirius_thread_inherit_t;
+};
 
-typedef enum {
-  sirius_thread_scope_none = -1,
+enum SiriusThreadScope {
+  kSiriusThreadScopeNone = -1,
 
 #if defined(_WIN32) || defined(_WIN64)
-  sirius_thread_scope_system = sirius_thread_scope_none,
-  sirius_thread_scope_process = sirius_thread_scope_none,
+  kSiriusThreadScopeSystem = kSiriusThreadScopeNone,
+  kSiriusThreadScopeProcess = kSiriusThreadScopeNone,
 #else
   /**
    * @brief Compete with all threads in the system for the CPU time.
    */
-  sirius_thread_scope_system = 0,
+  kSiriusThreadScopeSystem = 0,
 
   /**
    * @brief Only compete with the thread in current process for the CPU time,
    * system permissions may be required.
    */
-  sirius_thread_scope_process = 1,
+  kSiriusThreadScopeProcess = 1,
 #endif
-} sirius_thread_scope_t;
+};
 
 typedef struct {
   /**
    * @brief Detach state.
    */
-  sirius_thread_detach_state_t detach_state;
+  enum SiriusThreadCreate detach_state;
 
   /**
    * @note
@@ -174,7 +174,7 @@ typedef struct {
    * --- Only takes effect on POSIX system. ---
    * ------------------------------------------
    */
-  sirius_thread_inherit_t inherit_sched;
+  enum SiriusThreadInherit inherit_sched;
 
   /**
    * @note
@@ -182,7 +182,7 @@ typedef struct {
    * --- Only takes effect on POSIX system. ---
    * ------------------------------------------
    */
-  sirius_thread_scope_t scope;
+  enum SiriusThreadScope scope;
 
   /**
    * @brief Specifies the starting address of the thread stack.
@@ -204,7 +204,7 @@ typedef struct {
    */
   size_t guardsize;
 
-  sirius_thread_sched_param_t sched_param;
+  sirius_thread_sched_args_t sched_param;
 
   /**
    * @brief The size of the thread stack.
@@ -327,7 +327,7 @@ sirius_api int sirius_thread_get_priority_min(sirius_thread_t thread,
  */
 sirius_api int
 sirius_thread_setschedparam(sirius_thread_t thread,
-                            const sirius_thread_sched_param_t *param);
+                            const sirius_thread_sched_args_t *param);
 
 /**
  * @brief Get the thread attributes.
@@ -338,7 +338,7 @@ sirius_thread_setschedparam(sirius_thread_t thread,
  * @return 0 on success, or an `errno` value on failure.
  */
 sirius_api int sirius_thread_getschedparam(sirius_thread_t thread,
-                                           sirius_thread_sched_param_t *param);
+                                           sirius_thread_sched_args_t *param);
 
 #ifdef __cplusplus
 }

@@ -2,6 +2,7 @@
 
 #include "sirius/attributes.h"
 #include "sirius/file.h"
+#include "sirius/thread/macro.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,67 +12,102 @@ extern "C" {
  * @brief Custom log module name.
  *
  * @example
- * - (1) CFLAGS += -Dsirius_log_module_name='"$(sirius_log_module_name)"'
+ * - (1) CFLAGS += -D_SIRIUS_LOG_PRINT_NAME='"$(_SIRIUS_LOG_PRINT_NAME)"'
  */
-#ifndef sirius_log_module_name
-#  define sirius_log_module_name "unknown"
+#ifndef _SIRIUS_LOG_PRINT_NAME
+#  define _SIRIUS_LOG_PRINT_NAME "unknown"
 #endif
 
-#define sirius_log_level_none (0)
-#define sirius_log_level_error (1)
-#define sirius_log_level_warn (2)
-#define sirius_log_level_info (3)
-#define sirius_log_level_debug (4)
+#ifndef SIRIUS_LOG_LEVEL_NONE
+#  define SIRIUS_LOG_LEVEL_NONE (0)
+#endif
+#ifndef SIRIUS_LOG_LEVEL_ERROR
+#  define SIRIUS_LOG_LEVEL_ERROR (1)
+#endif
+#ifndef SIRIUS_LOG_LEVEL_WARN
+#  define SIRIUS_LOG_LEVEL_WARN (2)
+#endif
+#ifndef SIRIUS_LOG_LEVEL_INFO
+#  define SIRIUS_LOG_LEVEL_INFO (3)
+#endif
+#ifndef SIRIUS_LOG_LEVEL_DEBUG
+#  define SIRIUS_LOG_LEVEL_DEBUG (4)
+#endif
 
 /**
  * @brief Compile macro, level: 0, 1, 2, 3, 4.
  * The default log printing level.
  *
  * @example
- * - (1) CFLAGS += -Dsirius_log_level=2
+ * - (1) CFLAGS += -D_SIRIUS_LOG_LEVEL=2
  */
-#ifndef sirius_log_level
-#  define sirius_log_level sirius_log_level_info
+#ifndef _SIRIUS_LOG_LEVEL
+#  define _SIRIUS_LOG_LEVEL SIRIUS_LOG_LEVEL_INFO
 #endif
 
 /**
  * @brief ANSI Colors.
  */
-#define log_color_none "\033[m"
-#define log_red "\033[0;32;31m"
-#define log_green "\033[0;32;32m"
-#define log_blue "\033[0;32;34m"
-#define log_gray "\033[1;30m"
-#define log_cyan "\033[0;36m"
-#define log_purple "\033[0;35m"
-#define log_brown "\033[0;33m"
-#define log_yellow "\033[1;33m"
-#define log_white "\033[1;37m"
+#ifndef LOG_COLOR_NONE
+#  define LOG_COLOR_NONE "\033[m"
+#endif
+#ifndef LOG_RED
+#  define LOG_RED "\033[0;32;31m"
+#endif
+#ifndef LOG_GREEN
+#  define LOG_GREEN "\033[0;32;32m"
+#endif
+#ifndef LOG_BLUE
+#  define LOG_BLUE "\033[0;32;34m"
+#endif
+#ifndef LOG_GRAY
+#  define LOG_GRAY "\033[1;30m"
+#endif
+#ifndef LOG_CYAN
+#  define LOG_CYAN "\033[0;36m"
+#endif
+#ifndef LOG_PURPLE
+#  define LOG_PURPLE "\033[0;35m"
+#endif
+#ifndef LOG_BROWN
+#  define LOG_BROWN "\033[0;33m"
+#endif
+#ifndef LOG_YELLOW
+#  define LOG_YELLOW "\033[1;33m"
+#endif
+#ifndef LOG_WHITE
+#  define LOG_WHITE "\033[1;37m"
+#endif
 
-#define log_level_str_debug "Debug"
-#define log_level_str_info "Info "
-#define log_level_str_warn "Warn "
-#define log_level_str_error "Error"
-
-// --- Not Yet ---
-typedef enum {
-  sirius_log_process_shared = 0,
-  sirius_log_process_private,
-} sirius_log_process_shared_t;
+#ifndef LOG_LEVEL_STR_ERROR
+#  define LOG_LEVEL_STR_ERROR "Error"
+#endif
+#ifndef LOG_LEVEL_STR_WARN
+#  define LOG_LEVEL_STR_WARN "Warn "
+#endif
+#ifndef LOG_LEVEL_STR_INFO
+#  define LOG_LEVEL_STR_INFO "Info "
+#endif
+#ifndef LOG_LEVEL_STR_DEBUG
+#  define LOG_LEVEL_STR_DEBUG "Debug"
+#endif
 
 typedef struct {
+  /**
+   * @note Set to default `stdout` / `stderr` when `nullptr`.
+   */
   const char *log_path;
 
   /**
-   * @note Only takes effect when the `log_path` is `nullptr`.
+   * @note Not yet.
    */
-  int fd;
-  int fd_enable;
-
-  sirius_log_process_shared_t shared;
+  enum SiriusThreadProcess shared;
 } sirius_log_fs_t;
 
 typedef struct {
+  /**
+   * @note Not yet.
+   */
   int disable_color;
 
   sirius_log_fs_t out;
@@ -84,7 +120,7 @@ typedef struct {
  */
 sirius_api int sirius_log_set_daemon_path(const char *path);
 
-sirius_api void sirius_log_configure(sirius_log_config_t *cfg);
+sirius_api void sirius_log_configure(const sirius_log_config_t *cfg);
 
 sirius_api void sirius_log_impl(int level, const char *level_str,
                                 const char *color, const char *module,
@@ -95,84 +131,84 @@ sirius_api void sirius_logsp_impl(int level, const char *level_str,
                                   const char *color, const char *module,
                                   const char *fmt, ...);
 
-#define _SIRIUS_LOG_VOID(level, fmt, ...) \
+#define _sirius_log_void(level, fmt, ...) \
   do { \
     if (0) { \
       sirius_log_impl(level, "", "", "", "", "", 0, fmt, ##__VA_ARGS__); \
     } \
   } while (0)
 
-#define _SIRIUS_LOGSP_VOID(level, fmt, ...) \
+#define _sirius_logsp_void(level, fmt, ...) \
   do { \
     if (0) { \
       sirius_logsp_impl(level, "", "", "", fmt, ##__VA_ARGS__); \
     } \
   } while (0)
 
-#if (sirius_log_level >= sirius_log_level_error)
-#  define _SIRIUS_ERROR(fmt, ...) \
-    sirius_log_impl(sirius_log_level_error, log_level_str_error, log_red, \
-                    sirius_log_module_name, sirius_file_name, __func__, \
+#if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_ERROR)
+#  define _sirius_error(fmt, ...) \
+    sirius_log_impl(SIRIUS_LOG_LEVEL_ERROR, LOG_LEVEL_STR_ERROR, LOG_RED, \
+                    _SIRIUS_LOG_PRINT_NAME, SIRIUS_FILE_NAME, __func__, \
                     __LINE__, fmt, ##__VA_ARGS__)
 #else
-#  define _SIRIUS_ERROR(fmt, ...) \
-    _SIRIUS_LOG_VOID(sirius_log_level_error, fmt, ##__VA_ARGS__)
+#  define _sirius_error(fmt, ...) \
+    _sirius_log_void(SIRIUS_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
 #endif
 
-#if (sirius_log_level >= sirius_log_level_warn)
-#  define _SIRIUS_WARN(fmt, ...) \
-    sirius_log_impl(sirius_log_level_warn, log_level_str_warn, log_yellow, \
-                    sirius_log_module_name, sirius_file_name, __func__, \
+#if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_WARN)
+#  define _sirius_warn(fmt, ...) \
+    sirius_log_impl(SIRIUS_LOG_LEVEL_WARN, LOG_LEVEL_STR_WARN, LOG_YELLOW, \
+                    _SIRIUS_LOG_PRINT_NAME, SIRIUS_FILE_NAME, __func__, \
                     __LINE__, fmt, ##__VA_ARGS__)
-#  define _SIRIUS_WARNSP(fmt, ...) \
-    sirius_logsp_impl(sirius_log_level_warn, log_level_str_warn, log_yellow, \
-                      sirius_log_module_name, fmt, ##__VA_ARGS__)
+#  define _sirius_warnsp(fmt, ...) \
+    sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, LOG_LEVEL_STR_WARN, LOG_YELLOW, \
+                      _SIRIUS_LOG_PRINT_NAME, fmt, ##__VA_ARGS__)
 #else
-#  define _SIRIUS_WARN(fmt, ...) \
-    _SIRIUS_LOG_VOID(sirius_log_level_warn, fmt, ##__VA_ARGS__)
-#  define _SIRIUS_WARNSP(fmt, ...) \
-    _SIRIUS_LOGSP_VOID(sirius_log_level_warn, fmt, ##__VA_ARGS__)
+#  define _sirius_warn(fmt, ...) \
+    _sirius_log_void(SIRIUS_LOG_LEVEL_WARN, fmt, ##__VA_ARGS__)
+#  define _sirius_warnsp(fmt, ...) \
+    _sirius_logsp_void(SIRIUS_LOG_LEVEL_WARN, fmt, ##__VA_ARGS__)
 #endif
 
-#if (sirius_log_level >= sirius_log_level_info)
-#  define _SIRIUS_INFO(fmt, ...) \
-    sirius_log_impl(sirius_log_level_info, log_level_str_info, log_green, \
-                    sirius_log_module_name, sirius_file_name, __func__, \
+#if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_INFO)
+#  define _sirius_info(fmt, ...) \
+    sirius_log_impl(SIRIUS_LOG_LEVEL_INFO, LOG_LEVEL_STR_INFO, LOG_GREEN, \
+                    _SIRIUS_LOG_PRINT_NAME, SIRIUS_FILE_NAME, __func__, \
                     __LINE__, fmt, ##__VA_ARGS__)
-#  define _SIRIUS_INFOSP(fmt, ...) \
-    sirius_logsp_impl(sirius_log_level_info, log_level_str_info, log_green, \
-                      sirius_log_module_name, fmt, ##__VA_ARGS__)
+#  define _sirius_infosp(fmt, ...) \
+    sirius_logsp_impl(SIRIUS_LOG_LEVEL_INFO, LOG_LEVEL_STR_INFO, LOG_GREEN, \
+                      _SIRIUS_LOG_PRINT_NAME, fmt, ##__VA_ARGS__)
 #else
-#  define _SIRIUS_INFO(fmt, ...) \
-    _SIRIUS_LOG_VOID(sirius_log_level_info, fmt, ##__VA_ARGS__)
-#  define _SIRIUS_INFOSP(fmt, ...) \
-    _SIRIUS_LOGSP_VOID(sirius_log_level_info, fmt, ##__VA_ARGS__)
+#  define _sirius_info(fmt, ...) \
+    _sirius_log_void(SIRIUS_LOG_LEVEL_INFO, fmt, ##__VA_ARGS__)
+#  define _sirius_infosp(fmt, ...) \
+    _sirius_logsp_void(SIRIUS_LOG_LEVEL_INFO, fmt, ##__VA_ARGS__)
 #endif
 
-#if (sirius_log_level >= sirius_log_level_debug)
-#  define _SIRIUS_DEBUG(fmt, ...) \
-    sirius_log_impl(sirius_log_level_debug, log_level_str_debug, \
-                    log_color_none, sirius_log_module_name, sirius_file_name, \
+#if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
+#  define _sirius_debug(fmt, ...) \
+    sirius_log_impl(SIRIUS_LOG_LEVEL_DEBUG, LOG_LEVEL_STR_DEBUG, \
+                    LOG_COLOR_NONE, _SIRIUS_LOG_PRINT_NAME, SIRIUS_FILE_NAME, \
                     __func__, __LINE__, fmt, ##__VA_ARGS__)
-#  define _SIRIUS_DEBUGSP(fmt, ...) \
-    sirius_logsp_impl(sirius_log_level_debug, log_level_str_debug, \
-                      log_color_none, sirius_log_module_name, fmt, \
+#  define _sirius_debugsp(fmt, ...) \
+    sirius_logsp_impl(SIRIUS_LOG_LEVEL_DEBUG, LOG_LEVEL_STR_DEBUG, \
+                      LOG_COLOR_NONE, _SIRIUS_LOG_PRINT_NAME, fmt, \
                       ##__VA_ARGS__)
 #else
-#  define _SIRIUS_DEBUG(fmt, ...) \
-    _SIRIUS_LOG_VOID(sirius_log_level_debug, fmt, ##__VA_ARGS__)
-#  define _SIRIUS_DEBUGSP(fmt, ...) \
-    _SIRIUS_LOGSP_VOID(sirius_log_level_debug, fmt, ##__VA_ARGS__)
+#  define _sirius_debug(fmt, ...) \
+    _sirius_log_void(SIRIUS_LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)
+#  define _sirius_debugsp(fmt, ...) \
+    _sirius_logsp_void(SIRIUS_LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)
 #endif
 
-#define sirius_error(fmt, ...) _SIRIUS_ERROR(fmt, ##__VA_ARGS__)
-#define sirius_warn(fmt, ...) _SIRIUS_WARN(fmt, ##__VA_ARGS__)
-#define sirius_info(fmt, ...) _SIRIUS_INFO(fmt, ##__VA_ARGS__)
-#define sirius_debug(fmt, ...) _SIRIUS_DEBUG(fmt, ##__VA_ARGS__)
+#define sirius_error(fmt, ...) _sirius_error(fmt, ##__VA_ARGS__)
+#define sirius_warn(fmt, ...) _sirius_warn(fmt, ##__VA_ARGS__)
+#define sirius_info(fmt, ...) _sirius_info(fmt, ##__VA_ARGS__)
+#define sirius_debug(fmt, ...) _sirius_debug(fmt, ##__VA_ARGS__)
 
-#define sirius_warnsp(fmt, ...) _SIRIUS_WARNSP(fmt, ##__VA_ARGS__)
-#define sirius_infosp(fmt, ...) _SIRIUS_INFOSP(fmt, ##__VA_ARGS__)
-#define sirius_debugsp(fmt, ...) _SIRIUS_DEBUGSP(fmt, ##__VA_ARGS__)
+#define sirius_warnsp(fmt, ...) _sirius_warnsp(fmt, ##__VA_ARGS__)
+#define sirius_infosp(fmt, ...) _sirius_infosp(fmt, ##__VA_ARGS__)
+#define sirius_debugsp(fmt, ...) _sirius_debugsp(fmt, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 }

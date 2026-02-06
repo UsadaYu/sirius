@@ -10,17 +10,17 @@ extern "C" {
 
 typedef struct sirius_queue_t sirius_queue_t;
 
-typedef enum {
+enum SiriusQueueType {
   /**
    * @brief Queue with mutex, default.
    */
-  sirius_queue_type_mtx = 0,
+  kSiriusQueueTypeMutex = 0,
 
   /**
    * @brief Queue without mutex.
    */
-  sirius_queue_type_no_mtx = 1,
-} sirius_queue_type_t;
+  kSiriusQueueTypeNoMutex = 1,
+};
 
 typedef struct {
   /**
@@ -29,22 +29,22 @@ typedef struct {
   size_t elem_count;
 
   /**
-   * @brief Mechanism in the queue, refer to `sirius_queue_type_t`.
+   * @brief Mechanism in the queue, refer to `enum SiriusQueueType`.
    */
-  sirius_queue_type_t queue_type;
-} sirius_queue_arg_t;
+  enum SiriusQueueType queue_type;
+} sirius_queue_args_t;
 
 /**
  * @brief Allocate a queue handle, the resulting handle must be deleted using
  * `sirius_queue_free`.
  *
  * @param[out] queue Queue handle.
- * @param[in] arg Queue creation parameters.
+ * @param[in] args Queue creation parameters.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
 sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
-                                  const sirius_queue_arg_t *__restrict arg);
+                                  const sirius_queue_args_t *__restrict args);
 
 /**
  * @brief Free the queue handle.
@@ -61,8 +61,8 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue);
  * @param[in] queue Queue handle.
  * @param[out] ptr An obtained queue element.
  * @param[in] milliseconds Timeout duration, unit: ms. Takes effect only when
- * the queue with mutex. Setting the value to `sirius_timeout_none` means no
- * wait, and setting it to `sirius_timeout_infinite` means infinite wait.
+ * the queue with mutex. Setting the value to `SIRIUS_TIMEOUT_NO_WAITING` means no
+ * wait, and setting it to `SIRIUS_TIMEOUT_INFINITE` means infinite wait.
  *
  * @return
  * - (1) 0 on success;
@@ -80,8 +80,8 @@ sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
  * @param[in] queue Queue handle.
  * @param[out] ptr The element which will be added to the queue.
  * @param[in] milliseconds Timeout duration, unit: ms. Takes effect only when
- * the queue with mutex. Setting the value to `sirius_timeout_none` (0) means no
- * wait, and setting it to `sirius_timeout_infinite` (UINT64_MAX) means infinite
+ * the queue with mutex. Setting the value to `SIRIUS_TIMEOUT_NO_WAITING` (0) means no
+ * wait, and setting it to `SIRIUS_TIMEOUT_INFINITE` (UINT64_MAX) means infinite
  * wait.
  *
  * @return
@@ -112,7 +112,7 @@ sirius_api int sirius_queue_reset(sirius_queue_t *queue);
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_queue_cache_num(sirius_queue_t *queue, size_t *num);
+sirius_api int sirius_queue_nb_cache(sirius_queue_t *queue, size_t *num);
 
 #ifdef __cplusplus
 }

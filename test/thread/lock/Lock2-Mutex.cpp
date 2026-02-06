@@ -9,11 +9,11 @@ int main() {
 
   sirius_infosp("--- Static initialization test begins ---\n");
 
-  utils_assert(!sirius_mutex_lock(&g_mutex));
-  utils_assert(EBUSY == sirius_mutex_trylock(&g_mutex));
-  utils_assert(EBUSY == sirius_mutex_trylock(&g_mutex));
-  utils_assert(!sirius_mutex_unlock(&g_mutex));
-  utils_assert(!sirius_mutex_destroy(&g_mutex));
+  UTILS_ASSERT(!sirius_mutex_lock(&g_mutex));
+  UTILS_ASSERT(EBUSY == sirius_mutex_trylock(&g_mutex));
+  UTILS_ASSERT(EBUSY == sirius_mutex_trylock(&g_mutex));
+  UTILS_ASSERT(!sirius_mutex_unlock(&g_mutex));
+  UTILS_ASSERT(!sirius_mutex_destroy(&g_mutex));
 
   sirius_infosp("--- Static initialization test ended ---\n\n");
 

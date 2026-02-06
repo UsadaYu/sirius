@@ -28,7 +28,7 @@ endmacro()
 
 set(subdir "c")
 set(api_files "")
-list(APPEND api_files "${subdir}/time.h")
+list(APPEND api_files "${subdir}/fs.h" "${subdir}/time.h")
 api_install(subdir api_files)
 
 set(subdir "internal")
@@ -40,15 +40,21 @@ set(api_files "${subdir}/queue.h")
 api_install(subdir api_files)
 
 set(subdir "thread")
-set(api_files "${subdir}/cond.h" "${subdir}/mutex.h" "${subdir}/sem.h"
-              "${subdir}/spinlock.h" "${subdir}/thread.h")
+set(api_files
+    "${subdir}/cond.h"
+    "${subdir}/cpu.h"
+    "${subdir}/macro.h"
+    "${subdir}/mutex.h"
+    "${subdir}/sem.h"
+    "${subdir}/spinlock.h"
+    "${subdir}/thread.h")
 api_install(subdir api_files)
 
 set(subdir "utils")
-set(api_files "${subdir}/fs.h" "${subdir}/log.h" "${subdir}/thread.h")
+set(api_files "${subdir}/log.h" "${subdir}/thread.h")
 api_install(subdir api_files)
 
 set(subdir ".")
-set(api_files "${subdir}/attributes.h" "${subdir}/cpu.h" "${subdir}/file.h"
-              "${subdir}/macro.h" ${gen})
+set(api_files "${subdir}/attributes.h" "${subdir}/file.h" "${subdir}/macro.h"
+              ${gen})
 api_install(subdir api_files)

@@ -11,7 +11,7 @@
 #  include <minwindef.h>
 #  include <winerror.h>
 
-static inline int internal_winerr_to_errno(DWORD err) {
+static inline int utils_winerr_to_errno(DWORD err) {
   switch (err) {
   case ERROR_SUCCESS:
     return 0;
@@ -124,5 +124,5 @@ static inline int internal_winerr_to_errno(DWORD err) {
   }
 }
 #else
-#  define internal_winerr_to_errno(err) (err)
+#  define utils_winerr_to_errno(err) (err)
 #endif

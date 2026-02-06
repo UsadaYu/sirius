@@ -10,7 +10,8 @@ test_add_exes_and_tests(
   targets)
 
 foreach(target IN LISTS targets)
-  cmake_path(SET _gen NORMALIZE "_gen_${target}.log")
+  cmake_path(SET _gen NORMALIZE
+             "${CMAKE_CURRENT_BINARY_DIR}/_gen_${target}.log")
   target_compile_definitions(${target} PRIVATE "GEN_FILE_NAME=\"${_gen}\"")
   set_property(
     DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}

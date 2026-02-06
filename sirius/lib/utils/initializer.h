@@ -21,14 +21,14 @@ void destructor_utils_thread();
 #  if defined(_M_IX86)
 #    pragma comment(linker, "/include:_sirius_internal_link_anchor")
 #  else
-#    pragma comment(linker, "/include:sirius_utils_link_anchor")
+#    pragma comment(linker, "/include:sirius_utils_link_anchor_")
 #  endif
 #elif defined(__GNUC__) || defined(__clang__)
 /**
  * @note `anchor` is not necessary for most non-Windows platforms, but it is
  * still retained here.
  */
-extern int sirius_utils_link_anchor;
+extern int sirius_utils_link_anchor_;
 static const int *__sirius_keep_alive __attribute__((used, section(".data"))) =
-  &sirius_utils_link_anchor;
+  &sirius_utils_link_anchor_;
 #endif

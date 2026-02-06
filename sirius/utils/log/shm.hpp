@@ -12,6 +12,7 @@
 #  include <sys/mman.h>
 #endif
 
+#include <functional>
 #include <thread>
 
 /**
@@ -20,27 +21,64 @@
  */
 constexpr size_t SHM_CACHE_LINE_SIZE = 64;
 
+namespace Utils {
+namespace Log {
+namespace Shm {
 enum class SlotState : int {
   FREE = 0,
   WRITING = 1,
   READY = 2,
 };
 
-struct LogBuffer {
-  int level;
-
-  size_t data_size;
-  char data[sirius_log_buf_size];
+enum class FsState : int {
+  None = 0, // Make no changes.
+  Std = 1,  // Set to default `stdout` / `stderr`.
+  File = 2, // Write to file.
 };
 
-struct alignas(SHM_CACHE_LINE_SIZE) ShmSlot {
+enum class DataType : int {
+  Log = 0,    // likely
+  Config = 1, // unlikely
+};
+
+struct Buffer {
+  DataType type;
+
+  union {
+    struct {
+      size_t buf_size;
+      char buf[Log::LOG_BUF_SIZE];
+    } log;
+
+    struct {
+      char path[Log::LOG_PATH_MAX];
+      FsState state;
+    } fs;
+  } data;
+
+  /**
+   * @note
+   * - (1) level <= SIRIUS_LOG_LEVEL_WARN: stderr.
+   *
+   * - (2) level > SIRIUS_LOG_LEVEL_WARN: stdout.
+   */
+  int level;
+};
+
+#if defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable: 4324)
+#endif
+struct alignas(SHM_CACHE_LINE_SIZE) Slot {
   std::atomic<SlotState> state;
   std::atomic<uint64_t> timestamp_ms;
 
-  LogBuffer buffer;
+  Buffer buffer;
 };
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 
-namespace ShmHeader {
 struct AttachedMap {
 #if defined(_WIN32) || defined(_WIN64)
   DWORD
@@ -50,14 +88,6 @@ struct AttachedMap {
   pid;
 
   uint64_t timestamp_ms;
-};
-
-struct Fs {
-  std::atomic<bool> fd_out_update;
-  int fd_out;
-
-  std::atomic<bool> fd_err_update;
-  int fd_err;
 };
 
 struct Header {
@@ -81,10 +111,9 @@ struct Header {
    * lock.
    */
   size_t attached_count;
-  bool attached_used[Utils::Log::PROCESS_MAX];
-  AttachedMap attached_maps[Utils::Log::PROCESS_MAX];
+  bool attached_used[Log::PROCESS_MAX];
+  AttachedMap attached_maps[Log::PROCESS_MAX];
 
-  Fs fs;
   std::atomic<uint64_t> write_index;
   std::atomic<uint64_t> read_index;
   size_t capacity;
@@ -92,14 +121,13 @@ struct Header {
 
   uint64_t reserved[8];
 };
-} // namespace ShmHeader
 
 #if defined(_WIN32) || defined(_WIN64)
 namespace WinMutex {
 static inline bool create(HANDLE &handle, const char *name) {
-  handle = CreateMutexA(nullptr, FALSE, Utils::Ns::win_lock_name(name).c_str());
+  handle = CreateMutexA(nullptr, FALSE, Ns::win_lock_name(name).c_str());
   if (!handle) {
-    Utils::Log::win_last_error("CreateMutexA");
+    Log::win_last_error("CreateMutexA");
     return false;
   }
 
@@ -122,12 +150,12 @@ static inline bool lock(HANDLE &handle) {
     case WAIT_ABANDONED:
       UTILS_DPRINTF(
         STDOUT_FILENO,
-        log_level_str_warn
+        LOG_LEVEL_STR_WARN
         "%sA process that previously held the lock may have crashed\n",
-        Utils::Log::COMMON);
+        Log::COMMON);
       continue;
     case WAIT_FAILED:
-      Utils::Log::win_last_error("WaitForSingleObject");
+      Log::win_last_error("WaitForSingleObject");
       return false;
     default:
       return false;
@@ -137,7 +165,7 @@ static inline bool lock(HANDLE &handle) {
 
 static inline bool unlock(HANDLE &handle) {
   if (!ReleaseMutex(handle)) {
-    Utils::Log::win_last_error("WaitForSingleObject");
+    Log::win_last_error("WaitForSingleObject");
     return false;
   }
 
@@ -151,7 +179,7 @@ namespace ProcessMutex {
 static HANDLE process_lock_;
 
 static inline bool create() {
-  return WinMutex::create(process_lock_, Utils::Log::MUTEX_PROCESS_KEY);
+  return WinMutex::create(process_lock_, Log::MUTEX_PROCESS_KEY);
 }
 
 static inline void destory() {
@@ -169,11 +197,11 @@ static inline bool unlock() {
 static int process_lock_ = -1;
 
 static inline bool create() {
-  auto path = Utils::Ns::posix_lockfile_path(Utils::Log::MUTEX_PROCESS_KEY);
+  auto path = Ns::posix_lockfile_path(Log::MUTEX_PROCESS_KEY);
   process_lock_ = open(path.c_str(), O_RDWR | O_CREAT,
-                       Utils::File::string_to_mode(sirius_posix_file_mode));
+                       File::string_to_mode(_SIRIUS_POSIX_FILE_MODE));
   if (process_lock_ == -1) {
-    Utils::Log::errno_error("open");
+    Log::errno_error("open");
     return false;
   }
 
@@ -195,7 +223,7 @@ static inline bool lock() {
   lock.l_len = 0;
 
   if (fcntl(process_lock_, F_SETLKW, &lock) == -1) {
-    Utils::Log::errno_error("fcntl lock");
+    Log::errno_error("fcntl lock");
     return false;
   }
 
@@ -210,7 +238,7 @@ static inline bool unlock() {
   lock.l_len = 0;
 
   if (fcntl(process_lock_, F_SETLK, &lock) == -1) {
-    Utils::Log::errno_error("fcntl unlock");
+    Log::errno_error("fcntl unlock");
     return false;
   }
 
@@ -219,25 +247,22 @@ static inline bool unlock() {
 #endif
 } // namespace ProcessMutex
 
-class LogShm {
+class Shm {
  public:
   bool shm_creator = false;
-  ShmHeader::Header *header = nullptr;
-  ShmSlot *slots = nullptr;
+  Header *header = nullptr;
+  Slot *slots = nullptr;
 
 #if defined(_WIN32) || defined(_WIN64)
-  LogShm()
-      : shm_name_(Utils::Ns::get_shm_name(Utils::Log::KEY)),
+  Shm()
+      : shm_name_(Ns::get_shm_name(Log::KEY)),
         shm_handle_(nullptr),
         mapped_size_(0) {}
 #else
-  LogShm()
-      : shm_name_(Utils::Ns::get_shm_name(Utils::Log::KEY)),
-        shm_fd_(-1),
-        mapped_size_(0) {}
+  Shm() : shm_name_(Ns::get_shm_name(Log::KEY)), shm_fd_(-1), mapped_size_(0) {}
 #endif
 
-  ~LogShm() {}
+  ~Shm() {}
 
 // --- Shared Memory ---
 #if defined(_WIN32) || defined(_WIN64)
@@ -253,13 +278,13 @@ class LogShm {
     if (shm_handle_) {
       shm_creator = GetLastError() == ERROR_ALREADY_EXISTS ? false : true;
     } else {
-      Utils::Log::win_last_error("CreateFileMappingA");
+      Log::win_last_error("CreateFileMappingA");
       return false;
     }
 
     mapped_size_ = size_needed;
 
-    if (!shm_lock_create()) {
+    if (!shm_mutex_create()) {
       CloseHandle(shm_handle_);
       shm_handle_ = nullptr;
       return false;
@@ -271,7 +296,7 @@ class LogShm {
   void close_shm(bool shm_should_destory) {
     (void)shm_should_destory;
 
-    shm_lock_destory();
+    shm_mutex_destory();
 
     if (shm_handle_) {
       CloseHandle(shm_handle_);
@@ -283,10 +308,10 @@ class LogShm {
     void *ptr =
       MapViewOfFile(shm_handle_, FILE_MAP_ALL_ACCESS, 0, 0, mapped_size_);
     if (!ptr) {
-      Utils::Log::win_last_error("MapViewOfFile");
+      Log::win_last_error("MapViewOfFile");
       return false;
     }
-    header = static_cast<ShmHeader::Header *>(ptr);
+    header = static_cast<Header *>(ptr);
 
     return true;
   }
@@ -302,11 +327,11 @@ class LogShm {
     size_t size_needed = get_shm_size();
 
     shm_fd_ = shm_open(shm_name_.c_str(), O_CREAT | O_EXCL | O_RDWR,
-                       Utils::File::string_to_mode(sirius_posix_file_mode));
+                       File::string_to_mode(_SIRIUS_POSIX_FILE_MODE));
     if (shm_fd_ >= 0) {
       shm_creator = true;
       if (ftruncate(shm_fd_, size_needed) == -1) {
-        Utils::Log::errno_error("ftruncate");
+        Log::errno_error("ftruncate");
         shm_unlink(shm_name_.c_str());
         close(shm_fd_);
         return false;
@@ -315,11 +340,11 @@ class LogShm {
       shm_creator = false;
       shm_fd_ = shm_open(shm_name_.c_str(), O_RDWR, 0);
       if (shm_fd_ < 0) {
-        Utils::Log::errno_error("shm_open attach");
+        Log::errno_error("shm_open attach");
         return false;
       }
     } else {
-      Utils::Log::errno_error("shm_open open");
+      Log::errno_error("shm_open open");
       return false;
     }
 
@@ -336,8 +361,8 @@ class LogShm {
 
     if (shm_should_destory) {
       UTILS_DPRINTF(STDOUT_FILENO,
-                    log_level_str_info "%sUnlink the share memory\n",
-                    Utils::Log::COMMON);
+                    LOG_LEVEL_STR_INFO "%sUnlink the share memory\n",
+                    Log::COMMON);
       shm_unlink(shm_name_.c_str());
     }
   }
@@ -346,7 +371,7 @@ class LogShm {
     void *ptr = mmap(nullptr, mapped_size_, PROT_READ | PROT_WRITE, MAP_SHARED,
                      shm_fd_, 0);
     if (ptr == MAP_FAILED) {
-      Utils::Log::errno_error("mmap");
+      Log::errno_error("mmap");
       return false;
     }
     header = static_cast<ShmHeader::Header *>(ptr);
@@ -364,11 +389,11 @@ class LogShm {
 
 // --- Mutex ---
 #if defined(_WIN32) || defined(_WIN64)
-  bool shm_lock_lock() {
+  bool shm_mutex_lock() {
     return WinMutex::lock(shm_lock_);
   }
 
-  bool shm_lock_unlock() {
+  bool shm_mutex_unlock() {
     return WinMutex::unlock(shm_lock_);
   }
 #else
@@ -382,13 +407,13 @@ class LogShm {
   bool slots_init() {
     uint8_t *base_ptr = reinterpret_cast<uint8_t *>(header);
 
-    slots = reinterpret_cast<ShmSlot *>(base_ptr + get_shm_header_offset());
+    slots = reinterpret_cast<Slot *>(base_ptr + get_shm_header_offset());
 
     if (!shm_creator) {
-      if (header->magic != ShmHeader::Header::MAGIC) {
+      if (header->magic != Header::Header::MAGIC) {
         UTILS_DPRINTF(STDERR_FILENO,
-                      log_level_str_error "%sInvalid argument. `magic`: %u\n",
-                      Utils::Log::COMMON, header->magic);
+                      LOG_LEVEL_STR_ERROR "%sInvalid argument. `magic`: %u\n",
+                      Log::COMMON, header->magic);
         return false;
       }
       return slot_alloc();
@@ -396,17 +421,16 @@ class LogShm {
 
     header->is_daemon_ready.store(false);
     header->attached_count = 0;
-    for (size_t i = 0; i < Utils::Log::PROCESS_MAX; ++i) {
+    for (size_t i = 0; i < Log::PROCESS_MAX; ++i) {
       header->attached_used[i] = false;
     }
     header->write_index.store(0);
     header->read_index.store(0);
-    memset(&header->fs, 0, sizeof(header->fs));
-    header->capacity = Utils::Log::SHM_CAPACITY;
-    header->item_size = sizeof(ShmSlot);
+    header->capacity = Log::SHM_CAPACITY;
+    header->item_size = sizeof(Slot);
 
     if (slot_alloc()) {
-      header->magic = ShmHeader::Header::MAGIC;
+      header->magic = Header::MAGIC;
       return true;
     }
 
@@ -422,11 +446,10 @@ class LogShm {
   int shm_fd_;
 #endif
   size_t mapped_size_;
-  std::thread thread_guard_;
-  std::atomic<bool> thread_guard_running_;
+  std::jthread thread_guard_;
 
   size_t get_shm_header_offset() const {
-    size_t header_size = sizeof(ShmHeader::Header);
+    size_t header_size = sizeof(Header);
     size_t header_aligned =
       (header_size + SHM_CACHE_LINE_SIZE - 1) & ~(SHM_CACHE_LINE_SIZE - 1);
 
@@ -434,8 +457,7 @@ class LogShm {
   }
 
   size_t get_shm_size() const {
-    return get_shm_header_offset() +
-      (Utils::Log::SHM_CAPACITY * sizeof(ShmSlot));
+    return get_shm_header_offset() + (Log::SHM_CAPACITY * sizeof(Slot));
   }
 
   auto get_process_id() const {
@@ -454,61 +476,55 @@ class LogShm {
   }
 
 #if UTILS_LOG_SHM_HPP_IS_DAEMON_
-  void thread_guard() {
-    thread_guard_running_.store(true);
-
+  void thread_guard(std::stop_token stop_token) {
     const int once_ms = 1000;
-    int splits = Utils::Log::PROCESS_GUARD_TIMEOUT_MS / once_ms;
+    int splits = Log::PROCESS_GUARD_TIMEOUT_MS / once_ms;
     splits = UTILS_MAX(1, splits);
 
-    while (thread_guard_running_.load(std::memory_order_relaxed)) {
+    while (!stop_token.stop_requested()) {
       for (int i = 0; i < splits; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(once_ms));
-        if (thread_guard_running_.load(std::memory_order_relaxed)) [[likely]] {
+        if (!stop_token.stop_requested()) [[likely]]
           continue;
-        }
         break;
       }
 
-      uint64_t timestamp_ms = Utils::Time::get_monotonic_steady_ms();
+      uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
 
-      shm_lock_lock();
+      shm_mutex_lock();
 
-      for (size_t i = 0; i < Utils::Log::PROCESS_MAX; ++i) {
+      for (size_t i = 0; i < Log::PROCESS_MAX; ++i) {
         if (!header->attached_used[i])
           continue;
 
-        ShmHeader::AttachedMap *am = header->attached_maps + i;
-        if (timestamp_ms - am->timestamp_ms <
-            Utils::Log::PROCESS_GUARD_TIMEOUT_MS) [[likely]] {
+        AttachedMap *am = header->attached_maps + i;
+        if (timestamp_ms - am->timestamp_ms < Log::PROCESS_GUARD_TIMEOUT_MS)
+          [[likely]] {
           continue;
         }
 
-        std::memset(am, 0, sizeof(ShmHeader::AttachedMap));
+        std::memset(am, 0, sizeof(AttachedMap));
         header->attached_used[i] = false;
         attached_count_sub1();
       }
 
       if (header->attached_count == 0) {
-        shm_lock_unlock();
+        shm_mutex_unlock();
         break;
       }
 
-      shm_lock_unlock();
+      shm_mutex_unlock();
     }
   }
 
   void slot_free() {
     auto pid = get_process_id();
 
-    thread_guard_running_.store(false, std::memory_order_relaxed);
-    if (thread_guard_.joinable()) {
-      thread_guard_.join();
-    }
+    thread_guard_.request_stop();
 
     UTILS_DPRINTF(STDOUT_FILENO,
-                  log_level_str_info "%sPID: %" PRIu64 ". Slot free\n",
-                  Utils::Log::DAEMON, (uint64_t)pid);
+                  LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot free\n",
+                  Log::DAEMON, (uint64_t)pid);
   }
 
   bool slot_alloc() {
@@ -516,45 +532,42 @@ class LogShm {
 
     if (header->is_daemon_ready.load(std::memory_order_relaxed)) {
       UTILS_DPRINTF(STDOUT_FILENO,
-                    log_level_str_warn "%sAnother daemon already exists\n",
-                    Utils::Log::DAEMON);
+                    LOG_LEVEL_STR_WARN "%sAnother daemon already exists\n",
+                    Log::DAEMON);
       return false;
     }
 
-    thread_guard_ = std::thread([this]() {
-      this->thread_guard();
-    });
+    thread_guard_ = std::jthread(std::bind_front(&Shm::thread_guard, this));
 
     UTILS_DPRINTF(STDOUT_FILENO,
-                  log_level_str_info "%sPID: %" PRIu64 ". Slot alloc\n",
-                  Utils::Log::DAEMON, (uint64_t)pid);
+                  LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot alloc\n",
+                  Log::DAEMON, (uint64_t)pid);
 
     return true;
   }
 #else
-  void thread_guard() {
+  void thread_guard(std::stop_token stop_token) {
     size_t index;
     auto pid = get_process_id();
 
-    thread_guard_running_.store(true);
+    shm_mutex_lock();
 
-    shm_lock_lock();
-
-    for (index = 0; index < Utils::Log::PROCESS_MAX; ++index) {
+    for (index = 0; index < Log::PROCESS_MAX; ++index) {
       if (header->attached_used[index] &&
           header->attached_maps[index].pid == pid) {
         break;
       }
-      if (index == Utils::Log::PROCESS_MAX - 1) {
+      if (index == Log::PROCESS_MAX - 1) {
         UTILS_DPRINTF(STDERR_FILENO,
-                      log_level_str_warn "%sPID: %" PRIu64
+                      LOG_LEVEL_STR_WARN "%sPID: %" PRIu64
                                          ". No valid pid was matched\n",
-                      Utils::Log::NATIVE, (uint64_t)pid);
-        thread_guard_running_.store(false);
+                      Log::NATIVE, (uint64_t)pid);
+        shm_mutex_unlock();
+        return;
       }
     }
 
-    shm_lock_unlock();
+    shm_mutex_unlock();
 
     /**
      * @note Although the probability of occurrence is not high, the
@@ -562,32 +575,32 @@ class LogShm {
      * duration of a single sleep can help threads exit quickly.
      */
     const int once_ms = 500;
-    int splits = Utils::Log::PROCESS_FEED_GUARD_MS / once_ms;
+    int splits = Log::PROCESS_FEED_GUARD_MS / once_ms;
     splits = UTILS_MAX(1, splits);
 
-    while (thread_guard_running_.load(std::memory_order_relaxed)) {
-      uint64_t timestamp_ms = Utils::Time::get_monotonic_steady_ms();
+    while (!stop_token.stop_requested()) {
+      uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
 
-      shm_lock_lock();
+      shm_mutex_lock();
 
       if (header->attached_used[index] &&
           header->attached_maps[index].pid == pid) [[likely]] {
         header->attached_maps[index].timestamp_ms = timestamp_ms;
       } else {
         UTILS_DPRINTF(STDERR_FILENO,
-                      log_level_str_warn "%sInvalid argument. Pid: %" PRIu64
+                      LOG_LEVEL_STR_WARN "%sInvalid argument. Pid: %" PRIu64
                                          ". `attached` thread exit\n",
-                      Utils::Log::NATIVE, (uint64_t)pid);
-        thread_guard_running_.store(false, std::memory_order_relaxed);
+                      Log::NATIVE, (uint64_t)pid);
+        shm_mutex_lock();
+        return;
       }
 
-      shm_lock_unlock();
+      shm_mutex_unlock();
 
       for (int i = 0; i < splits; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(once_ms));
-        if (thread_guard_running_.load(std::memory_order_relaxed)) [[likely]] {
+        if (!stop_token.stop_requested())
           continue;
-        }
         break;
       }
     }
@@ -596,67 +609,61 @@ class LogShm {
   void slot_free() {
     auto pid = get_process_id();
 
-    thread_guard_running_.store(false, std::memory_order_relaxed);
-    if (thread_guard_.joinable()) {
-      thread_guard_.join();
-    }
+    thread_guard_.request_stop();
 
-    shm_lock_lock();
+    shm_mutex_lock();
 
-    for (size_t i = 0; i < Utils::Log::PROCESS_MAX; ++i) {
+    for (size_t i = 0; i < Log::PROCESS_MAX; ++i) {
       auto *am = header->attached_maps + i;
       if (header->attached_used[i] && am->pid == pid) {
-        std::memset(am, 0, sizeof(ShmHeader::AttachedMap));
+        std::memset(am, 0, sizeof(AttachedMap));
         header->attached_used[i] = false;
         attached_count_sub1();
         break;
       }
-      if (i == Utils::Log::PROCESS_MAX - 1) {
+      if (i == Log::PROCESS_MAX - 1) {
         UTILS_DPRINTF(STDERR_FILENO,
-                      log_level_str_warn "%sPID: %" PRIu64
+                      LOG_LEVEL_STR_WARN "%sPID: %" PRIu64
                                          ". No valid pid was matched\n",
-                      Utils::Log::NATIVE, (uint64_t)pid);
+                      Log::NATIVE, (uint64_t)pid);
       }
     }
 
-    shm_lock_unlock();
+    shm_mutex_unlock();
 
     UTILS_DPRINTF(STDOUT_FILENO,
-                  log_level_str_info "%sPID: %" PRIu64 ". Slot free\n",
-                  Utils::Log::NATIVE, (uint64_t)pid);
+                  LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot free\n",
+                  Log::NATIVE, (uint64_t)pid);
   }
 
   bool slot_alloc() {
     auto pid = get_process_id();
 
-    shm_lock_lock();
+    shm_mutex_lock();
 
-    for (size_t i = 0; i < Utils::Log::PROCESS_MAX; ++i) {
+    for (size_t i = 0; i < Log::PROCESS_MAX; ++i) {
       if (!header->attached_used[i]) {
         ++header->attached_count;
         header->attached_used[i] = true;
         header->attached_maps[i].pid = pid;
-        header->attached_maps[i].timestamp_ms =
-          Utils::Time::get_monotonic_steady_ms();
-        shm_lock_unlock();
+        header->attached_maps[i].timestamp_ms = Time::get_monotonic_steady_ms();
+        shm_mutex_unlock();
         break;
       }
-      if (i == Utils::Log::PROCESS_MAX - 1) {
+      if (i == Log::PROCESS_MAX - 1) {
         UTILS_DPRINTF(STDERR_FILENO,
-                      log_level_str_error "%sCache full. Too many processes\n",
-                      Utils::Log::NATIVE);
-        shm_lock_unlock();
+                      LOG_LEVEL_STR_ERROR "%sCache full. Too many processes\n",
+                      Log::NATIVE);
+        shm_mutex_unlock();
         return false;
       }
     }
 
-    thread_guard_ = std::thread([this]() {
-      this->thread_guard();
-    });
+    thread_guard_ = std::jthread(std::bind_front(&Shm::thread_guard, this));
 
     UTILS_DPRINTF(STDOUT_FILENO,
-                  log_level_str_info "%sPID: %" PRIu64 ". Slot alloc\n",
-                  Utils::Log::NATIVE, (uint64_t)pid);
+                  LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot alloc\n",
+                  Log::NATIVE, (uint64_t)pid);
 
     return true;
   }
@@ -664,13 +671,16 @@ class LogShm {
 
 // --- Mutex ---
 #if defined(_WIN32) || defined(_WIN64)
-  bool shm_lock_create() {
-    return WinMutex::create(shm_lock_, Utils::Log::MUTEX_SHM_KEY);
+  bool shm_mutex_create() {
+    return WinMutex::create(shm_lock_, Log::MUTEX_SHM_KEY);
   }
 
-  void shm_lock_destory() {
+  void shm_mutex_destory() {
     return WinMutex::destory(shm_lock_);
   }
 #else
 #endif
 };
+} // namespace Shm
+} // namespace Log
+} // namespace Utils

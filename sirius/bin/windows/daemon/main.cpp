@@ -2,13 +2,11 @@
 #include "bin/windows/utils.h"
 // clang-format on
 
-#ifdef _MSC_VER
-#  if 0
-#    define _CRTDBG_MAP_ALLOC
-#    include <crtdbg.h>
-#    include <stdlib.h>
-#    include <string.h>
-#  endif
+#ifdef _SIRIUS_WIN_CRTDBG
+#  define _CRTDBG_MAP_ALLOC
+#  include <crtdbg.h>
+#  include <stdlib.h>
+#  include <string.h>
 #endif
 
 // clang-format off
@@ -21,28 +19,28 @@
 // clang-format on
 
 void thread_log() {
-  auto log_manager = std::make_unique<Daemon::Daemon::LogManager>();
+  auto log_manager = std::make_unique<Utils::Log::Daemon::Daemon::LogManager>();
 
   log_manager->main();
 }
 
 static inline void main_dbg() {
-#ifdef _MSC_VER
-#  if 0
+#ifdef _SIRIUS_WIN_CRTDBG
   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
   _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
   _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
-#  endif
 #endif
 }
 
-int main(int argc, char **argv) {
+int main([[maybe_unused]] int argc, [[maybe_unused]] char **argv) {
   main_dbg();
 
-  if (!Daemon::Daemon::check())
+  if (!Utils::Log::Daemon::Daemon::check())
     return EINVAL;
 
   std::jthread thread_log_(thread_log);
+
+  thread_log_.join();
 
   return 0;
 }

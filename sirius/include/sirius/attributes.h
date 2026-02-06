@@ -48,7 +48,6 @@
 #endif
 
 #if defined(__cplusplus)
-
 #  if __cplusplus >= 201103L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201103L)
 #    define sirius_alignas(align) alignas(align)
 #  elif defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
@@ -59,9 +58,7 @@
 #    warning "Alignment not supported, may cause performance issues"
 #    define sirius_alignas(align) ((void)0)
 #  endif
-
 #else
-
 #  if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L && \
     defined(__has_include) && __has_include(<stdalign.h>)
 #    include <stdalign.h>
@@ -78,7 +75,6 @@
 #    warning "Alignment not supported, may cause performance issues"
 #    define sirius_alignas(align) ((void)0)
 #  endif
-
 #endif
 
 // --- sirius_static_assert ---
@@ -87,7 +83,6 @@
 #endif
 
 #if defined(__cplusplus)
-
 #  if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
 #    define sirius_static_assert(cond, ...) static_assert((cond), ##__VA_ARGS__)
 #  elif __cplusplus >= 201103L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201103L)
@@ -95,9 +90,7 @@
 #  else
 #    define sirius_static_assert(cond, ...) ((void)0)
 #  endif
-
 #else
-
 #  if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
 #    define sirius_static_assert(cond, ...) \
       _Static_assert((cond), ##__VA_ARGS__)
@@ -109,14 +102,11 @@
 #  else
 #    define sirius_static_assert(cond, ...) ((void)0)
 #  endif
-
 #endif
 
 // --- sirius_maybe_unused ---
 #ifndef sirius_maybe_unused
-
 #  if defined(__cplusplus)
-
 #    if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
 #      define sirius_maybe_unused [[maybe_unused]]
 #    elif defined(__GNUC__) || defined(__clang__)
@@ -126,9 +116,7 @@
 #    else
 #      define sirius_maybe_unused
 #    endif
-
 #  else
-
 #    if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
 #      define sirius_maybe_unused [[maybe_unused]]
 #    elif defined(__GNUC__) || defined(__clang__)
@@ -138,9 +126,7 @@
 #    else
 #      define sirius_maybe_unused
 #    endif
-
 #  endif
-
 #endif
 
 // ---

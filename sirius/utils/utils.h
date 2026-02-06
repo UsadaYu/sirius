@@ -32,7 +32,7 @@
 #if defined(_WIN32) || defined(_WIN64)
 #  define UTILS_DPRINTF(fd, ...) \
     do { \
-      char msg[sirius_log_buf_size] = {0}; \
+      char msg[_SIRIUS_LOG_BUF_SIZE] = {0}; \
       snprintf(msg, sizeof(msg), ##__VA_ARGS__); \
       _write(fd, msg, (unsigned int)strlen(msg)); \
     } while (0)
@@ -77,6 +77,9 @@
 #ifdef __cplusplus
 namespace Utils {
 namespace Utils {
+template<typename T>
+concept IntegralOrEnum = std::integral<T> || std::is_enum_v<T>;
+
 constexpr size_t next_power_of_2(size_t n) {
   if (n <= 1)
     return 2;
@@ -119,6 +122,40 @@ static inline size_t utils_next_power_of_2(size_t n) {
 #ifdef __cplusplus
 namespace Utils {
 namespace File {
+static inline size_t path_length_check(const char *path,
+                                       size_t max_len = 4096 - 1) {
+  if (!path)
+    return 0;
+
+  size_t len = 0;
+  while (len <= max_len + 1) {
+    if (path[len] == '\0')
+      break;
+    ++len;
+  }
+
+  if (len <= max_len) [[likely]]
+    return len;
+
+  if (len > max_len + 1) {
+#  if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
+    UTILS_DPRINTF(STDERR_FILENO,
+                  LOG_LEVEL_STR_WARN
+                  " Path might not be null-terminated or is extremely long\n");
+#  endif
+    return 0;
+  }
+
+#  if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
+  UTILS_DPRINTF(STDERR_FILENO,
+                LOG_LEVEL_STR_WARN
+                " The file path is too long. Length: %zu; Max: %zu)\n",
+                len, max_len);
+#  endif
+
+  return 0;
+}
+
 #  if !defined(_WIN32) && !defined(_WIN64)
 static inline mode_t string_to_mode(const std::string &mode_str) {
   return static_cast<mode_t>(std::stoul(mode_str, nullptr, 8));
@@ -193,32 +230,5 @@ get_exe_path_matrix(std::string exe_name, std::filesystem::path base_dir) {
   return "";
 }
 } // namespace File
-} // namespace Utils
-#endif
-
-#ifdef __cplusplus
-namespace Utils {
-namespace Env {
-static inline std::string get_env(const char *name) {
-  if (!name)
-    return "";
-
-#  if defined(_MSC_VER)
-  char *buf = nullptr;
-  size_t sz = 0;
-  if (_dupenv_s(&buf, &sz, name) == 0 && buf != nullptr) {
-    std::string var(buf);
-    free(buf);
-    return var;
-  }
-#  else
-  const char *var = std::getenv(name);
-  if (var)
-    return std::string(var);
-#  endif
-
-  return "";
-}
-} // namespace Env
 } // namespace Utils
 #endif
