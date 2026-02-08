@@ -1,4 +1,4 @@
-#include <sirius/utils/thread.h>
+#include <sirius/foundation/thread.h>
 
 #include <thread>
 

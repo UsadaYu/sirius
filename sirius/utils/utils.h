@@ -16,52 +16,16 @@
 #  define UTILS_MAX(x, y) ((x) > (y) ? (x) : (y))
 #endif
 
-// --- stdout / stderr ---
-#ifndef STDOUT_FILENO
-#  define STDOUT_FILENO (1)
+// --- UTILS_CONCAT ---
+#ifdef UTILS_CONCAT_IMPL
+#  undef UTILS_CONCAT_IMPL
 #endif
-#ifndef STDERR_FILENO
-#  define STDERR_FILENO (2)
-#endif
-
-// --- UTILS_DPRINTF ---
-#ifdef UTILS_DPRINTF
-#  undef UTILS_DPRINTF
+#ifdef UTILS_CONCAT
+#  undef UTILS_CONCAT
 #endif
 
-#if defined(_WIN32) || defined(_WIN64)
-#  define UTILS_DPRINTF(fd, ...) \
-    do { \
-      char msg[_SIRIUS_LOG_BUF_SIZE] = {0}; \
-      snprintf(msg, sizeof(msg), ##__VA_ARGS__); \
-      _write(fd, msg, (unsigned int)strlen(msg)); \
-    } while (0)
-#else
-#  define UTILS_DPRINTF dprintf
-#endif
-
-// --- UTILS_STRERROR_R ---
-#ifdef UTILS_STRERROR_R
-#  undef UTILS_STRERROR_R
-#endif
-
-#if defined(_WIN32) || defined(_WIN64)
-#  define UTILS_STRERROR_R(error_code, buf, size) \
-    strerror_s(buf, size, error_code)
-#else
-#  define UTILS_STRERROR_R strerror_r
-#endif
-
-// --- UTILS_WRITE ---
-#ifdef UTILS_WRITE
-#  undef UTILS_WRITE
-#endif
-
-#if defined(_WIN32) || defined(_WIN64)
-#  define UTILS_WRITE(fd, buffer, size) _write(fd, buffer, (unsigned int)(size))
-#else
-#  define UTILS_WRITE(fd, buffer, size) write(fd, buffer, size);
-#endif
+#define UTILS_CONCAT_IMPL(x, y) x##y
+#define UTILS_CONCAT(x, y) UTILS_CONCAT_IMPL(x, y)
 
 // --- UTILS_LOCALTIME_R ---
 #ifdef UTILS_LOCALTIME_R
@@ -73,6 +37,21 @@
 #else
 #  define UTILS_LOCALTIME_R(timer, result) localtime_r(timer, result)
 #endif
+
+static inline size_t utils_string_length_check(const char *string,
+                                               size_t max_len) {
+  if (!string)
+    return 0;
+
+  size_t len = 0;
+  while (len < max_len) {
+    if (string[len] == '\0')
+      break;
+    ++len;
+  }
+
+  return likely(len < max_len) ? len : max_len;
+}
 
 #ifdef __cplusplus
 namespace Utils {
@@ -122,40 +101,6 @@ static inline size_t utils_next_power_of_2(size_t n) {
 #ifdef __cplusplus
 namespace Utils {
 namespace File {
-static inline size_t path_length_check(const char *path,
-                                       size_t max_len = 4096 - 1) {
-  if (!path)
-    return 0;
-
-  size_t len = 0;
-  while (len <= max_len + 1) {
-    if (path[len] == '\0')
-      break;
-    ++len;
-  }
-
-  if (len <= max_len) [[likely]]
-    return len;
-
-  if (len > max_len + 1) {
-#  if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
-    UTILS_DPRINTF(STDERR_FILENO,
-                  LOG_LEVEL_STR_WARN
-                  " Path might not be null-terminated or is extremely long\n");
-#  endif
-    return 0;
-  }
-
-#  if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
-  UTILS_DPRINTF(STDERR_FILENO,
-                LOG_LEVEL_STR_WARN
-                " The file path is too long. Length: %zu; Max: %zu)\n",
-                len, max_len);
-#  endif
-
-  return 0;
-}
-
 #  if !defined(_WIN32) && !defined(_WIN64)
 static inline mode_t string_to_mode(const std::string &mode_str) {
   return static_cast<mode_t>(std::stoul(mode_str, nullptr, 8));
@@ -197,7 +142,12 @@ static inline bool set_permissions_safe(const std::filesystem::path &path,
     std::filesystem::permissions(path, perm, options);
     return true;
   } catch (const std::exception &e) {
-    UTILS_DPRINTF(STDERR_FILENO, "`exception`: %s\n", e.what());
+    std::string es = std::format("`exception`: {}\n", e.what());
+#  if defined(_WIN32) || defined(_WIN64)
+    _write(2, es.c_str(), (unsigned int)es.length());
+#  else
+    write(2, es.c_str(), es.length());
+#  endif
     return false;
   } catch (...) {
     return false;

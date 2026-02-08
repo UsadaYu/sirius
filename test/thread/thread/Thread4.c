@@ -60,7 +60,7 @@ int main() {
                 sirius_thread_detach(threads[index]));
   sirius_warnsp("--------------------------------\n");
 
-  UTILS_DPRINTF(1, "\n");
+  utils_dprintf(1, "\n");
   // --- 02 ---
   sirius_infosp("[Main-thread 02] Thread id: %" PRIu64 "\n", SIRIUS_THREAD_ID);
   index++;
@@ -88,9 +88,9 @@ int main() {
                 sirius_thread_join(threads[index], nullptr));
   sirius_warnsp("--------------------------------\n");
 
-  UTILS_DPRINTF(1, "\n");
+  utils_dprintf(1, "\n");
   // --- 03 ---
-  UTILS_DPRINTF(1, "\n");
+  utils_dprintf(1, "\n");
   sirius_infosp("[Main-thread 03] Thread id: %" PRIu64 "\n", SIRIUS_THREAD_ID);
   index++;
   memset(&attr, 0, sizeof(sirius_thread_attr_t));

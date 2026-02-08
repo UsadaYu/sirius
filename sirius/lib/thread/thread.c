@@ -53,13 +53,13 @@ static inline int win_set_thread_priority(HANDLE thread, int posix_priority) {
     C(16, 22, 23, 24, 25, 26)
   default:
     dw_err = GetLastError();
-    UTILS_WIN_LAST_ERROR("GetPriorityClass");
+    foundation_win_last_error(dw_err, "GetPriorityClass");
     return utils_winerr_to_errno(dw_err);
   }
 
   if (!SetThreadPriority(thread, win_priority)) {
     dw_err = GetLastError();
-    UTILS_WIN_LAST_ERROR("SetThreadPriority");
+    foundation_win_last_error(dw_err, "SetThreadPriority");
     return utils_winerr_to_errno(dw_err);
   }
 
@@ -122,7 +122,7 @@ static inline int posix_get_thread_policy(pthread_t thread, int *posix_policy) {
 
   int ret = pthread_getschedparam(thread, posix_policy, &thread_param);
   if (ret) {
-    UTILS_ERRNO_ERROR(ret, "pthread_getschedparam");
+    foundation_errno_error(ret, "pthread_getschedparam");
     return ret;
   }
 
@@ -175,7 +175,7 @@ sirius_api int sirius_thread_create(sirius_thread_t *thread,
                      initflags, &thread_id);
   if (h == 0) {
     dw_err = GetLastError();
-    UTILS_WIN_LAST_ERROR("_beginthreadex");
+    foundation_win_last_error(dw_err, "_beginthreadex");
     ret = utils_winerr_to_errno(dw_err);
     goto label_free2;
   }
@@ -190,7 +190,7 @@ sirius_api int sirius_thread_create(sirius_thread_t *thread,
 
     if ((DWORD)-1 == ResumeThread(thr->handle)) {
       dw_err = GetLastError();
-      UTILS_WIN_LAST_ERROR("ResumeThread");
+      foundation_win_last_error(dw_err, "ResumeThread");
       ret = utils_winerr_to_errno(dw_err);
       goto label_free3;
     }
@@ -240,7 +240,7 @@ sirius_api int sirius_thread_create(sirius_thread_t *thread,
     }
     ret = pthread_attr_setdetachstate(&thread_attr, detach_state);
     if (ret) {
-      UTILS_ERRNO_ERROR(ret, "pthread_attr_setdetachstate");
+      foundation_errno_error(ret, "pthread_attr_setdetachstate");
       goto label_free;
     }
 
@@ -250,7 +250,7 @@ sirius_api int sirius_thread_create(sirius_thread_t *thread,
         ? PTHREAD_EXPLICIT_SCHED
         : PTHREAD_INHERIT_SCHED);
     if (ret) {
-      UTILS_ERRNO_ERROR(ret, "pthread_attr_setinheritsched");
+      foundation_errno_error(ret, "pthread_attr_setinheritsched");
       goto label_free;
     }
 
@@ -259,14 +259,14 @@ sirius_api int sirius_thread_create(sirius_thread_t *thread,
                                   ? PTHREAD_SCOPE_PROCESS
                                   : PTHREAD_SCOPE_SYSTEM);
     if (ret) {
-      UTILS_ERRNO_ERROR(ret, "pthread_attr_setscope");
+      foundation_errno_error(ret, "pthread_attr_setscope");
       goto label_free;
     }
 
     if (attr->stackaddr && stack_size > 0) {
       ret = pthread_attr_setstack(&thread_attr, attr->stackaddr, stack_size);
       if (ret) {
-        UTILS_ERRNO_ERROR(ret, "pthread_attr_setstack");
+        foundation_errno_error(ret, "pthread_attr_setstack");
         goto label_free;
       }
     } else if (attr->stackaddr && stack_size <= 0) {
@@ -276,14 +276,14 @@ sirius_api int sirius_thread_create(sirius_thread_t *thread,
     } else if (!attr->stackaddr && stack_size > 0) {
       ret = pthread_attr_setstacksize(&thread_attr, stack_size);
       if (ret) {
-        UTILS_ERRNO_ERROR(ret, "pthread_attr_setstack");
+        foundation_errno_error(ret, "pthread_attr_setstack");
         goto label_free;
       }
     }
 
     ret = pthread_attr_setguardsize(&thread_attr, attr->guardsize);
     if (ret) {
-      UTILS_ERRNO_ERROR(ret, "pthread_attr_setguardsize");
+      foundation_errno_error(ret, "pthread_attr_setguardsize");
       goto label_free;
     }
 
@@ -295,13 +295,13 @@ sirius_api int sirius_thread_create(sirius_thread_t *thread,
       goto label_free;
     ret = pthread_attr_setschedpolicy(&thread_attr, policy);
     if (ret) {
-      UTILS_ERRNO_ERROR(ret, "pthread_attr_setschedpolicy");
+      foundation_errno_error(ret, "pthread_attr_setschedpolicy");
       goto label_free;
     }
     psp.sched_priority = ssp.priority;
     ret = pthread_attr_setschedparam(&thread_attr, &psp);
     if (ret) {
-      UTILS_ERRNO_ERROR(ret, "pthread_attr_setschedparam");
+      foundation_errno_error(ret, "pthread_attr_setschedparam");
       goto label_free;
     }
   }
@@ -310,7 +310,7 @@ sirius_api int sirius_thread_create(sirius_thread_t *thread,
   ret = pthread_create(&thr, &thread_attr, start_routine, arg);
   pthread_attr_destroy(&thread_attr);
   if (ret) {
-    UTILS_ERRNO_ERROR(ret, "pthread_create");
+    foundation_errno_error(ret, "pthread_create");
     return ret;
   }
 
@@ -360,7 +360,7 @@ sirius_api int sirius_thread_join(sirius_thread_t thread, void **retval) {
   case WAIT_FAILED:
     dw_err = GetLastError();
     (void)CloseHandle(thread->handle);
-    UTILS_WIN_LAST_ERROR("WaitForSingleObject");
+    foundation_win_last_error(dw_err, "WaitForSingleObject");
     return utils_winerr_to_errno(dw_err);
   case WAIT_ABANDONED:
     (void)CloseHandle(thread->handle);
@@ -406,7 +406,7 @@ sirius_api int sirius_thread_cancel(sirius_thread_t thread) {
 
   if (!TerminateThread(thread->handle, (DWORD)-1)) {
     DWORD dw_err = GetLastError();
-    UTILS_WIN_LAST_ERROR("TerminateThread");
+    foundation_win_last_error(dw_err, "TerminateThread");
     return utils_winerr_to_errno(dw_err);
   }
 
@@ -448,7 +448,7 @@ sirius_api int sirius_thread_get_priority_max(sirius_thread_t thread,
     return 0;
   default:
     dw_err = GetLastError();
-    UTILS_WIN_LAST_ERROR("GetPriorityClass");
+    foundation_win_last_error(dw_err, "GetPriorityClass");
     return utils_winerr_to_errno(dw_err);
   }
 }
@@ -497,7 +497,7 @@ sirius_api int sirius_thread_get_priority_min(sirius_thread_t thread,
     return 0;
   default:
     dw_err = GetLastError();
-    UTILS_WIN_LAST_ERROR("GetPriorityClass");
+    foundation_win_last_error(dw_err, "GetPriorityClass");
     return utils_winerr_to_errno(dw_err);
   }
 }
@@ -552,7 +552,7 @@ sirius_thread_setschedparam(sirius_thread_t thread,
   ret = pthread_setschedparam((pthread_t)(uintptr_t)thread, posix_sched_policy,
                               &sched_param);
   if (ret) {
-    UTILS_ERRNO_ERROR(ret, "pthread_setschedparam");
+    foundation_errno_error(ret, "pthread_setschedparam");
     return ret;
   }
 
@@ -572,7 +572,7 @@ sirius_api int sirius_thread_getschedparam(sirius_thread_t thread,
   thread_priority = GetThreadPriority(thread->handle);
   if (THREAD_PRIORITY_ERROR_RETURN == thread_priority) {
     dw_err = GetLastError();
-    UTILS_WIN_LAST_ERROR("GetThreadPriority");
+    foundation_win_last_error(dw_err, "GetThreadPriority");
     return utils_winerr_to_errno(dw_err);
   }
 
@@ -641,7 +641,7 @@ sirius_api int sirius_thread_getschedparam(sirius_thread_t thread,
     break;
   default:
     dw_err = GetLastError();
-    UTILS_WIN_LAST_ERROR("GetPriorityClass");
+    foundation_win_last_error(dw_err, "GetPriorityClass");
     return utils_winerr_to_errno(dw_err);
   }
 
@@ -664,7 +664,7 @@ sirius_api int sirius_thread_getschedparam(sirius_thread_t thread,
   ret = pthread_getschedparam((pthread_t)(uintptr_t)thread, &posix_policy,
                               &thread_param);
   if (ret) {
-    UTILS_ERRNO_ERROR(ret, "pthread_getschedparam");
+    foundation_errno_error(ret, "pthread_getschedparam");
     return ret;
   }
 

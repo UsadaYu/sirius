@@ -1,9 +1,9 @@
 #include "lib/thread/internal/thread.h"
 
-#ifndef LIB_UTILS_THREAD_THREAD_H_
-#  define LIB_UTILS_THREAD_THREAD_H_
+#ifndef LIB_FOUNDATION_THREAD_THREAD_H_
+#  define LIB_FOUNDATION_THREAD_THREAD_H_
 #endif
-#include "lib/utils/thread/thread.h"
+#include "lib/foundation/thread/thread.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #  include <mutex>
@@ -110,10 +110,8 @@ static inline bool has_been_destructed() {
 
   static std::atomic<bool> once_print = false;
 
-  if (once_print.load())
+  if (once_print.exchange(true, std::memory_order_relaxed))
     return true;
-
-  once_print.store(true);
 
   sirius_log_impl(0, LOG_LEVEL_STR_ERROR, LOG_RED, _SIRIUS_LOG_PRINT_NAME,
                   SIRIUS_FILE_NAME, __func__, __LINE__,
@@ -136,9 +134,10 @@ extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
   thread_wrapper_arg_s warg = *(thread_wrapper_arg_s *)pv;
   free(pv);
 
+  DWORD dw_err = 0;
   sirius_thread_t thr = warg.thr;
 
-  if (!sirius_utils_thread_tls_set_value(thr)) {
+  if (!sirius_foundation_thread_tls_set_value(thr, &dw_err)) {
     if (has_been_destructed()) {
       /**
        * @note Here it will not return an error unless it's necessary after the
@@ -148,8 +147,7 @@ extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
       return 0;
     }
 
-    DWORD dw_err = GetLastError();
-    UTILS_WIN_LAST_ERROR("TlsSetValue");
+    foundation_win_last_error(dw_err, "TlsSetValue");
 
     win_try_cleanup(thr);
 
@@ -191,7 +189,7 @@ extern "C" sirius_api void sirius_thread_exit(void *retval) _sirius_throw_spec {
 }
 
 extern "C" sirius_api sirius_thread_t sirius_thread_self() {
-  return (sirius_thread_t)sirius_utils_thread_tls_get_value();
+  return (sirius_thread_t)sirius_foundation_thread_tls_get_value(nullptr);
 }
 
 extern "C" sirius_api int sirius_thread_detach(sirius_thread_t thread) {

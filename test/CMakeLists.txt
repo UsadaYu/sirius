@@ -7,16 +7,28 @@ include(CheckCompilerFlag)
 
 # --- Environment ---
 set(TEST_ENV "")
+set(TEST_ENV_MODIFICATION "")
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND GLOB_LIBRARY_TYPE STREQUAL "SHARED")
-  set(var "${SIRIUS_NAMESPACE}::${SIRIUS_C_LIBRARY_NAME}")
-  list(APPEND TEST_ENV "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
-  set(var "${SIRIUS_NAMESPACE}::${SIRIUS_KIT_LIBRARY_NAME}")
-  list(APPEND TEST_ENV "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
-  set(var "${SIRIUS_NAMESPACE}::${SIRIUS_THREAD_LIBRARY_NAME}")
-  list(APPEND TEST_ENV "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
-  set(var "${SIRIUS_NAMESPACE}::${SIRIUS_UTILS_LIBRARY_NAME}")
-  list(APPEND TEST_ENV "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  set(var "")
+
+  if(GLOB_LIBRARY_TYPE STREQUAL "SHARED")
+    set(var "${SIRIUS_NAMESPACE}::${SIRIUS_C_LIBRARY_NAME}")
+    list(APPEND TEST_ENV_MODIFICATION
+         "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+    set(var "${SIRIUS_NAMESPACE}::${SIRIUS_KIT_LIBRARY_NAME}")
+    list(APPEND TEST_ENV_MODIFICATION
+         "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+    set(var "${SIRIUS_NAMESPACE}::${SIRIUS_THREAD_LIBRARY_NAME}")
+    list(APPEND TEST_ENV_MODIFICATION
+         "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+    set(var "${SIRIUS_NAMESPACE}::${SIRIUS_FOUNDATION_LIBRARY_NAME}")
+    list(APPEND TEST_ENV_MODIFICATION
+         "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+  endif()
+
+  set(var "${SIRIUS_EXE_DAEMON_NAME}")
+  list(APPEND TEST_ENV "SIRIUS_ENV_EXE_DAEMON_PATH=$<TARGET_FILE:${var}>")
 
   unset(var)
 endif()
@@ -72,7 +84,7 @@ list(APPEND TEST_LINK_DIRECTORIES ${SIRIUS_TEST_EXTRA_LINK_DIRECTORIES})
 list(APPEND TEST_LINK_LIBRARIES ${SIRIUS_TEST_EXTRA_LINK_LIBRARIES})
 
 list(APPEND TEST_LINK_LIBRARIES
-     "${SIRIUS_NAMESPACE}::${SIRIUS_UTILS_LIBRARY_NAME}")
+     "${SIRIUS_NAMESPACE}::${SIRIUS_FOUNDATION_LIBRARY_NAME}")
 
 # --- Link Options ---
 
@@ -105,7 +117,7 @@ function(test_add_single_test)
   set(multi_value_keywords "")
   cmake_parse_arguments(ARG "${options}" "${one_value_keywords}"
                         "${multi_value_keywords}" ${ARGN})
-  sirius_error_if_var_is_null(ARG_TARGET)
+  utils_error_if_var_is_null(ARG_TARGET)
 
   utils_set_output_directory_to_mirror(TARGET ${ARG_TARGET} DIRECTORY
                                        ${ARG_DIRECTORY})
@@ -131,8 +143,10 @@ function(test_add_single_test)
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
   set_tests_properties(
-    ${ARG_TARGET} PROPERTIES ENVIRONMENT_MODIFICATION
-                             "$<JOIN:${TEST_ENV},$<SEMICOLON>>")
+    ${ARG_TARGET}
+    PROPERTIES ENVIRONMENT_MODIFICATION
+               "$<JOIN:${TEST_ENV_MODIFICATION},$<SEMICOLON>>" ENVIRONMENT
+               "$<JOIN:${TEST_ENV},$<SEMICOLON>>")
 endfunction()
 
 #[================================[
@@ -173,8 +187,8 @@ function(test_add_exes_and_tests)
   set(multi_value_keywords SOURCES TARGETS)
   cmake_parse_arguments(ARG "${options}" "${one_value_keywords}"
                         "${multi_value_keywords}" ${ARGN})
-  sirius_error_if_var_is_null(ARG_MAIN)
-  sirius_error_if_var_is_null(ARG_DIRECTORY)
+  utils_error_if_var_is_null(ARG_MAIN)
+  utils_error_if_var_is_null(ARG_DIRECTORY)
 
   if(NOT ARG_LANGUAGE)
     utils_get_source_language(${ARG_MAIN} detected_lang)
@@ -224,6 +238,6 @@ endfunction()
 
 # --- Test ---
 add_subdirectory(c)
+add_subdirectory(foundation)
 add_subdirectory(kit)
 add_subdirectory(thread)
-add_subdirectory(utils)

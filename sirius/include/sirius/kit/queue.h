@@ -61,8 +61,8 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue);
  * @param[in] queue Queue handle.
  * @param[out] ptr An obtained queue element.
  * @param[in] milliseconds Timeout duration, unit: ms. Takes effect only when
- * the queue with mutex. Setting the value to `SIRIUS_TIMEOUT_NO_WAITING` means no
- * wait, and setting it to `SIRIUS_TIMEOUT_INFINITE` means infinite wait.
+ * the queue with mutex. Setting the value to `SIRIUS_TIMEOUT_NO_WAITING` means
+ * no wait, and setting it to `SIRIUS_TIMEOUT_INFINITE` means infinite wait.
  *
  * @return
  * - (1) 0 on success;
@@ -80,9 +80,9 @@ sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
  * @param[in] queue Queue handle.
  * @param[out] ptr The element which will be added to the queue.
  * @param[in] milliseconds Timeout duration, unit: ms. Takes effect only when
- * the queue with mutex. Setting the value to `SIRIUS_TIMEOUT_NO_WAITING` (0) means no
- * wait, and setting it to `SIRIUS_TIMEOUT_INFINITE` (UINT64_MAX) means infinite
- * wait.
+ * the queue with mutex. Setting the value to `SIRIUS_TIMEOUT_NO_WAITING` (0)
+ * means no wait, and setting it to `SIRIUS_TIMEOUT_INFINITE` (UINT64_MAX) means
+ * infinite wait.
  *
  * @return
  * - (1) 0 on success;

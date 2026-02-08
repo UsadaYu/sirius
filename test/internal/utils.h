@@ -66,13 +66,13 @@ extern "C" {
 #include <string.h>
 
 // --- sirius ---
+#include <sirius/foundation/log.h>
 #include <sirius/thread/cpu.h>
-#include <sirius/utils/log.h>
 
 #if (defined(_WIN32) || defined(_WIN64)) && defined(_MSC_VER)
 #  include <io.h>
 
-#  define UTILS_DPRINTF(fd, ...) \
+#  define utils_dprintf(fd, ...) \
     do { \
       char msg[4096] = {0}; \
       snprintf(msg, sizeof(msg), ##__VA_ARGS__); \
@@ -83,7 +83,7 @@ extern "C" {
 
 #  include <unistd.h>
 
-#  define UTILS_DPRINTF(fd, ...) \
+#  define utils_dprintf(fd, ...) \
     do { \
       char msg[4096]; \
       snprintf(msg, sizeof(msg), ##__VA_ARGS__); \
@@ -114,7 +114,7 @@ static inline void _utils_xinit(const char *content) {
     bar_buf[i] = '-';
   }
 
-  UTILS_DPRINTF(1, "\n%s\n%s\n%s\n\n", bar_buf, buf, bar_buf);
+  utils_dprintf(1, "\n%s\n%s\n%s\n\n", bar_buf, buf, bar_buf);
 }
 
 static inline void utils_deinit() {

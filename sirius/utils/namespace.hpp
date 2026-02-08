@@ -133,11 +133,11 @@ inline std::filesystem::path posix_lockfile_path(const std::string &name) {
       break;
     } catch (const std::filesystem::filesystem_error &e) {
 #  if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
-      UTILS_DPRINTF(STDERR_FILENO, "`filesystem_error`: %s\n", e.what());
+      utils_dprintf(STDERR_FILENO, "`filesystem_error`: %s\n", e.what());
 #  endif
     } catch (const std::exception &e) {
 #  if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
-      UTILS_DPRINTF(STDERR_FILENO, "`exception`: %s\n", e.what());
+      utils_dprintf(STDERR_FILENO, "`exception`: %s\n", e.what());
 #  endif
     }
   }

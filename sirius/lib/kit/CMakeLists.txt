@@ -25,10 +25,11 @@ target_link_libraries(
   ${LIB_TARGET} PRIVATE "${SIRIUS_NAMESPACE}::${SIRIUS_THREAD_LIBRARY_NAME}")
 list(APPEND pkgconfig_requires_private ${SIRIUS_THREAD_LIBRARY_NAME})
 
-# sirius_utils
+# sirius_foundation
 target_link_libraries(
-  ${LIB_TARGET} PRIVATE "${SIRIUS_NAMESPACE}::${SIRIUS_UTILS_LIBRARY_NAME}")
-list(APPEND pkgconfig_requires_private ${SIRIUS_UTILS_LIBRARY_NAME})
+  ${LIB_TARGET}
+  PRIVATE "${SIRIUS_NAMESPACE}::${SIRIUS_FOUNDATION_LIBRARY_NAME}")
+list(APPEND pkgconfig_requires_private ${SIRIUS_FOUNDATION_LIBRARY_NAME})
 
 # --- Pkg Config ---
 add_subdirectory(pkgconfig)

@@ -1,4 +1,4 @@
-macro(sirius_error_if_var_is_null VAR)
+macro(utils_error_if_var_is_null VAR)
   if(NOT ${VAR})
     message(FATAL_ERROR "Invalid argument. Null argument: ${VAR}")
   endif()
@@ -10,7 +10,7 @@ macro(utils_set_output_directory_to_mirror)
   set(_utils_multi_value_keywords "")
   cmake_parse_arguments(ARG "${_utils_options}" "${_utils_one_value_keywords}"
                         "${_utils_multi_value_keywords}" ${ARGN})
-  sirius_error_if_var_is_null(ARG_TARGET)
+  utils_error_if_var_is_null(ARG_TARGET)
 
   cmake_path(SET _utils_output_directory NORMALIZE "")
   if(ARG_DIRECTORY)
@@ -109,8 +109,8 @@ function(utils_query_compiler_config)
   set(multi_value_keywords "")
   cmake_parse_arguments(ARG "${options}" "${one_value_keywords}"
                         "${multi_value_keywords}" ${ARGN})
-  sirius_error_if_var_is_null(ARG_ACTION)
-  sirius_error_if_var_is_null(ARG_RESULT)
+  utils_error_if_var_is_null(ARG_ACTION)
+  utils_error_if_var_is_null(ARG_RESULT)
 
   set(language "")
   if(ARG_LANGUAGE)
@@ -212,8 +212,8 @@ function(utils_generate_pkgconfig)
   set(multi_value_keywords LIBS LIBS_PRIVATE REQUIRES REQUIRES_PRIVATE CFLAGS)
   cmake_parse_arguments(ARG "${options}" "${one_value_keywords}"
                         "${multi_value_keywords}" ${ARGN})
-  sirius_error_if_var_is_null(ARG_LIBNAME)
-  sirius_error_if_var_is_null(ARG_VERSION)
+  utils_error_if_var_is_null(ARG_LIBNAME)
+  utils_error_if_var_is_null(ARG_VERSION)
 
   set(__pkgconfig_lib_name ${ARG_LIBNAME})
   set(__pkgconfig_version ${ARG_VERSION})

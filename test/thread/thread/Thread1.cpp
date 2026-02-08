@@ -30,9 +30,9 @@ void *foo(void *arg) {
       nspace = "\n";
     }
 
-    UTILS_DPRINTF(1, "Foo: %d%s| ", g_index.load(), nspace.c_str());
+    utils_dprintf(1, "Foo: %d%s| ", g_index.load(), nspace.c_str());
     if (g_index.load() % 8 == 0) {
-      UTILS_DPRINTF(1, "\n");
+      utils_dprintf(1, "\n");
     }
 
     g_index++;
@@ -57,7 +57,7 @@ int main() {
 
   // --- Detach ---
   g_index = 1;
-  UTILS_DPRINTF(1, "\n");
+  utils_dprintf(1, "\n");
   memset(threads, 0, NB_THREADS * sizeof(sirius_thread_t));
   sirius_thread_attr_t attr {};
   attr.detach_state = kSiriusThreadCreateDetached;

@@ -51,18 +51,7 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
 endif()
 
 # address sanitizer
-if(SIRIUS_ASAN AND SIRIUS_ASAN_FALLBACK_ENABLE)
-  foreach(lib IN LISTS SIRIUS_ASAN_FALLBACK_LIBS)
-    find_library(
-      libasan ${lib}
-      PATHS ${SIRIUS_ASAN_FALLBACK_LIBDIRS}
-      NO_DEFAULT_PATH REQUIRED)
-    list(APPEND LIB_PUBLIC_LINK_LIBRARIES ${libasan})
-    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${libasan})
-    unset(libasan CACHE) # Necessary
-  endforeach()
-  unset(lib)
-elseif(SIRIUS_ASAN)
+if(SIRIUS_ASAN)
   if(MSVC)
     message(
       WARNING
@@ -71,20 +60,39 @@ elseif(SIRIUS_ASAN)
   You may need to check the generated `pkg-config` file
   If you don't use it, please ignore
   ")
+  endif()
 
+  if(MSVC)
     set(asan_compile_options "-fsanitize=address" "-MD" "-Zi" "-Od")
-    list(APPEND LIB_PUBLIC_COMPILE_OPTIONS ${asan_compile_options})
+    list(APPEND GLOB_PUBLIC_COMPILE_OPTIONS ${asan_compile_options})
     list(APPEND GLOB_PKGCONFIG_CFLAGS_ASAN ${asan_compile_options})
-    set(asan_link_options "-DEBUG" "-INCREMENTAL:NO")
-    list(APPEND LIB_PUBLIC_LINK_OPTIONS ${asan_link_options})
-    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${asan_link_options})
   else()
     set(asan_compile_options "-fsanitize=address" "-fno-omit-frame-pointer"
                              "-fsanitize-recover=address")
-    list(APPEND LIB_PUBLIC_COMPILE_OPTIONS ${asan_compile_options})
+    list(APPEND GLOB_PUBLIC_COMPILE_OPTIONS ${asan_compile_options})
     list(APPEND GLOB_PKGCONFIG_CFLAGS_ASAN ${asan_compile_options})
+  endif()
+endif()
+
+if(SIRIUS_ASAN AND SIRIUS_ASAN_FALLBACK_ENABLE)
+  foreach(lib IN LISTS SIRIUS_ASAN_FALLBACK_LIBS)
+    find_library(
+      libasan ${lib}
+      PATHS ${SIRIUS_ASAN_FALLBACK_LIBDIRS}
+      NO_DEFAULT_PATH REQUIRED)
+    list(APPEND GLOB_PUBLIC_LINK_LIBRARIES ${libasan})
+    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${libasan})
+    unset(libasan CACHE) # Necessary
+  endforeach()
+  unset(lib)
+elseif(SIRIUS_ASAN)
+  if(MSVC)
+    set(asan_link_options "-DEBUG" "-INCREMENTAL:NO")
+    list(APPEND GLOB_PUBLIC_LINK_OPTIONS ${asan_link_options})
+    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${asan_link_options})
+  else()
     set(asan_link_options "-g" "-fsanitize=address")
-    list(APPEND LIB_PUBLIC_LINK_OPTIONS ${asan_link_options})
+    list(APPEND GLOB_PUBLIC_LINK_OPTIONS ${asan_link_options})
     list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${asan_link_options})
   endif()
 endif()

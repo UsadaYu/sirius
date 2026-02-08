@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lib/utils/log/log.h"
+#include "lib/foundation/log/log.h"
 #include "sirius/thread/spinlock.h"
 #include "sirius/thread/thread.h"
 #include "utils/errno.h"

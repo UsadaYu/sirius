@@ -1,6 +1,6 @@
 #pragma once
 
-#ifndef LIB_UTILS_THREAD_THREAD_H_
+#ifndef LIB_FOUNDATION_THREAD_THREAD_H_
 #  error "This header file can only be included by the thread module"
 #endif
 
@@ -13,9 +13,10 @@
 extern "C" {
 #  endif
 
-sirius_api BOOL sirius_utils_thread_tls_set_value(LPVOID lpTlsValue);
+sirius_api BOOL sirius_foundation_thread_tls_set_value(LPVOID lpTlsValue,
+                                                       DWORD *dw_err);
 
-sirius_api LPVOID sirius_utils_thread_tls_get_value();
+sirius_api LPVOID sirius_foundation_thread_tls_get_value(DWORD *dw_err);
 
 #  if defined(__cplusplus)
 }

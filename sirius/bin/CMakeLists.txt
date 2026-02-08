@@ -25,7 +25,7 @@ function(bin_set_exe_args)
   set(multi_value_keywords "")
   cmake_parse_arguments(ARG "${options}" "${one_value_keywords}"
                         "${multi_value_keywords}" ${ARGN})
-  sirius_error_if_var_is_null(ARG_TARGET)
+  utils_error_if_var_is_null(ARG_TARGET)
 
   utils_set_output_directory_to_mirror(TARGET ${ARG_TARGET} DIRECTORY
                                        ${ARG_DIRECTORY})

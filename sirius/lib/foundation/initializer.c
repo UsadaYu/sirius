@@ -1,4 +1,4 @@
-#include "lib/utils/initializer.h"
+#include "lib/foundation/initializer.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -8,27 +8,27 @@ extern "C" {
  * @note This variable only needs to be guaranteed to exist, not a public
  * variable.
  */
-int sirius_utils_link_anchor_ = 0;
+int sirius_foundation_link_anchor_ = 0;
 
 #ifdef __cplusplus
 }
 #endif
 
-static void deinit(void) {
-  destructor_utils_thread();
-  destructor_utils_log();
+static void destructor(void) {
+  destructor_foundation_thread();
+  destructor_foundation_log();
 }
 
 #ifndef _MSC_VER
 __attribute__((constructor))
 #endif
-static void init(void) {
-  if (!constructor_utils_log())
+static void constructor(void) {
+  if (!constructor_foundation_log())
     goto label_exit;
-  if (!constructor_utils_thread())
+  if (!constructor_foundation_thread())
     goto label_exit;
 
-  atexit(deinit);
+  atexit(destructor);
 
   return;
 
@@ -47,6 +47,6 @@ label_exit:
 
 #  pragma section(".CRT$XCS", read)
 
-__declspec(allocate(".CRT$XCS")) void(WINAPI *sirius_internal_init_ptr)(void) =
-  init;
+__declspec(allocate(".CRT$XCS")) void(WINAPI *sirius_internal_constructor_ptr)(
+  void) = constructor;
 #endif

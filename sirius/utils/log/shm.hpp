@@ -4,6 +4,7 @@
 #  error "This header file can only be included by the log module"
 #endif
 
+#include "utils/gmutex.hpp"
 #include "utils/log/utils.hpp"
 #include "utils/time.hpp"
 
@@ -13,6 +14,7 @@
 #endif
 
 #include <functional>
+#include <future>
 #include <thread>
 
 /**
@@ -122,86 +124,39 @@ struct Header {
   uint64_t reserved[8];
 };
 
-#if defined(_WIN32) || defined(_WIN64)
-namespace WinMutex {
-static inline bool create(HANDLE &handle, const char *name) {
-  handle = CreateMutexA(nullptr, FALSE, Ns::win_lock_name(name).c_str());
-  if (!handle) {
-    Log::win_last_error("CreateMutexA");
-    return false;
-  }
-
-  return true;
-}
-
-static inline void destory(HANDLE &handle) {
-  if (handle != nullptr) {
-    CloseHandle(handle);
-    handle = nullptr;
-  }
-}
-
-static inline bool lock(HANDLE &handle) {
-  while (true) {
-    DWORD dw_err = WaitForSingleObject(handle, INFINITE);
-    switch (dw_err) {
-    [[likely]] case WAIT_OBJECT_0:
-      return true;
-    case WAIT_ABANDONED:
-      UTILS_DPRINTF(
-        STDOUT_FILENO,
-        LOG_LEVEL_STR_WARN
-        "%sA process that previously held the lock may have crashed\n",
-        Log::COMMON);
-      continue;
-    case WAIT_FAILED:
-      Log::win_last_error("WaitForSingleObject");
-      return false;
-    default:
-      return false;
-    }
-  }
-}
-
-static inline bool unlock(HANDLE &handle) {
-  if (!ReleaseMutex(handle)) {
-    Log::win_last_error("WaitForSingleObject");
-    return false;
-  }
-
-  return true;
-}
-} // namespace WinMutex
-#endif
-
 namespace ProcessMutex {
 #if defined(_WIN32) || defined(_WIN64)
-static HANDLE process_lock_;
+static GMutex::Win *process_lock_;
 
 static inline bool create() {
-  return WinMutex::create(process_lock_, Log::MUTEX_PROCESS_KEY);
+  process_lock_ = new GMutex::Win(Log::MUTEX_PROCESS_KEY);
+
+  return true;
 }
 
 static inline void destory() {
-  return WinMutex::destory(process_lock_);
+  delete process_lock_;
 }
 
 static inline bool lock() {
-  return WinMutex::lock(process_lock_);
+  return process_lock_->lock("ProcessMutex");
 }
 
 static inline bool unlock() {
-  return WinMutex::unlock(process_lock_);
+  return process_lock_->unlock();
 }
 #else
 static int process_lock_ = -1;
 
 static inline bool create() {
+  std::string es;
+
   auto path = Ns::posix_lockfile_path(Log::MUTEX_PROCESS_KEY);
   process_lock_ = open(path.c_str(), O_RDWR | O_CREAT,
                        File::string_to_mode(_SIRIUS_POSIX_FILE_MODE));
   if (process_lock_ == -1) {
-    Log::errno_error("open");
+    es = std::format("{} -> `open`", utils_pretty_function);
+    utils_errno_error(errno, es.c_str());
     return false;
   }
 
@@ -216,6 +171,7 @@ static inline void destory() {
 }
 
 static inline bool lock() {
+  std::string es;
   struct flock lock;
   lock.l_type = F_WRLCK;
   lock.l_whence = SEEK_SET;
@@ -223,7 +179,8 @@ static inline bool lock() {
   lock.l_len = 0;
 
   if (fcntl(process_lock_, F_SETLKW, &lock) == -1) {
-    Log::errno_error("fcntl lock");
+    es = std::format("{} -> `fcntl` lock", utils_pretty_function);
+    utils_errno_error(errno, es.c_str());
     return false;
   }
 
@@ -231,6 +188,7 @@ static inline bool lock() {
 }
 
 static inline bool unlock() {
+  std::string es;
   struct flock lock;
   lock.l_type = F_UNLCK;
   lock.l_whence = SEEK_SET;
@@ -238,7 +196,8 @@ static inline bool unlock() {
   lock.l_len = 0;
 
   if (fcntl(process_lock_, F_SETLK, &lock) == -1) {
-    Log::errno_error("fcntl unlock");
+    es = std::format("{} -> `fcntl` unlock", utils_pretty_function);
+    utils_errno_error(errno, es.c_str());
     return false;
   }
 
@@ -267,6 +226,7 @@ class Shm {
 // --- Shared Memory ---
 #if defined(_WIN32) || defined(_WIN64)
   bool open_shm() {
+    std::string es;
     size_t size_needed = get_shm_size();
 
     DWORD size_high = (DWORD)((uint64_t)size_needed >> 32);
@@ -278,13 +238,15 @@ class Shm {
     if (shm_handle_) {
       shm_creator = GetLastError() == ERROR_ALREADY_EXISTS ? false : true;
     } else {
-      Log::win_last_error("CreateFileMappingA");
+      es = std::format("{} -> `CreateFileMappingA`", utils_pretty_function);
+      utils_win_last_error(GetLastError(), es.c_str());
       return false;
     }
 
     mapped_size_ = size_needed;
 
-    if (!shm_mutex_create()) {
+    shm_lock_ = GMutex::Win(Log::MUTEX_SHM_KEY);
+    if (shm_lock_.get() == nullptr) {
       CloseHandle(shm_handle_);
       shm_handle_ = nullptr;
       return false;
@@ -296,7 +258,7 @@ class Shm {
   void close_shm(bool shm_should_destory) {
     (void)shm_should_destory;
 
-    shm_mutex_destory();
+    shm_lock_.destroy();
 
     if (shm_handle_) {
       CloseHandle(shm_handle_);
@@ -305,10 +267,13 @@ class Shm {
   }
 
   bool memory_map() {
+    std::string es;
+
     void *ptr =
       MapViewOfFile(shm_handle_, FILE_MAP_ALL_ACCESS, 0, 0, mapped_size_);
     if (!ptr) {
-      Log::win_last_error("MapViewOfFile");
+      es = std::format("{} -> `MapViewOfFile`", utils_pretty_function);
+      utils_win_last_error(GetLastError(), es.c_str());
       return false;
     }
     header = static_cast<Header *>(ptr);
@@ -324,6 +289,7 @@ class Shm {
   }
 #else
   bool open_shm() {
+    std::string es;
     size_t size_needed = get_shm_size();
 
     shm_fd_ = shm_open(shm_name_.c_str(), O_CREAT | O_EXCL | O_RDWR,
@@ -331,7 +297,8 @@ class Shm {
     if (shm_fd_ >= 0) {
       shm_creator = true;
       if (ftruncate(shm_fd_, size_needed) == -1) {
-        Log::errno_error("ftruncate");
+        es = std::format("{} -> `ftruncate`", utils_pretty_function);
+        utils_errno_error(errno, es.c_str());
         shm_unlink(shm_name_.c_str());
         close(shm_fd_);
         return false;
@@ -340,11 +307,13 @@ class Shm {
       shm_creator = false;
       shm_fd_ = shm_open(shm_name_.c_str(), O_RDWR, 0);
       if (shm_fd_ < 0) {
-        Log::errno_error("shm_open attach");
+        es = std::format("{} -> `shm_open` attach", utils_pretty_function);
+        utils_errno_error(errno, es.c_str());
         return false;
       }
     } else {
-      Log::errno_error("shm_open open");
+      es = std::format("{} -> `shm_open` open", utils_pretty_function);
+      utils_errno_error(errno, es.c_str());
       return false;
     }
 
@@ -360,7 +329,7 @@ class Shm {
     }
 
     if (shm_should_destory) {
-      UTILS_DPRINTF(STDOUT_FILENO,
+      utils_dprintf(STDOUT_FILENO,
                     LOG_LEVEL_STR_INFO "%sUnlink the share memory\n",
                     Log::COMMON);
       shm_unlink(shm_name_.c_str());
@@ -368,10 +337,13 @@ class Shm {
   }
 
   bool memory_map() {
+    std::string es;
+
     void *ptr = mmap(nullptr, mapped_size_, PROT_READ | PROT_WRITE, MAP_SHARED,
                      shm_fd_, 0);
     if (ptr == MAP_FAILED) {
-      Log::errno_error("mmap");
+      es = std::format("{} -> `mmap`", utils_pretty_function);
+      utils_errno_error(errno, es.c_str());
       return false;
     }
     header = static_cast<ShmHeader::Header *>(ptr);
@@ -390,11 +362,11 @@ class Shm {
 // --- Mutex ---
 #if defined(_WIN32) || defined(_WIN64)
   bool shm_mutex_lock() {
-    return WinMutex::lock(shm_lock_);
+    return shm_lock_.lock("shm_mutex_lock");
   }
 
   bool shm_mutex_unlock() {
-    return WinMutex::unlock(shm_lock_);
+    return shm_lock_.unlock();
   }
 #else
 #endif
@@ -411,7 +383,7 @@ class Shm {
 
     if (!shm_creator) {
       if (header->magic != Header::Header::MAGIC) {
-        UTILS_DPRINTF(STDERR_FILENO,
+        utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_ERROR "%sInvalid argument. `magic`: %u\n",
                       Log::COMMON, header->magic);
         return false;
@@ -441,7 +413,7 @@ class Shm {
   std::string shm_name_;
 #if defined(_WIN32) || defined(_WIN64)
   HANDLE shm_handle_;
-  HANDLE shm_lock_;
+  GMutex::Win shm_lock_;
 #else
   int shm_fd_;
 #endif
@@ -475,6 +447,13 @@ class Shm {
       header->attached_count ? header->attached_count - 1 : 0;
   }
 
+  bool attached_check(size_t index) {
+    auto pid = get_process_id();
+
+    return (header->attached_used[index] &&
+            header->attached_maps[index].pid == pid);
+  }
+
 #if UTILS_LOG_SHM_HPP_IS_DAEMON_
   void thread_guard(std::stop_token stop_token) {
     const int once_ms = 1000;
@@ -484,9 +463,8 @@ class Shm {
     while (!stop_token.stop_requested()) {
       for (int i = 0; i < splits; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(once_ms));
-        if (!stop_token.stop_requested()) [[likely]]
-          continue;
-        break;
+        if (stop_token.stop_requested()) [[unlikely]]
+          return;
       }
 
       uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
@@ -521,8 +499,11 @@ class Shm {
     auto pid = get_process_id();
 
     thread_guard_.request_stop();
+    if (thread_guard_.joinable()) {
+      thread_guard_.join();
+    }
 
-    UTILS_DPRINTF(STDOUT_FILENO,
+    utils_dprintf(STDOUT_FILENO,
                   LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot free\n",
                   Log::DAEMON, (uint64_t)pid);
   }
@@ -531,7 +512,7 @@ class Shm {
     auto pid = get_process_id();
 
     if (header->is_daemon_ready.load(std::memory_order_relaxed)) {
-      UTILS_DPRINTF(STDOUT_FILENO,
+      utils_dprintf(STDOUT_FILENO,
                     LOG_LEVEL_STR_WARN "%sAnother daemon already exists\n",
                     Log::DAEMON);
       return false;
@@ -539,32 +520,29 @@ class Shm {
 
     thread_guard_ = std::jthread(std::bind_front(&Shm::thread_guard, this));
 
-    UTILS_DPRINTF(STDOUT_FILENO,
+    utils_dprintf(STDOUT_FILENO,
                   LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot alloc\n",
                   Log::DAEMON, (uint64_t)pid);
 
     return true;
   }
 #else
-  void thread_guard(std::stop_token stop_token) {
-    size_t index;
+  void thread_guard(std::stop_token stop_token, std::promise<void> promise) {
+    size_t index = 0;
     auto pid = get_process_id();
 
     shm_mutex_lock();
 
-    for (index = 0; index < Log::PROCESS_MAX; ++index) {
-      if (header->attached_used[index] &&
-          header->attached_maps[index].pid == pid) {
-        break;
-      }
+    while (!attached_check(index)) {
       if (index == Log::PROCESS_MAX - 1) {
-        UTILS_DPRINTF(STDERR_FILENO,
+        utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_WARN "%sPID: %" PRIu64
                                          ". No valid pid was matched\n",
                       Log::NATIVE, (uint64_t)pid);
         shm_mutex_unlock();
         return;
       }
+      ++index;
     }
 
     shm_mutex_unlock();
@@ -578,20 +556,21 @@ class Shm {
     int splits = Log::PROCESS_FEED_GUARD_MS / once_ms;
     splits = UTILS_MAX(1, splits);
 
+    promise.set_value();
+
     while (!stop_token.stop_requested()) {
       uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
 
       shm_mutex_lock();
 
-      if (header->attached_used[index] &&
-          header->attached_maps[index].pid == pid) [[likely]] {
+      if (attached_check(index)) [[likely]] {
         header->attached_maps[index].timestamp_ms = timestamp_ms;
       } else {
-        UTILS_DPRINTF(STDERR_FILENO,
+        utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_WARN "%sInvalid argument. Pid: %" PRIu64
                                          ". `attached` thread exit\n",
                       Log::NATIVE, (uint64_t)pid);
-        shm_mutex_lock();
+        shm_mutex_unlock();
         return;
       }
 
@@ -599,9 +578,8 @@ class Shm {
 
       for (int i = 0; i < splits; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(once_ms));
-        if (!stop_token.stop_requested())
-          continue;
-        break;
+        if (stop_token.stop_requested())
+          return;
       }
     }
   }
@@ -610,6 +588,9 @@ class Shm {
     auto pid = get_process_id();
 
     thread_guard_.request_stop();
+    if (thread_guard_.joinable()) {
+      thread_guard_.join();
+    }
 
     shm_mutex_lock();
 
@@ -622,7 +603,7 @@ class Shm {
         break;
       }
       if (i == Log::PROCESS_MAX - 1) {
-        UTILS_DPRINTF(STDERR_FILENO,
+        utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_WARN "%sPID: %" PRIu64
                                          ". No valid pid was matched\n",
                       Log::NATIVE, (uint64_t)pid);
@@ -631,7 +612,7 @@ class Shm {
 
     shm_mutex_unlock();
 
-    UTILS_DPRINTF(STDOUT_FILENO,
+    utils_dprintf(STDOUT_FILENO,
                   LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot free\n",
                   Log::NATIVE, (uint64_t)pid);
   }
@@ -651,7 +632,7 @@ class Shm {
         break;
       }
       if (i == Log::PROCESS_MAX - 1) {
-        UTILS_DPRINTF(STDERR_FILENO,
+        utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_ERROR "%sCache full. Too many processes\n",
                       Log::NATIVE);
         shm_mutex_unlock();
@@ -659,26 +640,27 @@ class Shm {
       }
     }
 
-    thread_guard_ = std::jthread(std::bind_front(&Shm::thread_guard, this));
+    std::promise<void> promise_guard;
+    std::future<void> future_guard = promise_guard.get_future();
+    thread_guard_ = std::jthread([this, promise = std::move(promise_guard)](
+                                   std::stop_token stop_token) mutable {
+      thread_guard(stop_token, std::move(promise));
+    });
+    auto wait_ret = future_guard.wait_for(std::chrono::milliseconds(500));
+    if (wait_ret != std::future_status::ready) {
+      slot_free();
+      utils_dprintf(STDOUT_FILENO,
+                    LOG_LEVEL_STR_ERROR "%sFail to start `thread_guard`\n",
+                    Log::NATIVE);
+      return false;
+    }
 
-    UTILS_DPRINTF(STDOUT_FILENO,
+    utils_dprintf(STDOUT_FILENO,
                   LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot alloc\n",
                   Log::NATIVE, (uint64_t)pid);
 
     return true;
   }
-#endif
-
-// --- Mutex ---
-#if defined(_WIN32) || defined(_WIN64)
-  bool shm_mutex_create() {
-    return WinMutex::create(shm_lock_, Log::MUTEX_SHM_KEY);
-  }
-
-  void shm_mutex_destory() {
-    return WinMutex::destory(shm_lock_);
-  }
-#else
 #endif
 };
 } // namespace Shm

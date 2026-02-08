@@ -19,10 +19,16 @@
 #  ifdef utils_pretty_function
 #    undef utils_pretty_function
 #  endif
-#  if defined(__GNUC__) || defined(__clang__)
-#    define utils_pretty_function __PRETTY_FUNCTION__
-#  elif defined(_MSC_VER)
+#  if defined(_MSC_VER)
+/**
+ * @note In MSVC, this can be treated as a macro string.
+ */
 #    define utils_pretty_function __FUNCSIG__
+#  elif defined(__GNUC__) || defined(__clang__)
+/**
+ * @note In gcc/clang, this cannot be treated as a macro string.
+ */
+#    define utils_pretty_function __PRETTY_FUNCTION__
 #  else
 #    define utils_pretty_function __func__
 #  endif

@@ -1,5 +1,6 @@
-#include <sirius/thread/thread.h>
 #include <sirius/thread/sem.h>
+#include <sirius/thread/thread.h>
+#include <Windows.h>
 
 #include "internal/utils.h"
 
@@ -37,9 +38,9 @@ static void *foo(void *arg) {
     if (unlikely(g_exit))
       break;
 
-    UTILS_DPRINTF(1, "foo(%d): %s%s|", index, g_string, get_nspace(index));
+    utils_dprintf(1, "foo(%d): %s%s|", index, g_string, get_nspace(index));
     if (index % 4 == 0)
-      UTILS_DPRINTF(1, "\n");
+      utils_dprintf(1, "\n");
 
     ++index;
     UTILS_ASSERT(!sirius_sem_post(&g_sem_main));
@@ -76,6 +77,7 @@ int main() {
   sirius_warnsp("- Try to destroy the sem multiple times\n");
   sirius_warnsp("- sirius_sem_destroy: %d\n", sirius_sem_destroy(&g_sem_sub));
   sirius_warnsp("- sirius_sem_destroy: %d\n", sirius_sem_destroy(&g_sem_sub));
+  sirius_warnsp("- sirius_sem_destroy: %d\n", sirius_sem_destroy(&g_sem_main));
   sirius_warnsp("- sirius_sem_destroy: %d\n", sirius_sem_destroy(&g_sem_main));
   sirius_warnsp("--------------------------------\n");
 

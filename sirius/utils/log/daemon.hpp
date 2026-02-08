@@ -29,7 +29,7 @@ namespace Daemon {
 
 static inline bool check() {
   if (!is_daemon()) {
-    UTILS_DPRINTF(STDERR_FILENO,
+    utils_dprintf(STDERR_FILENO,
                   LOG_LEVEL_STR_ERROR
                   "%sThe startup parameters for the daemon are invalid\n",
                   Log::DAEMON);
@@ -64,8 +64,7 @@ class LogManager {
 
     Shm::ProcessMutex::unlock();
 
-    daemon_main();
-    ret = true;
+    ret = daemon_main();
 
     log_shm_->slots_deinit();
   label_free4:
@@ -101,7 +100,7 @@ class LogManager {
   bool daemon_main() {
     auto header = log_shm_->header;
 
-    UTILS_DPRINTF(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sThe daemon starts\n",
+    utils_dprintf(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sThe daemon starts\n",
                   Log::DAEMON);
 
     thread_consumer_ =
@@ -131,7 +130,14 @@ class LogManager {
     thread_monitor_.request_stop();
     thread_consumer_.request_stop();
 
-    UTILS_DPRINTF(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sThe daemon ended\n",
+    if (thread_monitor_.joinable()) {
+      thread_monitor_.join();
+    }
+    if (thread_consumer_.joinable()) {
+      thread_consumer_.join();
+    }
+
+    utils_dprintf(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sThe daemon ended\n",
                   Log::DAEMON);
 
     return true;
@@ -143,15 +149,20 @@ class LogManager {
 
     while (true) {
       uint64_t read_index = header->read_index.load(std::memory_order_acquire);
+      uint64_t write_index =
+        header->write_index.load(std::memory_order_acquire);
 
-      if (read_index >= header->write_index.load(std::memory_order_acquire)) {
+      if (read_index >= write_index) {
         if (stop_token.stop_requested())
           break;
-        std::this_thread::sleep_for(std::chrono::microseconds(200));
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
         continue;
       }
 
-      auto opt_slot = get_slot(read_index, 20);
+      uint64_t retry_times = header->capacity - (write_index - read_index) + 10;
+      retry_times = likely(retry_times < 2000) ? retry_times : 2000;
+
+      auto opt_slot = get_slot(read_index, 100);
       if (opt_slot) [[likely]] {
         Shm::Slot &slot = opt_slot->get();
         Shm::Buffer &buffer = slot.buffer;
@@ -168,7 +179,7 @@ class LogManager {
         if (stop_token.stop_requested()) {
           if (++exit_counter >= 5)
             break;
-          UTILS_DPRINTF(STDOUT_FILENO,
+          utils_dprintf(STDOUT_FILENO,
                         LOG_LEVEL_STR_WARN "%s`exit_counter`: %d\n",
                         Log::DAEMON, exit_counter);
         } else {
@@ -195,7 +206,7 @@ class LogManager {
         if (s == Shm::SlotState::WRITING) {
           uint64_t ts = slots[i].timestamp_ms.load(std::memory_order_relaxed);
           if (now - ts > Log::SHM_SLOT_RESET_TIMEOUT_MS) {
-            UTILS_DPRINTF(STDERR_FILENO,
+            utils_dprintf(STDERR_FILENO,
                           LOG_LEVEL_STR_WARN "%sRecovering stuck slot: %zu\n",
                           Log::DAEMON, i);
 
@@ -234,9 +245,9 @@ class LogManager {
     int retries = 0;
     while (slot.state.load(std::memory_order_acquire) !=
            Shm::SlotState::READY) {
-      std::this_thread::sleep_for(std::chrono::microseconds(50));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (++retries > retry_times) {
-        UTILS_DPRINTF(STDERR_FILENO,
+        utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_WARN "%sSkip corrupted slot index: %" PRIu64
                                          "\n",
                       Log::DAEMON, read_index);
@@ -264,19 +275,22 @@ static inline std::filesystem::path default_path() {
 
 #ifdef _SIRIUS_WIN_DLL
 static inline std::filesystem::path current_dll_dir() {
+  std::string es;
   HMODULE modele = nullptr;
   wchar_t path[MAX_PATH];
 
   if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                             GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                           (LPCWSTR)&current_dll_dir, &modele)) {
-    Log::win_last_error("GetModuleHandleExW");
+    es = std::format("{} -> `GetModuleHandleExW`", utils_pretty_function);
+    utils_win_last_error(GetLastError(), es.c_str());
     return "";
   }
 
   DWORD length = GetModuleFileNameW(modele, path, MAX_PATH);
   if (length == 0) {
-    Log::win_last_error("GetModuleFileNameW");
+    es = std::format("{} -> `GetModuleFileNameW`", utils_pretty_function);
+    utils_win_last_error(GetLastError(), es.c_str());
     return "";
   }
 
@@ -290,13 +304,13 @@ inline std::filesystem::path daemon_exe_path = "";
 static inline int set_path(std::filesystem::path path) {
   if (path.empty()) {
     errno = EINVAL;
-    Log::errno_error(utils_pretty_function);
+    utils_errno_error(errno, utils_pretty_function);
     return errno;
   }
 
   if (!std::filesystem::exists(path)) {
     errno = ENOENT;
-    Log::errno_error(utils_pretty_function);
+    utils_errno_error(errno, utils_pretty_function);
     return errno;
   }
 
@@ -328,15 +342,14 @@ static inline std::filesystem::path path() {
 
   for (auto path : paths) {
     if (!path.empty()) {
-      UTILS_DPRINTF(STDOUT_FILENO,
-                    LOG_LEVEL_STR_INFO
-                    "%sThe path of the daemon executable file: `%s`\n",
+      utils_dprintf(STDOUT_FILENO,
+                    LOG_LEVEL_STR_INFO "%sThe daemon executable file: `%s`\n",
                     Log::COMMON, path.string().c_str());
       return path;
     }
   }
 
-  UTILS_DPRINTF(STDERR_FILENO,
+  utils_dprintf(STDERR_FILENO,
                 LOG_LEVEL_STR_ERROR
                 "%sFail to find the daemon executable file\n",
                 Log::COMMON);

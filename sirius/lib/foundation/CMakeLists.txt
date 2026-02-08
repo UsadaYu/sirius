@@ -5,7 +5,7 @@ set(pkgconfig_libs "${LIB_PKGCONFIG_LIBS}")
 set(pkgconfig_libs_private "${LIB_PKGCONFIG_LIBS_PRIVATE}")
 set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
-# --- sirius::utils ---
+# --- sirius::foundation ---
 set(sources "")
 list(APPEND sources "log/log.cpp")
 list(APPEND sources "thread/thread.c")

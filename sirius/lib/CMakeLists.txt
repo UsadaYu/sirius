@@ -47,10 +47,10 @@ endif()
 
 # --- System Include Directories ---
 
-# --- utils ---
-set(LIB_TARGET ${SIRIUS_UTILS_LIBRARY_NAME})
+# --- foundation ---
+set(LIB_TARGET ${SIRIUS_FOUNDATION_LIBRARY_NAME})
 list(APPEND _sirius_libraries ${LIB_TARGET})
-add_subdirectory(utils)
+add_subdirectory(foundation)
 
 # --- c ---
 set(LIB_TARGET ${SIRIUS_C_LIBRARY_NAME})

@@ -1,6 +1,6 @@
 #include "sirius/thread/sem.h"
 
-#include "lib/utils/log/log.h"
+#include "lib/foundation/log/log.h"
 #include "utils/attributes.h"
 #include "utils/errno.h"
 
@@ -26,7 +26,7 @@ sirius_api int sirius_sem_init(sirius_sem_t *sem, int pshared,
   HANDLE h = CreateSemaphore(nullptr, initial, maximum, nullptr);
   if (!h) {
     DWORD dw_err = GetLastError();
-    UTILS_WIN_LAST_ERROR("CreateSemaphore");
+    foundation_win_last_error(dw_err, "CreateSemaphore");
     return utils_winerr_to_errno(dw_err);
   }
 
@@ -36,12 +36,15 @@ sirius_api int sirius_sem_init(sirius_sem_t *sem, int pshared,
 }
 
 sirius_api int sirius_sem_destroy(sirius_sem_t *sem) {
-  if (!sem)
+  if (!sem || !*((HANDLE *)sem))
     return EINVAL;
 
   BOOL ok = CloseHandle(*((HANDLE *)sem));
   if (!ok)
     return utils_winerr_to_errno(GetLastError());
+
+  HANDLE ptr = nullptr;
+  memcpy((HANDLE *)sem, &ptr, sizeof(ptr));
 
   return 0;
 }

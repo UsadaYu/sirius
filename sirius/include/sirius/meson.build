@@ -12,67 +12,53 @@ v_h = configure_file(
 
 glob_include += include_directories(join_paths('..'))
 
-# --- sirius ---
-subdir = 'sirius'
+# --- Install ---
+# c
+subdir = join_paths('c')
 api_sirius = []
-
 api_sirius += [
-  'attributes.h',
-  'cpu.h',
-  'file.h',
-  'macro.h',
+  join_paths(subdir, 'fs.h'),
+  join_paths(subdir, 'time.h'),
 ]
-install_headers(api_sirius, subdir: subdir)
+install_headers(api_sirius, subdir: join_paths('sirius', subdir))
 
-# --- sirius/c ---
-subdir = join_paths('sirius', 'c')
+# foundation
+subdir = join_paths('foundation')
 api_sirius = []
-
 api_sirius += [
-  'c/time.h',
+  join_paths(subdir, 'log.h'),
+  join_paths(subdir, 'thread.h'),
 ]
-install_headers(api_sirius, subdir: subdir)
+install_headers(api_sirius, subdir: join_paths('sirius', subdir))
 
-# --- sirius/internal ---
-subdir = join_paths('sirius', 'internal')
+# internal
+subdir = join_paths('internal')
 api_sirius = []
-
 api_sirius += [
-  'internal/attributes.h',
-  'internal/common.h',
-  'internal/macro.h',
+  join_paths(subdir, 'attributes.h'),
+  join_paths(subdir, 'common.h'),
+  join_paths(subdir, 'macro.h'),
 ]
-install_headers(api_sirius, subdir: subdir)
+install_headers(api_sirius, subdir: join_paths('sirius', subdir))
 
-# --- sirius/thread ---
-subdir = join_paths('sirius', 'thread')
+# kit
+subdir = join_paths('kit')
 api_sirius = []
-
 api_sirius += [
-  'thread/cond.h',
-  'thread/mutex.h',
-  'thread/sem.h',
-  'thread/spinlock.h',
-  'thread/thread.h',
+  join_paths(subdir, 'queue.h'),
 ]
-install_headers(api_sirius, subdir: subdir)
+install_headers(api_sirius, subdir: join_paths('sirius', subdir))
 
-# --- sirius/thread/internal ---
-subdir = join_paths('sirius', 'thread', 'internal')
+# thread
+subdir = join_paths('thread')
 api_sirius = []
-
 api_sirius += [
-  'thread/internal/thread.h',
-]
-install_headers(api_sirius, subdir: subdir)
-
-# --- sirius/utils ---
-subdir = join_paths('sirius', 'utils')
-api_sirius = []
-
-api_sirius += [
-  'utils/log.h',
-  'utils/math.h',
-  'utils/queue.h',
+  join_paths(subdir, 'cond.h'),
+  join_paths(subdir, 'cpu.h'),
+  join_paths(subdir, 'macro.h'),
+  join_paths(subdir, 'mutex.h'),
+  join_paths(subdir, 'sem.h'),
+  join_paths(subdir, 'spinlock.h'),
+  join_paths(subdir, 'thread.h'),
 ]
 install_headers(api_sirius, subdir: subdir)

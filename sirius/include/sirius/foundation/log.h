@@ -150,9 +150,14 @@ sirius_api void sirius_logsp_impl(int level, const char *level_str,
     sirius_log_impl(SIRIUS_LOG_LEVEL_ERROR, LOG_LEVEL_STR_ERROR, LOG_RED, \
                     _SIRIUS_LOG_PRINT_NAME, SIRIUS_FILE_NAME, __func__, \
                     __LINE__, fmt, ##__VA_ARGS__)
+#  define _sirius_errorsp(fmt, ...) \
+    sirius_logsp_impl(SIRIUS_LOG_LEVEL_ERROR, LOG_LEVEL_STR_ERROR, LOG_RED, \
+                      _SIRIUS_LOG_PRINT_NAME, fmt, ##__VA_ARGS__)
 #else
 #  define _sirius_error(fmt, ...) \
     _sirius_log_void(SIRIUS_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
+#  define _sirius_errorsp(fmt, ...) \
+    _sirius_logsp_void(SIRIUS_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
 #endif
 
 #if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_WARN)
@@ -206,6 +211,7 @@ sirius_api void sirius_logsp_impl(int level, const char *level_str,
 #define sirius_info(fmt, ...) _sirius_info(fmt, ##__VA_ARGS__)
 #define sirius_debug(fmt, ...) _sirius_debug(fmt, ##__VA_ARGS__)
 
+#define sirius_errorsp(fmt, ...) _sirius_errorsp(fmt, ##__VA_ARGS__)
 #define sirius_warnsp(fmt, ...) _sirius_warnsp(fmt, ##__VA_ARGS__)
 #define sirius_infosp(fmt, ...) _sirius_infosp(fmt, ##__VA_ARGS__)
 #define sirius_debugsp(fmt, ...) _sirius_debugsp(fmt, ##__VA_ARGS__)

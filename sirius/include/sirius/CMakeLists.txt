@@ -26,19 +26,29 @@ macro(api_install SUBDIR FILES)
   unset(_install_dir)
 endmacro()
 
+# --- Install ---
+# c
 set(subdir "c")
 set(api_files "")
 list(APPEND api_files "${subdir}/fs.h" "${subdir}/time.h")
 api_install(subdir api_files)
 
+# foundation
+set(subdir "foundation")
+set(api_files "${subdir}/log.h" "${subdir}/thread.h")
+api_install(subdir api_files)
+
+# internal
 set(subdir "internal")
 set(api_files "${subdir}/attributes.h" "${subdir}/common.h" "${subdir}/macro.h")
 api_install(subdir api_files)
 
+# kit
 set(subdir "kit")
 set(api_files "${subdir}/queue.h")
 api_install(subdir api_files)
 
+# thread
 set(subdir "thread")
 set(api_files
     "${subdir}/cond.h"
@@ -50,10 +60,7 @@ set(api_files
     "${subdir}/thread.h")
 api_install(subdir api_files)
 
-set(subdir "utils")
-set(api_files "${subdir}/log.h" "${subdir}/thread.h")
-api_install(subdir api_files)
-
+# .
 set(subdir ".")
 set(api_files "${subdir}/attributes.h" "${subdir}/file.h" "${subdir}/macro.h"
               ${gen})

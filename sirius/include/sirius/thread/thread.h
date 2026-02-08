@@ -1,7 +1,7 @@
 #pragma once
 
+#include "sirius/foundation/thread.h"
 #include "sirius/internal/macro.h"
-#include "sirius/utils/thread.h"
 
 /**
  * @brief Get the thread id, the result is of type `uint64_t`.

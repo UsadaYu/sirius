@@ -112,13 +112,10 @@ test_include_directories += include_directories(join_paths('.'))
 # --- Link Args ---
 
 # --- Test ---
-subdir('cond')
-subdir('lock')
-subdir('log')
-subdir('queue')
-subdir('sem')
+subdir('c')
+subdir('foundation')
+subdir('kit')
 subdir('thread')
-subdir('time')
 
 foreach test_target : test_targets
   sources = []

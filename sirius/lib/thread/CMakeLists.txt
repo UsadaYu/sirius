@@ -26,10 +26,11 @@ target_compile_definitions(${LIB_TARGET}
 target_link_libraries(${LIB_TARGET} PRIVATE "Threads::Threads")
 list(APPEND pkgconfig_libs_private ${GLOB_PKGCONFIG_LIBS_PRIVATE_THREAD})
 
-# sirius_utils
+# sirius_foundation
 target_link_libraries(
-  ${LIB_TARGET} PRIVATE "${SIRIUS_NAMESPACE}::${SIRIUS_UTILS_LIBRARY_NAME}")
-list(APPEND pkgconfig_requires_private ${SIRIUS_UTILS_LIBRARY_NAME})
+  ${LIB_TARGET}
+  PRIVATE "${SIRIUS_NAMESPACE}::${SIRIUS_FOUNDATION_LIBRARY_NAME}")
+list(APPEND pkgconfig_requires_private ${SIRIUS_FOUNDATION_LIBRARY_NAME})
 
 # --- Pkg Config ---
 add_subdirectory(pkgconfig)
