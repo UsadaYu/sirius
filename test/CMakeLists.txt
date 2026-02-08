@@ -7,16 +7,28 @@ include(CheckCompilerFlag)
 
 # --- Environment ---
 set(TEST_ENV "")
+set(TEST_ENV_MODIFICATION "")
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND GLOB_LIBRARY_TYPE STREQUAL "SHARED")
-  set(var "${SIRIUS_NAMESPACE}::${SIRIUS_C_LIBRARY_NAME}")
-  list(APPEND TEST_ENV "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
-  set(var "${SIRIUS_NAMESPACE}::${SIRIUS_KIT_LIBRARY_NAME}")
-  list(APPEND TEST_ENV "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
-  set(var "${SIRIUS_NAMESPACE}::${SIRIUS_THREAD_LIBRARY_NAME}")
-  list(APPEND TEST_ENV "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
-  set(var "${SIRIUS_NAMESPACE}::${SIRIUS_UTILS_LIBRARY_NAME}")
-  list(APPEND TEST_ENV "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  set(var "")
+
+  if(GLOB_LIBRARY_TYPE STREQUAL "SHARED")
+    set(var "${SIRIUS_NAMESPACE}::${SIRIUS_C_LIBRARY_NAME}")
+    list(APPEND TEST_ENV_MODIFICATION
+         "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+    set(var "${SIRIUS_NAMESPACE}::${SIRIUS_KIT_LIBRARY_NAME}")
+    list(APPEND TEST_ENV_MODIFICATION
+         "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+    set(var "${SIRIUS_NAMESPACE}::${SIRIUS_THREAD_LIBRARY_NAME}")
+    list(APPEND TEST_ENV_MODIFICATION
+         "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+    set(var "${SIRIUS_NAMESPACE}::${SIRIUS_UTILS_LIBRARY_NAME}")
+    list(APPEND TEST_ENV_MODIFICATION
+         "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+  endif()
+
+  set(var "${SIRIUS_EXE_DAEMON_NAME}")
+  list(APPEND TEST_ENV "SIRIUS_ENV_EXE_DAEMON_PATH=$<TARGET_FILE:${var}>")
 
   unset(var)
 endif()
@@ -131,8 +143,10 @@ function(test_add_single_test)
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
   set_tests_properties(
-    ${ARG_TARGET} PROPERTIES ENVIRONMENT_MODIFICATION
-                             "$<JOIN:${TEST_ENV},$<SEMICOLON>>")
+    ${ARG_TARGET}
+    PROPERTIES ENVIRONMENT_MODIFICATION
+               "$<JOIN:${TEST_ENV_MODIFICATION},$<SEMICOLON>>" ENVIRONMENT
+               "$<JOIN:${TEST_ENV},$<SEMICOLON>>")
 endfunction()
 
 #[================================[

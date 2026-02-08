@@ -76,7 +76,7 @@ class LogManager {
     if (!wait_for_daemon())
       goto label_free5;
 
-    is_activated_ = true;
+    is_activated_.store(true, std::memory_order_relaxed);
 
     return true;
 
@@ -96,10 +96,10 @@ class LogManager {
   }
 
   void deinit() {
-    if (!is_activated_)
+    if (!is_activated_.load(std::memory_order_relaxed))
       return;
 
-    is_activated_ = false;
+    is_activated_.store(false, std::memory_order_relaxed);
 
     UL::Shm::ProcessMutex::lock();
 
@@ -149,13 +149,14 @@ class LogManager {
         std::this_thread::yield();
       } else if (retries > 50) {
         retries = 0;
-        std::this_thread::sleep_for(std::chrono::nanoseconds(100));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
       }
     }
 
+    slot.state.store(UL::Shm::SlotState::WRITING, std::memory_order_release);
+
     slot.timestamp_ms.store(Utils::Time::get_monotonic_steady_ms(),
                             std::memory_order_relaxed);
-    slot.state.store(UL::Shm::SlotState::WRITING, std::memory_order_release);
 
     std::memcpy(&slot.buffer, src, size);
 
@@ -171,7 +172,7 @@ class LogManager {
   }
 
  private:
-  bool is_activated_;
+  std::atomic<bool> is_activated_;
   bool is_creator_;
   std::string daemon_arg_;
   std::unique_ptr<UL::Shm::Shm> log_shm_;
@@ -275,8 +276,8 @@ class LogManager {
   }
 
   bool produce_fallback(void *src) {
-    if (log_shm_->header->is_daemon_ready.load(std::memory_order_relaxed))
-      [[likely]] {
+    if (log_shm_->header->is_daemon_ready.load(std::memory_order_relaxed) &&
+        is_activated_.load(std::memory_order_relaxed)) [[likely]] {
       return false;
     }
 

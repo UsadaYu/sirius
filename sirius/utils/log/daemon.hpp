@@ -143,15 +143,20 @@ class LogManager {
 
     while (true) {
       uint64_t read_index = header->read_index.load(std::memory_order_acquire);
+      uint64_t write_index =
+        header->write_index.load(std::memory_order_acquire);
 
-      if (read_index >= header->write_index.load(std::memory_order_acquire)) {
+      if (read_index >= write_index) {
         if (stop_token.stop_requested())
           break;
-        std::this_thread::sleep_for(std::chrono::microseconds(200));
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
         continue;
       }
 
-      auto opt_slot = get_slot(read_index, 20);
+      uint64_t retry_times = header->capacity - (write_index - read_index) + 10;
+      retry_times = likely(retry_times < 2000) ? retry_times : 2000;
+
+      auto opt_slot = get_slot(read_index, 100);
       if (opt_slot) [[likely]] {
         Shm::Slot &slot = opt_slot->get();
         Shm::Buffer &buffer = slot.buffer;
@@ -234,7 +239,7 @@ class LogManager {
     int retries = 0;
     while (slot.state.load(std::memory_order_acquire) !=
            Shm::SlotState::READY) {
-      std::this_thread::sleep_for(std::chrono::microseconds(50));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (++retries > retry_times) {
         UTILS_DPRINTF(STDERR_FILENO,
                       LOG_LEVEL_STR_WARN "%sSkip corrupted slot index: %" PRIu64

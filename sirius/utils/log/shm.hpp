@@ -141,7 +141,9 @@ static inline void destory(HANDLE &handle) {
   }
 }
 
-static inline bool lock(HANDLE &handle) {
+static inline bool lock(HANDLE &handle, std::string s = "unknown") {
+  std::string es = s + " -> WaitForSingleObject";
+
   while (true) {
     DWORD dw_err = WaitForSingleObject(handle, INFINITE);
     switch (dw_err) {
@@ -155,7 +157,7 @@ static inline bool lock(HANDLE &handle) {
         Log::COMMON);
       continue;
     case WAIT_FAILED:
-      Log::win_last_error("WaitForSingleObject");
+      Log::win_last_error(es.c_str());
       return false;
     default:
       return false;
@@ -165,7 +167,7 @@ static inline bool lock(HANDLE &handle) {
 
 static inline bool unlock(HANDLE &handle) {
   if (!ReleaseMutex(handle)) {
-    Log::win_last_error("WaitForSingleObject");
+    Log::win_last_error("ReleaseMutex");
     return false;
   }
 
@@ -187,7 +189,7 @@ static inline void destory() {
 }
 
 static inline bool lock() {
-  return WinMutex::lock(process_lock_);
+  return WinMutex::lock(process_lock_, "ProcessMutex");
 }
 
 static inline bool unlock() {
@@ -390,7 +392,7 @@ class Shm {
 // --- Mutex ---
 #if defined(_WIN32) || defined(_WIN64)
   bool shm_mutex_lock() {
-    return WinMutex::lock(shm_lock_);
+    return WinMutex::lock(shm_lock_, "shm_mutex_lock");
   }
 
   bool shm_mutex_unlock() {
@@ -484,9 +486,8 @@ class Shm {
     while (!stop_token.stop_requested()) {
       for (int i = 0; i < splits; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(once_ms));
-        if (!stop_token.stop_requested()) [[likely]]
-          continue;
-        break;
+        if (stop_token.stop_requested()) [[unlikely]]
+          return;
       }
 
       uint64_t timestamp_ms = Time::get_monotonic_steady_ms();

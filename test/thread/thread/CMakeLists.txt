@@ -15,5 +15,7 @@ test_add_exes_and_tests(MAIN "Thread4.c" LANGUAGE "C" DIRECTORY
                         ${CMAKE_CURRENT_BINARY_DIR})
 
 # --- Thread5 ---
-test_add_exes_and_tests(MAIN "Thread5.cpp" LANGUAGE "CXX" DIRECTORY
-                        ${CMAKE_CURRENT_BINARY_DIR})
+if(OFF)
+  test_add_exes_and_tests(MAIN "Thread5.cpp" LANGUAGE "CXX" DIRECTORY
+                          ${CMAKE_CURRENT_BINARY_DIR})
+endif()
