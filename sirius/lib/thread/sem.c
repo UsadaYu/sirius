@@ -25,12 +25,12 @@ sirius_api int sirius_sem_init(sirius_sem_t *sem, int pshared,
 
   HANDLE h = CreateSemaphore(nullptr, initial, maximum, nullptr);
   if (!h) {
-    DWORD dw_err = GetLastError();
+    const DWORD dw_err = GetLastError();
     foundation_win_last_error(dw_err, "CreateSemaphore");
     return utils_winerr_to_errno(dw_err);
   }
 
-  memcpy((HANDLE *)sem, &h, sizeof(h));
+  *((HANDLE *)sem) = h;
 
   return 0;
 }
@@ -43,8 +43,7 @@ sirius_api int sirius_sem_destroy(sirius_sem_t *sem) {
   if (!ok)
     return utils_winerr_to_errno(GetLastError());
 
-  HANDLE ptr = nullptr;
-  memcpy((HANDLE *)sem, &ptr, sizeof(ptr));
+  *((HANDLE *)sem) = nullptr;
 
   return 0;
 }

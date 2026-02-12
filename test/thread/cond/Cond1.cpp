@@ -5,10 +5,10 @@
 
 #include "internal/utils.h"
 
-const int NB_PRODUCERS = 4;
-const int NB_CONSUMERS = 4;
-const int ITEMS_PER_PRODUCER = 10000;
-const int EXPECTED_TOTAL = NB_PRODUCERS * ITEMS_PER_PRODUCER;
+static constexpr int kNbProducers = 4;
+static constexpr int kNbConsumers = 4;
+static constexpr int kItemsPerProducer = 10000;
+static constexpr int kExpectedTotal = kNbProducers * kItemsPerProducer;
 
 struct SharedContext {
   sirius_mutex_t mutex;
@@ -31,7 +31,7 @@ struct SharedContext {
 };
 
 static void producer_routine(SharedContext *ctx, int id) {
-  for (int i = 0; i < ITEMS_PER_PRODUCER; ++i) {
+  for (int i = 0; i < kItemsPerProducer; ++i) {
     sirius_mutex_lock(&ctx->mutex);
 
     ctx->queue.push(1);
@@ -76,11 +76,11 @@ int main() {
   std::vector<std::thread> producers;
   std::vector<std::thread> consumers;
 
-  for (int i = 0; i < NB_CONSUMERS; ++i) {
+  for (int i = 0; i < kNbConsumers; ++i) {
     consumers.emplace_back(consumer_routine, &ctx, i);
   }
 
-  for (int i = 0; i < NB_PRODUCERS; ++i) {
+  for (int i = 0; i < kNbProducers; ++i) {
     producers.emplace_back(producer_routine, &ctx, i);
   }
 
@@ -100,13 +100,13 @@ int main() {
   }
 
   // Verify the result
-  if (ctx.total_consumed.load() == EXPECTED_TOTAL) {
+  if (ctx.total_consumed.load() == kExpectedTotal) {
     sirius_infosp("Test passed. Actual total: %d (expected total: %d)\n",
-                  ctx.total_consumed.load(), EXPECTED_TOTAL);
+                  ctx.total_consumed.load(), kExpectedTotal);
   } else {
     sirius_error("Test failed. Counter value: %d (expected value: %d)\n",
-                 ctx.total_consumed.load(), EXPECTED_TOTAL);
+                 ctx.total_consumed.load(), kExpectedTotal);
   }
 
-  return (int)!(ctx.total_consumed.load() == EXPECTED_TOTAL);
+  return (int)!(ctx.total_consumed.load() == kExpectedTotal);
 }

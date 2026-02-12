@@ -16,9 +16,8 @@
 
 #ifdef __cplusplus
 // --- utils_pretty_function ---
-#  ifdef utils_pretty_function
-#    undef utils_pretty_function
-#  endif
+#  undef utils_pretty_function
+
 #  if defined(_MSC_VER)
 /**
  * @note In MSVC, this can be treated as a macro string.

@@ -67,8 +67,9 @@ sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
   int ret;
   sirius_queue_t *q = (sirius_queue_t *)calloc(1, sizeof(sirius_queue_t));
   if (!q) {
+    const int errno_err = errno;
     sirius_error("calloc\n");
-    return errno;
+    return errno_err;
   }
 
   size_t requested_capacity = args->elem_count;
@@ -91,8 +92,9 @@ sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
 
   q->elements = (size_t *)calloc(q->capacity, sizeof(size_t));
   if (!q->elements) {
+    const int errno_err = errno;
     sirius_error("calloc\n");
-    ret = errno;
+    ret = errno_err;
     goto label_free1;
   }
 

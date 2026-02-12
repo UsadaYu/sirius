@@ -6,12 +6,12 @@
 
 #include "internal/utils.h"
 
-static constexpr int NB_THREADS = 6;
+static constexpr int kNbThreads = 6;
 
 using HashPair = std::pair<std::string_view, std::string_view>;
-using IndexToHash = std::array<HashPair, NB_THREADS>;
+using IndexToHash = std::array<HashPair, kNbThreads>;
 
-static const IndexToHash HASHES = {
+static const IndexToHash kHashes = {
   {
    {"97ce467c-534d-408c-a4c6-4548e5f0fbf0",
      "36ad79d2-94e3-4172-9421-092a52f7ef98"},
@@ -36,8 +36,8 @@ struct Arg {
 void *foo(void *arg) {
   auto *content = (Arg *)arg;
   int index = content->index;
-  auto hash1 = HASHES[index].first;
-  auto hash2 = HASHES[index].second;
+  auto hash1 = kHashes[index].first;
+  auto hash2 = kHashes[index].second;
 
   if (content->string == hash1) {
     sirius_infosp(
@@ -66,8 +66,8 @@ int main() {
   int ret;
   std::string es;
   sirius_thread_attr_t attr {};
-  sirius_thread_t threads[NB_THREADS];
-  Arg args[NB_THREADS] {};
+  sirius_thread_t threads[kNbThreads];
+  Arg args[kNbThreads] {};
   void *stackaddr = nullptr;
 
   attr.inherit_sched = kSiriusThreadExplicitSched;
@@ -75,9 +75,9 @@ int main() {
   attr.stackaddr = stackaddr;
   attr.guardsize = 4096;
 
-  for (int i = 0; i < NB_THREADS; ++i) {
+  for (int i = 0; i < kNbThreads; ++i) {
     args[i].index = i;
-    args[i].string = HASHES[i].first;
+    args[i].string = kHashes[i].first;
     ret = sirius_thread_create(threads + i, &attr, foo, (void *)(args + i));
     if (ret) {
       es = std::format(LOG_RED
@@ -90,7 +90,7 @@ int main() {
   }
 
   const char *retval = nullptr;
-  for (int i = 0; i < NB_THREADS; ++i) {
+  for (int i = 0; i < kNbThreads; ++i) {
     ret = sirius_thread_join(threads[i], (void **)&retval);
     if (ret) {
       es = std::format(LOG_RED
@@ -101,7 +101,7 @@ int main() {
       throw std::runtime_error(es);
     }
 
-    auto hash2 = HASHES[i].second;
+    auto hash2 = kHashes[i].second;
     if (retval == hash2.data()) {
       sirius_infosp(
         "Main-Join (joining the index: %d). The `retval` was successfully "

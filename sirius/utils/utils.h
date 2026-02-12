@@ -16,21 +16,8 @@
 #  define UTILS_MAX(x, y) ((x) > (y) ? (x) : (y))
 #endif
 
-// --- UTILS_CONCAT ---
-#ifdef UTILS_CONCAT_IMPL
-#  undef UTILS_CONCAT_IMPL
-#endif
-#ifdef UTILS_CONCAT
-#  undef UTILS_CONCAT
-#endif
-
-#define UTILS_CONCAT_IMPL(x, y) x##y
-#define UTILS_CONCAT(x, y) UTILS_CONCAT_IMPL(x, y)
-
 // --- UTILS_LOCALTIME_R ---
-#ifdef UTILS_LOCALTIME_R
-#  undef UTILS_LOCALTIME_R
-#endif
+#undef UTILS_LOCALTIME_R
 
 #if defined(_WIN32) || defined(_WIN64)
 #  define UTILS_LOCALTIME_R(timer, result) localtime_s(result, timer)
@@ -165,7 +152,7 @@ get_exe_path_matrix(std::string exe_name, std::filesystem::path base_dir) {
     return exe_path;
 
 #  if defined(_WIN32) || defined(_WIN64)
-  const std::string suffix = ".exe";
+  constexpr std::string suffix = ".exe";
   if (exe_name.ends_with(suffix)) {
     exe_path =
       base_dir / exe_name.substr(0, exe_name.length() - suffix.length());

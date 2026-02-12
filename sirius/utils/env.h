@@ -3,9 +3,7 @@
 #include "utils/decls.h"
 
 // --- SIRIUS_ENV_EXE_DAEMON_PATH ---
-#ifdef SIRIUS_ENV_EXE_DAEMON_PATH
-#  undef SIRIUS_ENV_EXE_DAEMON_PATH
-#endif
+#undef SIRIUS_ENV_EXE_DAEMON_PATH
 
 /**
  * @brief The path of the daemon executables.

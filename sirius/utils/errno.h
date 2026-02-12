@@ -12,7 +12,9 @@
 #  include <winerror.h>
 
 static inline int utils_winerr_to_errno(DWORD err) {
-  switch (err) {
+  const DWORD dw_err = err;
+
+  switch (dw_err) {
   case ERROR_SUCCESS:
     return 0;
 

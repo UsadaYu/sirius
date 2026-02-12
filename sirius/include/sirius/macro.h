@@ -18,12 +18,9 @@
  */
 #define SIRIUS_TIMEOUT_INFINITE (UINT64_MAX)
 
-#ifdef offsetof
-#  undef offsetof
-#endif
-#ifdef container_of
-#  undef container_of
-#endif
+// --- container_of ---
+#undef offsetof
+#undef container_of
 
 #define offsetof(TYPE, MEMBER) ((size_t)&((TYPE *)0)->MEMBER)
 
@@ -32,12 +29,10 @@
     reinterpret_cast<type *>(reinterpret_cast<char *>(const_cast<void *>( \
                                static_cast<const void *>(ptr))) - \
                              offsetof(type, member))
-
 #else
 #  define container_of(ptr, type, member) \
     ({ \
       const typeof(((type *)0)->member) *__mptr = (ptr); \
       (type *)((char *)__mptr - offsetof(type, member)); \
     })
-
 #endif

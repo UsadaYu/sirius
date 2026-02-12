@@ -6,15 +6,15 @@
 
 #include "internal/utils.h"
 
-constexpr int NB_PRODUCERS = 32;
-constexpr int NB_MSGS_PER_THD = 2048;
-constexpr int QUEUE_DEPTH = 128;
-constexpr size_t MSG_BUF_SIZE = 256;
+static constexpr int kNbProducers = 32;
+static constexpr int kNbMsgsPerThread = 2048;
+static constexpr int kQueueDepth = 128;
+static constexpr size_t kMsgBufferSize = 256;
 
 struct MessagePayload {
   uint64_t producer_id;
   int seq_num;
-  char data[MSG_BUF_SIZE - sizeof(uint64_t) - sizeof(int)];
+  char data[kMsgBufferSize - sizeof(uint64_t) - sizeof(int)];
 };
 
 class QueueTestContext {
@@ -29,7 +29,7 @@ class QueueTestContext {
 
   QueueTestContext() {
     sirius_queue_args_t qargs {};
-    qargs.elem_count = QUEUE_DEPTH;
+    qargs.elem_count = kQueueDepth;
     qargs.queue_type = kSiriusQueueTypeMutex;
 
     if (sirius_queue_alloc(&q_data, &qargs) != 0 ||
@@ -38,9 +38,9 @@ class QueueTestContext {
       std::terminate();
     }
 
-    memory_pool.resize(QUEUE_DEPTH);
+    memory_pool.resize(kQueueDepth);
     for (auto &buf : memory_pool) {
-      buf.resize(MSG_BUF_SIZE);
+      buf.resize(kMsgBufferSize);
       sirius_queue_put(q_free, (size_t)buf.data(), SIRIUS_TIMEOUT_NO_WAITING);
     }
   }
@@ -57,7 +57,7 @@ void *producer_routine(void *arg) {
   auto *ctx = static_cast<QueueTestContext *>(arg);
   uint64_t tid = SIRIUS_THREAD_ID;
 
-  for (int i = 0; i < NB_MSGS_PER_THD; ++i) {
+  for (int i = 0; i < kNbMsgsPerThread; ++i) {
     void *buf_ptr = nullptr;
     if (sirius_queue_get(ctx->q_free, (size_t *)&buf_ptr,
                          SIRIUS_TIMEOUT_INFINITE) != 0) {
@@ -118,10 +118,11 @@ int main() {
   auto init = Utils::Init();
 
   sirius_infosp("Producers: %d. Msgs/Thread: %d. Total Expected: %d\n",
-                NB_PRODUCERS, NB_MSGS_PER_THD, NB_PRODUCERS * NB_MSGS_PER_THD);
+                kNbProducers, kNbMsgsPerThread,
+                kNbProducers * kNbMsgsPerThread);
 
   QueueTestContext ctx;
-  std::vector<sirius_thread_t> producers(NB_PRODUCERS);
+  std::vector<sirius_thread_t> producers(kNbProducers);
   sirius_thread_t consumer_thd;
 
   if (sirius_thread_create(&consumer_thd, nullptr, consumer_routine, &ctx) !=
@@ -130,7 +131,7 @@ int main() {
     return -1;
   }
 
-  for (int i = 0; i < NB_PRODUCERS; ++i) {
+  for (int i = 0; i < kNbProducers; ++i) {
     if (sirius_thread_create(&producers[i], nullptr, producer_routine, &ctx) !=
         0) {
       sirius_error("Failed to create producer `%d`\n", i);
@@ -138,7 +139,7 @@ int main() {
     }
   }
 
-  for (int i = 0; i < NB_PRODUCERS; ++i) {
+  for (int i = 0; i < kNbProducers; ++i) {
     sirius_thread_join(producers[i], nullptr);
   }
   sirius_infosp("All producers finished\n");
@@ -149,7 +150,7 @@ int main() {
 
   size_t produced = ctx.total_produced.load();
   size_t consumed = ctx.total_consumed.load();
-  size_t expected = NB_PRODUCERS * NB_MSGS_PER_THD;
+  size_t expected = kNbProducers * kNbMsgsPerThread;
 
   // Verify the result
   sirius_infosp("Test result:\n");
@@ -159,7 +160,7 @@ int main() {
   size_t free_count = 0;
   sirius_queue_nb_cache(ctx.q_free, &free_count);
   sirius_infosp("Free queue count: %zu (expected: %d)\n", free_count,
-                QUEUE_DEPTH);
+                kQueueDepth);
 
   bool success = true;
   if (produced != expected) {
@@ -170,7 +171,7 @@ int main() {
     sirius_error("Consumed count mismatch\n");
     success = false;
   }
-  if (free_count != QUEUE_DEPTH) {
+  if (free_count != kQueueDepth) {
     sirius_warnsp(
       "Memory leak detected or accounting error (free queue not full)\n");
   }

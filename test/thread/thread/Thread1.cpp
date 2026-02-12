@@ -7,7 +7,7 @@
 
 #include "internal/utils.h"
 
-static constexpr int NB_THREADS = 128;
+static constexpr int kNbThreads = 128;
 
 static std::atomic<int> g_index = 1;
 static std::mutex g_mutex;
@@ -45,27 +45,27 @@ void *foo(void *arg) {
 int main() {
   auto init = Utils::Init();
 
-  sirius_thread_t threads[NB_THREADS];
+  sirius_thread_t threads[kNbThreads];
 
   // --- Join ---
-  for (size_t i = 0; i < NB_THREADS; ++i) {
+  for (size_t i = 0; i < kNbThreads; ++i) {
     UTILS_ASSERT(!sirius_thread_create(threads + i, nullptr, foo, nullptr));
   }
-  for (size_t i = 0; i < NB_THREADS; ++i) {
+  for (size_t i = 0; i < kNbThreads; ++i) {
     UTILS_ASSERT(!sirius_thread_join(threads[i], nullptr));
   }
 
   // --- Detach ---
   g_index = 1;
   utils_dprintf(1, "\n");
-  memset(threads, 0, NB_THREADS * sizeof(sirius_thread_t));
+  memset(threads, 0, kNbThreads * sizeof(sirius_thread_t));
   sirius_thread_attr_t attr {};
   attr.detach_state = kSiriusThreadCreateDetached;
-  for (size_t i = 0; i < NB_THREADS; ++i) {
+  for (size_t i = 0; i < kNbThreads; ++i) {
     UTILS_ASSERT(!sirius_thread_create(threads + i, &attr, foo, nullptr));
   }
 
-  while (g_index.load() <= NB_THREADS) {
+  while (g_index.load() <= kNbThreads) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 

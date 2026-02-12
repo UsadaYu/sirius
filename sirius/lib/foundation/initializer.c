@@ -33,7 +33,7 @@ static void constructor(void) {
   return;
 
 label_exit:
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
   exit(EXIT_FAILURE);
 #else
   _exit(EXIT_FAILURE);

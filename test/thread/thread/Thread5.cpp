@@ -9,7 +9,7 @@
 
 #include "internal/utils.h"
 
-static constexpr int NB_THREADS = 48;
+static constexpr int kNbThreads = 48;
 
 static std::random_device rd;
 static std::mt19937 gen(rd());
@@ -42,7 +42,7 @@ int main() {
     LOG_COLOR_NONE);
   // clang-format on
 
-  sirius_thread_t threads[NB_THREADS];
+  sirius_thread_t threads[kNbThreads];
   sirius_thread_attr_t attr {};
 
   attr.detach_state = kSiriusThreadCreateDetached;

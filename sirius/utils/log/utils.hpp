@@ -7,24 +7,26 @@
 
 namespace Utils {
 namespace Log {
-constexpr const char *KEY = UTILS_LOG_KEY;
-constexpr const char *COMMON =
+inline constexpr const char *kKey = UTILS_LOG_KEY;
+inline constexpr const char *kCommon =
   " [Common " _SIRIUS_NAMESPACE " " UTILS_LOG_KEY "] ";
-constexpr const char *NATIVE =
+inline constexpr const char *kNative =
   " [Native " _SIRIUS_NAMESPACE " " UTILS_LOG_KEY "] ";
-constexpr const char *DAEMON =
+inline constexpr const char *kDaemon =
   " [Daemon " _SIRIUS_NAMESPACE " " UTILS_LOG_KEY "] ";
-constexpr const char *DAEMON_ARG_KEY = UTILS_LOG_KEY "_daemon_arg";
-constexpr const char *MUTEX_PROCESS_KEY = UTILS_LOG_KEY "_process";
-constexpr const char *MUTEX_SHM_KEY = UTILS_LOG_KEY "_shm";
+inline constexpr const char *kDaemonArgKey = UTILS_LOG_KEY "_daemon_arg";
+inline constexpr const char *kMutexProcessKey = UTILS_LOG_KEY "_process";
+inline constexpr const char *kMutexShmKey = UTILS_LOG_KEY "_shm";
 
-constexpr size_t LOG_BUF_SIZE = 4096;
-constexpr size_t LOG_PATH_MAX = 4096;
-constexpr size_t PROCESS_MAX = 128;
-constexpr uint64_t PROCESS_FEED_GUARD_MS = 2000;
-constexpr uint64_t PROCESS_GUARD_TIMEOUT_MS = 10000;
-constexpr uint64_t SHM_SLOT_RESET_TIMEOUT_MS = 10000;
-constexpr size_t SHM_CAPACITY =
+inline constexpr size_t kLogBufferSize = 4096;
+inline constexpr size_t kLogPathMax = 4096;
+inline constexpr size_t kProcessMax = 128;
+inline constexpr uint64_t kProcessFeedGuardMilliseconds = 2000;
+inline constexpr uint64_t kProcessGuardTimeoutMilliseconds = 10000;
+inline constexpr uint64_t kShmSlotResetTimeoutMilliseconds = 10000;
+inline constexpr size_t kShmCapacity =
   Utils::next_power_of_2(_SIRIUS_LOG_SHM_CAPACITY);
 } // namespace Log
 } // namespace Utils
+
+#undef UTILS_LOG_KEY

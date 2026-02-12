@@ -4,7 +4,7 @@
 
 #include "internal/utils.h"
 
-static const int g_index_start = 1;
+static const int kIndexStart = 1;
 
 static bool g_exit = false;
 static char g_string[128];
@@ -31,7 +31,7 @@ static inline const char *get_nspace(int index) {
 static void *foo(void *arg) {
   (void)arg;
 
-  int index = g_index_start;
+  int index = kIndexStart;
 
   while (!g_exit) {
     UTILS_ASSERT(!sirius_sem_wait(&g_sem_sub));
@@ -58,7 +58,7 @@ int main() {
   sirius_thread_t thread;
   UTILS_ASSERT(!sirius_thread_create(&thread, nullptr, foo, nullptr));
 
-  for (int i = g_index_start; i < g_index_start + 200; i++) {
+  for (int i = kIndexStart; i < kIndexStart + 200; i++) {
     memset(g_string, 0, sizeof(g_string));
     snprintf(g_string, sizeof(g_string), "main(%d)%s", i, get_nspace(i));
 

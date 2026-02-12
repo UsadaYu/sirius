@@ -405,7 +405,7 @@ sirius_api int sirius_thread_cancel(sirius_thread_t thread) {
     return 0;
 
   if (!TerminateThread(thread->handle, (DWORD)-1)) {
-    DWORD dw_err = GetLastError();
+    const DWORD dw_err = GetLastError();
     foundation_win_last_error(dw_err, "TerminateThread");
     return utils_winerr_to_errno(dw_err);
   }

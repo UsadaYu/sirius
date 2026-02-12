@@ -43,9 +43,7 @@
 #endif
 
 // --- sirius_alignas ---
-#ifdef sirius_alignas
-#  undef sirius_alignas
-#endif
+#undef sirius_alignas
 
 #if defined(__cplusplus)
 #  if __cplusplus >= 201103L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201103L)
@@ -78,9 +76,7 @@
 #endif
 
 // --- sirius_static_assert ---
-#ifdef sirius_static_assert
-#  undef sirius_static_assert
-#endif
+#undef sirius_static_assert
 
 #if defined(__cplusplus)
 #  if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)

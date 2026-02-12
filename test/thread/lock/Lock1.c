@@ -18,11 +18,11 @@
 #  define str_lock_init "sirius_spin_init"
 #  define str_lock_lock "sirius_spin_lock"
 #  define str_lock_unlock "sirius_spin_unlock"
-#  define str_lock_destory "sirius_spin_destroy"
+#  define str_lock_destroy "sirius_spin_destroy"
 #  define lock_init(lock) sirius_spin_init(&(lock), 0)
 #  define lock_lock(lock) sirius_spin_lock(&(lock))
 #  define lock_unlock(lock) sirius_spin_unlock(&(lock))
-#  define lock_destory(lock) sirius_spin_destroy(&(lock))
+#  define lock_destroy(lock) sirius_spin_destroy(&(lock))
 
 #else
 
@@ -32,11 +32,11 @@
 #  define str_lock_init "sirius_mutex_init"
 #  define str_lock_lock "sirius_mutex_lock"
 #  define str_lock_unlock "sirius_mutex_unlock"
-#  define str_lock_destory "sirius_mutex_destroy"
+#  define str_lock_destroy "sirius_mutex_destroy"
 #  define lock_init(lock) sirius_mutex_init(&(lock), nullptr)
 #  define lock_lock(lock) sirius_mutex_lock(&(lock))
 #  define lock_unlock(lock) sirius_mutex_unlock(&(lock))
-#  define lock_destory(lock) sirius_mutex_destroy(&(lock))
+#  define lock_destroy(lock) sirius_mutex_destroy(&(lock))
 
 #endif
 
@@ -67,11 +67,11 @@ static inline bool test_basic_functionality() {
   }
   sirius_infosp("Successfully executed function `%s`\n", str_lock_unlock);
 
-  if (lock_destory(lock) != 0) {
-    sirius_error("%s\n", str_lock_destory);
+  if (lock_destroy(lock) != 0) {
+    sirius_error("%s\n", str_lock_destroy);
     return false;
   }
-  sirius_infosp("Successfully executed function `%s`\n", str_lock_destory);
+  sirius_infosp("Successfully executed function `%s`\n", str_lock_destroy);
 
   sirius_infosp("--- Basic function test ended ---\n\n");
 
@@ -158,7 +158,7 @@ static inline bool test_multi_thread_contention() {
                 " times per second\n",
                 expected / elapsed);
 
-  lock_destory(g_counter_lock);
+  lock_destroy(g_counter_lock);
 
   sirius_infosp("--- Multithreaded competitive test ended ---\n\n");
 
@@ -215,7 +215,7 @@ static inline bool test_reentrancy() {
   lock_unlock(lock);
   lock_unlock(lock);
 
-  lock_destory(lock);
+  lock_destroy(lock);
 
 #  if LOCK_TYPE == 0 && (defined(__unix__) || defined(__linux__))
   alarm(0);
@@ -287,12 +287,12 @@ static inline bool test_fairness() {
     }
   }
 
-  const int gap = 3, total = 12;
-  for (int i = 0; i < total; i += gap) {
-    int remain = total - i;
+  const int kGap = 3, kTotal = 12;
+  for (int i = 0; i < kTotal; i += kGap) {
+    int remain = kTotal - i;
     const char *sp = remain >= 10 ? " " : "  ";
     sirius_infosp("%d%sseconds remain...\n", remain, sp);
-    sirius_usleep(gap * 1000 * 1000);
+    sirius_usleep(kGap * 1000 * 1000);
   }
 
   lock_lock(g_counter_lock);
@@ -303,7 +303,7 @@ static inline bool test_fairness() {
     sirius_thread_join(threads[i], nullptr);
   }
 
-  lock_destory(g_counter_lock);
+  lock_destroy(g_counter_lock);
 
   sirius_infosp("--- Fairness test ended ---\n\n");
 

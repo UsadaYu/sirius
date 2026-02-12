@@ -14,9 +14,7 @@
 #include "utils/time.hpp"
 
 // clang-format off
-#ifdef UTILS_LOG_SHM_HPP_IS_DAEMON_
-#  undef UTILS_LOG_SHM_HPP_IS_DAEMON_
-#endif
+#undef UTILS_LOG_SHM_HPP_IS_DAEMON_
 #define UTILS_LOG_SHM_HPP_IS_DAEMON_ 0
 #include "utils/log/shm.hpp"
 #include "utils/log/daemon.hpp"
@@ -55,9 +53,9 @@ class LogManager {
   ~LogManager() {}
 
   bool init() {
-    if (!Utils::Log::Shm::ProcessMutex::create())
+    if (!Utils::Log::Shm::GMutex::create())
       return false;
-    if (!Utils::Log::Shm::ProcessMutex::lock())
+    if (!Utils::Log::Shm::GMutex::lock())
       goto label_free1;
     if (!log_shm_->open_shm())
       goto label_free2;
@@ -67,7 +65,7 @@ class LogManager {
     if (!log_shm_->slots_init())
       goto label_free4;
 
-    Utils::Log::Shm::ProcessMutex::unlock();
+    Utils::Log::Shm::GMutex::unlock();
 
     if (is_creator_ && !start_daemon())
       goto label_free5;
@@ -79,16 +77,16 @@ class LogManager {
     return true;
 
   label_free5:
-    Utils::Log::Shm::ProcessMutex::lock();
+    Utils::Log::Shm::GMutex::lock();
     log_shm_->slots_deinit();
   label_free4:
     log_shm_->memory_unmap();
   label_free3:
     log_shm_->close_shm(is_creator_);
   label_free2:
-    Utils::Log::Shm::ProcessMutex::unlock();
+    Utils::Log::Shm::GMutex::unlock();
   label_free1:
-    Utils::Log::Shm::ProcessMutex::destory();
+    Utils::Log::Shm::GMutex::destroy();
 
     return false;
   }
@@ -97,15 +95,15 @@ class LogManager {
     if (!is_activated_.exchange(false, std::memory_order_relaxed))
       return;
 
-    Utils::Log::Shm::ProcessMutex::lock();
+    Utils::Log::Shm::GMutex::lock();
 
     log_shm_->slots_deinit();
     log_shm_->memory_unmap();
     log_shm_->close_shm(false);
 
-    Utils::Log::Shm::ProcessMutex::unlock();
+    Utils::Log::Shm::GMutex::unlock();
 
-    Utils::Log::Shm::ProcessMutex::destory();
+    Utils::Log::Shm::GMutex::destroy();
   }
 
   void fs_configure(const sirius_log_fs_t &config, StdType::Put put_type) {
@@ -116,11 +114,11 @@ class LogManager {
 
     if (config.log_path) {
       path_size =
-        utils_string_length_check(config.log_path, Utils::Log::LOG_PATH_MAX);
-      if (path_size == 0 || path_size == Utils::Log::LOG_PATH_MAX) {
+        utils_string_length_check(config.log_path, Utils::Log::kLogPathMax);
+      if (path_size == 0 || path_size == Utils::Log::kLogPathMax) {
         utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_WARN "%sInvalid argument. `log_path`\n",
-                      Utils::Log::NATIVE);
+                      Utils::Log::kNative);
         return;
       }
     }
@@ -138,7 +136,7 @@ class LogManager {
 
     uint64_t cur_write_idx =
       log_shm_->header->write_index.fetch_add(1, std::memory_order_acq_rel);
-    size_t slot_idx = cur_write_idx & (Utils::Log::SHM_CAPACITY - 1);
+    size_t slot_idx = cur_write_idx & (Utils::Log::kShmCapacity - 1);
     Utils::Log::Shm::Slot &slot = log_shm_->slots[slot_idx];
 
     int retries = 0;
@@ -149,7 +147,7 @@ class LogManager {
         std::this_thread::yield();
       } else if (retries > 50) {
         retries = 0;
-        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(100));
       }
     }
 
@@ -201,9 +199,10 @@ class LogManager {
       CreateProcessA(daemon_exe.string().c_str(), cmd_line.data(), nullptr,
                      nullptr, TRUE, 0, nullptr, nullptr, &si, &pi);
     if (!ret) {
-      es = std::format("{}{} -> `CreateProcessA`", Utils::Log::NATIVE,
+      const DWORD dw_err = GetLastError();
+      es = std::format("{}{} -> `CreateProcessA`", Utils::Log::kNative,
                        utils_pretty_function);
-      utils_win_last_error(GetLastError(), es.c_str());
+      utils_win_last_error(dw_err, es.c_str());
       return false;
     }
 
@@ -212,7 +211,7 @@ class LogManager {
 
     utils_dprintf(STDOUT_FILENO,
                   LOG_LEVEL_STR_INFO "%sTry to start the daemon\n",
-                  Utils::Log::NATIVE);
+                  Utils::Log::kNative);
 
     return true;
   }
@@ -223,12 +222,12 @@ class LogManager {
     auto header = log_shm_->header;
 
     int retries = 0;
-    const int retry_times = 600;
+    constexpr int kRetryTimes = 600;
     while (!header->is_daemon_ready.load(std::memory_order_relaxed)) {
-      if (retries++ > retry_times) {
+      if (retries++ > kRetryTimes) {
         utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_ERROR "%sNo daemon was found\n",
-                      Utils::Log::NATIVE);
+                      Utils::Log::kNative);
         return false;
       }
       if (retries % 100 == 0) {
@@ -236,7 +235,7 @@ class LogManager {
                       LOG_LEVEL_STR_INFO
                       "%sTrying to acquire daemon. Total attempts: %d; "
                       "Attempted times: %d\n",
-                      Utils::Log::NATIVE, retry_times, retries);
+                      Utils::Log::kNative, kRetryTimes, retries);
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
@@ -264,7 +263,7 @@ class LogManager {
 
     produce(
       &buffer,
-      sizeof(Utils::Log::Shm::Buffer) - Utils::Log::LOG_PATH_MAX + path_size);
+      sizeof(Utils::Log::Shm::Buffer) - Utils::Log::kLogPathMax + path_size);
   }
 
   void fs_configure_private(const char *log_path, size_t path_size,
@@ -440,7 +439,7 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
    * @ref https://linux.die.net/man/3/snprintf
    */
   int written =
-    snprintf(data.buf, Utils::Log::LOG_BUF_SIZE,
+    snprintf(data.buf, Utils::Log::kLogBufferSize,
              "%s%s [%02d:%02d:%02d %s %" PRIu64 " %s (%s|%d)]%s ", color,
              level_str, tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, module,
              sirius_thread_id(), file, func, line, LOG_COLOR_NONE);
@@ -451,7 +450,7 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
   }
 
   len += written;
-  if (len >= Utils::Log::LOG_BUF_SIZE) [[unlikely]] {
+  if (len >= Utils::Log::kLogBufferSize) [[unlikely]] {
     ISSUE_ERROR_LOG_LOST();
     return;
   }
@@ -462,7 +461,7 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
   va_list args;
   va_start(args, fmt);
   written =
-    vsnprintf(data.buf + len, Utils::Log::LOG_BUF_SIZE - len, fmt, args);
+    vsnprintf(data.buf + len, Utils::Log::kLogBufferSize - len, fmt, args);
   va_end(args);
 
   if (written < 0) {
@@ -471,15 +470,16 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
   }
 
   len += written;
-  if (len >= Utils::Log::LOG_BUF_SIZE) [[unlikely]] {
-    len = Utils::Log::LOG_BUF_SIZE - 1;
+  if (len >= Utils::Log::kLogBufferSize) [[unlikely]] {
+    len = Utils::Log::kLogBufferSize - 1;
     ISSUE_WARNING_LOG_TRUNCATED();
   }
 
   data.buf_size = len;
 
   g_log_manager->produce(
-    &buffer, sizeof(Utils::Log::Shm::Buffer) - Utils::Log::LOG_BUF_SIZE + len);
+    &buffer,
+    sizeof(Utils::Log::Shm::Buffer) - Utils::Log::kLogBufferSize + len);
 }
 
 extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
@@ -502,9 +502,9 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
   UTILS_LOCALTIME_R(&raw_time, &tm_info);
 
   int written =
-    snprintf(data.buf, Utils::Log::LOG_BUF_SIZE, "%s%s [%02d:%02d:%02d %s]%s ",
-             color, level_str, tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec,
-             module, LOG_COLOR_NONE);
+    snprintf(data.buf, Utils::Log::kLogBufferSize,
+             "%s%s [%02d:%02d:%02d %s]%s ", color, level_str, tm_info.tm_hour,
+             tm_info.tm_min, tm_info.tm_sec, module, LOG_COLOR_NONE);
 
   if (written < 0) {
     ISSUE_ERROR_STANDARD_FUNCTION("snprintf");
@@ -512,7 +512,7 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
   }
 
   len += written;
-  if (len >= Utils::Log::LOG_BUF_SIZE) [[unlikely]] {
+  if (len >= Utils::Log::kLogBufferSize) [[unlikely]] {
     ISSUE_ERROR_LOG_LOST();
     return;
   }
@@ -520,7 +520,7 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
   va_list args;
   va_start(args, fmt);
   written =
-    vsnprintf(data.buf + len, Utils::Log::LOG_BUF_SIZE - len, fmt, args);
+    vsnprintf(data.buf + len, Utils::Log::kLogBufferSize - len, fmt, args);
   va_end(args);
 
   if (written < 0) {
@@ -529,13 +529,14 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
   }
 
   len += written;
-  if (len >= Utils::Log::LOG_BUF_SIZE) [[unlikely]] {
-    len = Utils::Log::LOG_BUF_SIZE - 1;
+  if (len >= Utils::Log::kLogBufferSize) [[unlikely]] {
+    len = Utils::Log::kLogBufferSize - 1;
     ISSUE_WARNING_LOG_TRUNCATED();
   }
 
   data.buf_size = len;
 
   g_log_manager->produce(
-    &buffer, sizeof(Utils::Log::Shm::Buffer) - Utils::Log::LOG_BUF_SIZE + len);
+    &buffer,
+    sizeof(Utils::Log::Shm::Buffer) - Utils::Log::kLogBufferSize + len);
 }
