@@ -23,13 +23,14 @@ struct SiriusThreadExitException {
  */
 class ThreadResourceManager {
  public:
-  std::mutex mtx;
+  std::mutex mutex;
   std::set<sirius_thread_t> active_threads;
 
   ~ThreadResourceManager() {
     manager_is_alive() = false;
 
-    std::lock_guard<std::mutex> lock(mtx);
+    std::lock_guard lock(mutex);
+
     for (auto thr : active_threads) {
       if (thr && !thr->resource_is_free) {
         thr->resource_is_free = true;
@@ -52,12 +53,13 @@ class ThreadResourceManager {
   }
 
   inline void mark(sirius_thread_t thr) {
-    std::lock_guard<std::mutex> lock(mtx);
+    std::lock_guard lock(mutex);
+
     active_threads.insert(thr);
   }
 
   inline void resource_free(sirius_thread_t thr) {
-    std::lock_guard<std::mutex> lock(mtx);
+    std::lock_guard lock(mutex);
 
     if (thr && !thr->resource_is_free) {
       thr->resource_is_free = true;

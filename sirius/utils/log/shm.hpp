@@ -1,11 +1,7 @@
 #pragma once
 
-#ifndef UTILS_LOG_SHM_HPP_IS_DAEMON_
-#  error "This header file can only be included by the log module"
-#endif
-
 #include "utils/log/utils.hpp"
-#include "utils/process.hpp"
+#include "utils/process/mutex.hpp"
 #include "utils/time.hpp"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -26,21 +22,26 @@ inline constexpr size_t kShmCacheLineSize = 64;
 namespace Utils {
 namespace Log {
 namespace Shm {
+enum class MasterType : int {
+  kDaemon = 0,
+  kNative = 1,
+};
+
 enum class SlotState : int {
-  FREE = 0,
-  WRITING = 1,
-  READY = 2,
+  kFree = 0,
+  kWaiting = 1,
+  kReady = 2,
 };
 
 enum class FsState : int {
-  None = 0, // Make no changes.
-  Std = 1,  // Set to default `stdout` / `stderr`.
-  File = 2, // Write to file.
+  kNone = 0, // Make no changes.
+  kStd = 1,  // Set to default `stdout` / `stderr`.
+  kFile = 2, // Write to file.
 };
 
 enum class DataType : int {
-  Log = 0,    // likely
-  Config = 1, // unlikely
+  kLog = 0,    // likely
+  kConfig = 1, // unlikely
 };
 
 struct Buffer {
@@ -97,7 +98,7 @@ struct Header {
 
   /**
    * @note
-   * - (1) This variable should be guarded by the process lock.
+   * - (1) This variable should be guarded by the process mutex.
    *
    * - (2) Filled by the creator of the shared memory.
    */
@@ -107,9 +108,9 @@ struct Header {
 
   /**
    * @note
-   * - (1) The parameters about `attached` should be guarded by the shm lock.
+   * - (1) The parameters about `attached` should be guarded by the shm mutex.
    *
-   * - (2) `attached_count` may need to be guarded by both shm lock and process
+   * - (2) `attached_count` may need to be guarded by both shm mutex and process
    * lock.
    */
   size_t attached_count;
@@ -121,14 +122,18 @@ struct Header {
   size_t capacity;
   size_t item_size;
 
+#if !defined(_WIN32) && !defined(_WIN64)
+  pthread_mutex_t shm_mutex;
+#endif
+
   uint64_t reserved[8];
 };
 
 namespace GMutex {
-static Process::Mutex *process_mutex_ = nullptr;
+static Process::GMutex *process_mutex_ = nullptr;
 
 static inline bool create() {
-  process_mutex_ = new Process::Mutex(Log::kMutexProcessKey);
+  process_mutex_ = new Process::GMutex(Log::kMutexProcessKey);
 
   return process_mutex_->valid();
 }
@@ -153,15 +158,18 @@ class Shm {
   Header *header = nullptr;
   Slot *slots = nullptr;
 
+  Shm(MasterType master_type)
+      :
 #if defined(_WIN32) || defined(_WIN64)
-  Shm()
-      : shm_name_(Ns::get_shm_name(Log::kKey)),
         shm_handle_(nullptr),
-        mapped_size_(0) {}
 #else
-  Shm()
-      : shm_name_(Ns::get_shm_name(Log::kKey)), shm_fd_(-1), mapped_size_(0) {}
+        shm_fd_(-1),
 #endif
+        master_type_(master_type),
+        shm_name_(Ns::Shm::generate_name(Log::kKey)),
+        mapped_size_(0),
+        master_(nullptr) {
+  }
 
   ~Shm() {}
 
@@ -189,20 +197,11 @@ class Shm {
 
     mapped_size_ = size_needed;
 
-    shm_mutex_ = Process::Mutex(Log::kMutexShmKey);
-    if (!shm_mutex_.valid()) {
-      CloseHandle(shm_handle_);
-      shm_handle_ = nullptr;
-      return false;
-    }
-
     return true;
   }
 
   void close_shm(bool shm_should_destroy) {
     (void)shm_should_destroy;
-
-    shm_mutex_.destroy();
 
     if (shm_handle_) {
       CloseHandle(shm_handle_);
@@ -223,10 +222,22 @@ class Shm {
     }
     header = static_cast<Header *>(ptr);
 
+    shm_mutex_ = Process::GMutex(Log::kMutexShmKey);
+    if (!shm_mutex_.valid())
+      goto label_free1;
+
     return true;
+
+  label_free1:
+    UnmapViewOfFile(header);
+    header = nullptr;
+
+    return false;
   }
 
   void memory_unmap() {
+    shm_mutex_.destroy();
+
     if (header) {
       UnmapViewOfFile(header);
       header = nullptr;
@@ -296,16 +307,28 @@ class Shm {
       utils_errno_error(errno_err, es.c_str());
       return false;
     }
-    header = static_cast<ShmHeader::Header *>(ptr);
+    header = static_cast<Header *>(ptr);
+
+    if (!shm_mutex_init(&header->shm_mutex))
+      goto label_free1;
 
     return true;
+
+  label_free1:
+    munmap(header, mapped_size_);
+    header = nullptr;
+
+    return false;
   }
 
   void memory_unmap() {
-    if (header) {
-      munmap(header, mapped_size_);
-      header = nullptr;
-    }
+    if (!header)
+      return;
+
+    shm_mutex_destroy(&header->shm_mutex);
+
+    munmap(header, mapped_size_);
+    header = nullptr;
   }
 #endif
 
@@ -313,7 +336,7 @@ class Shm {
 #if defined(_WIN32) || defined(_WIN64)
   class LockGuard {
    public:
-    explicit LockGuard(Process::Mutex &mutex) : mutex_(mutex) {
+    explicit LockGuard(Process::GMutex &mutex) : mutex_(mutex) {
       mutex_.lock(utils_pretty_function);
     }
     ~LockGuard() {
@@ -323,24 +346,49 @@ class Shm {
     LockGuard &operator=(const LockGuard &) = delete;
 
    private:
-    Process::Mutex &mutex_;
+    Process::GMutex &mutex_;
   };
 
   LockGuard lock_guard() {
     return LockGuard(shm_mutex_);
   }
 #else
+  class LockGuard {
+   public:
+    explicit LockGuard(pthread_mutex_t *mutex) : mutex_(mutex) {
+      pthread_mutex_lock(mutex_);
+    }
+    ~LockGuard() {
+      pthread_mutex_unlock(mutex_);
+    }
+    LockGuard(const LockGuard &) = delete;
+    LockGuard &operator=(const LockGuard &) = delete;
+
+   private:
+    pthread_mutex_t *mutex_;
+  };
+
+  LockGuard lock_guard() {
+    return LockGuard(&header->shm_mutex);
+  }
 #endif
 
   void slots_deinit() {
-    slot_free();
-    slots = nullptr;
+    if (master_) {
+      master_->slot_free();
+      slots = nullptr;
+
+      delete master_;
+      master_ = nullptr;
+    }
   }
 
   bool slots_init() {
     uint8_t *base_ptr = reinterpret_cast<uint8_t *>(header);
 
     slots = reinterpret_cast<Slot *>(base_ptr + get_shm_header_offset());
+
+    master_ = new Master(*this, master_type_);
 
     if (!shm_creator) {
       if (header->magic != Header::Header::kMagic) {
@@ -349,7 +397,7 @@ class Shm {
                       Log::kCommon, header->magic);
         return false;
       }
-      return slot_alloc();
+      return master_->slot_alloc();
     }
 
     header->is_daemon_ready.store(false);
@@ -362,7 +410,7 @@ class Shm {
     header->capacity = Log::kShmCapacity;
     header->item_size = sizeof(Slot);
 
-    if (slot_alloc()) {
+    if (master_->slot_alloc()) {
       header->magic = Header::kMagic;
       return true;
     }
@@ -371,15 +419,56 @@ class Shm {
   }
 
  private:
-  std::string shm_name_;
 #if defined(_WIN32) || defined(_WIN64)
   HANDLE shm_handle_;
-  Process::Mutex shm_mutex_;
+  Process::GMutex shm_mutex_;
 #else
   int shm_fd_;
 #endif
+  MasterType master_type_;
+  std::string shm_name_;
   size_t mapped_size_;
-  std::jthread thread_guard_;
+
+#if defined(_WIN32) || defined(_WIN64)
+#else
+  void shm_mutex_destroy(pthread_mutex_t *mutex) {
+    if (mutex) {
+      pthread_mutex_destroy(mutex);
+    }
+  }
+
+  bool shm_mutex_init(pthread_mutex_t *mutex) {
+    int ret;
+    pthread_mutexattr_t attr;
+    std::string es;
+
+    ret = pthread_mutexattr_init(&attr);
+    if (ret) {
+      es = std::format("{} -> `pthread_mutexattr_init`", utils_pretty_function);
+      utils_errno_error(ret, es.c_str());
+      return false;
+    }
+
+    ret = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+    if (ret) {
+      es = std::format("{} -> `pthread_mutexattr_setpshared`",
+                       utils_pretty_function);
+      utils_errno_error(ret, es.c_str());
+      pthread_mutexattr_destroy(&attr);
+      return false;
+    }
+
+    ret = pthread_mutex_init(mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
+    if (ret) {
+      es = std::format("{} -> `pthread_mutex_init`", utils_pretty_function);
+      utils_errno_error(ret, es.c_str());
+      return false;
+    }
+
+    return true;
+  }
+#endif
 
   size_t get_shm_header_offset() const {
     size_t header_size = sizeof(Header);
@@ -393,213 +482,256 @@ class Shm {
     return get_shm_header_offset() + (Log::kShmCapacity * sizeof(Slot));
   }
 
-  void attached_count_sub1() {
-    header->attached_count =
-      header->attached_count ? header->attached_count - 1 : 0;
-  }
+  class Master {
+   public:
+    Master(Shm &parent, MasterType master_type)
+        : parent_(parent), master_type_(master_type), header_(parent.header) {}
 
-  bool attached_check(size_t index) {
-    return (header->attached_used[index] &&
-            header->attached_maps[index].pid == Process::id());
-  }
+    ~Master() {}
 
-#if UTILS_LOG_SHM_HPP_IS_DAEMON_
-  void thread_guard(std::stop_token stop_token) {
-    constexpr int kOnceSleepMs = 1000;
-    int splits = Log::kProcessGuardTimeoutMilliseconds / kOnceSleepMs;
-    splits = UTILS_MAX(1, splits);
-
-    while (!stop_token.stop_requested()) {
-      for (int i = 0; i < splits; ++i) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(kOnceSleepMs));
-        if (stop_token.stop_requested()) [[unlikely]]
-          return;
-      }
-
-      uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
-
-      {
-        lock_guard();
-
-        for (size_t i = 0; i < Log::kProcessMax; ++i) {
-          if (!header->attached_used[i])
-            continue;
-
-          AttachedMap *am = header->attached_maps + i;
-          if (timestamp_ms - am->timestamp_ms <
-              Log::kProcessGuardTimeoutMilliseconds) [[likely]] {
-            continue;
-          }
-
-          std::memset(am, 0, sizeof(AttachedMap));
-          header->attached_used[i] = false;
-          attached_count_sub1();
-        }
-
-        if (header->attached_count == 0)
-          break;
+    void slot_free() {
+      switch (master_type_) {
+      case MasterType::kDaemon:
+        return daemon_slot_free();
+      case MasterType::kNative:
+        return native_slot_free();
+        break;
+      default:
+        return;
       }
     }
-  }
 
-  void slot_free() {
-    thread_guard_.request_stop();
-    if (thread_guard_.joinable()) {
-      thread_guard_.join();
-    }
-
-    utils_dprintf(STDOUT_FILENO,
-                  LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot free\n",
-                  Log::kDaemon, (uint64_t)Process::id());
-  }
-
-  bool slot_alloc() {
-    if (header->is_daemon_ready.load(std::memory_order_relaxed)) {
-      utils_dprintf(STDOUT_FILENO,
-                    LOG_LEVEL_STR_WARN "%sAnother daemon already exists\n",
-                    Log::kDaemon);
-      return false;
-    }
-
-    thread_guard_ = std::jthread(std::bind_front(&Shm::thread_guard, this));
-
-    utils_dprintf(STDOUT_FILENO,
-                  LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot alloc\n",
-                  Log::kDaemon, (uint64_t)Process::id());
-
-    return true;
-  }
-#else
-  void thread_guard(std::stop_token stop_token, std::promise<void> promise) {
-    size_t index = 0;
-
-    {
-      lock_guard();
-
-      while (!attached_check(index)) {
-        if (index == Log::kProcessMax - 1) {
-          utils_dprintf(STDERR_FILENO,
-                        LOG_LEVEL_STR_WARN "%sPID: %" PRIu64
-                                           ". No valid pid was matched\n",
-                        Log::kNative, (uint64_t)Process::id());
-          return;
-        }
-        ++index;
+    bool slot_alloc() {
+      switch (master_type_) {
+      case MasterType::kDaemon:
+        return daemon_slot_alloc();
+      case MasterType::kNative:
+        return native_slot_alloc();
+      default:
+        return false;
       }
+    }
+
+   private:
+    Shm &parent_;
+    MasterType master_type_;
+    Header *&header_;
+    std::jthread thread_guard_;
+
+    bool attached_check(size_t index) {
+      return (header_->attached_used[index] &&
+              header_->attached_maps[index].pid == Process::pid());
     }
 
     /**
-     * @note Although the probability of occurrence is not high, the
-     * initialization function may be called repeatedly. Slightly shortening the
-     * duration of a single sleep can help threads exit quickly.
+     * @note This function must be guarded by the shm mutex before it is called
      */
-    constexpr int kOnceSleepMs = 1000;
-    int splits = Log::kProcessFeedGuardMilliseconds / kOnceSleepMs;
-    splits = UTILS_MAX(1, splits);
+    void attached_count_sub1() {
+      header_->attached_count =
+        header_->attached_count ? header_->attached_count - 1 : 0;
+    }
 
-    promise.set_value();
+    void daemon_slot_free() {
+      thread_guard_.request_stop();
+      if (thread_guard_.joinable()) {
+        thread_guard_.join();
+      }
 
-    while (!stop_token.stop_requested()) {
-      uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
+      utils_dprintf(STDOUT_FILENO,
+                    LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot free\n",
+                    Log::kDaemon, (uint64_t)Process::pid());
+    }
+
+    bool daemon_slot_alloc() {
+      if (header_->is_daemon_ready.load(std::memory_order_relaxed)) {
+        utils_dprintf(STDOUT_FILENO,
+                      LOG_LEVEL_STR_WARN "%sAnother daemon already exists\n",
+                      Log::kDaemon);
+        return false;
+      }
+
+      thread_guard_ =
+        std::jthread(std::bind_front(&Shm::Master::daemon_thread_guard, this));
+
+      utils_dprintf(STDOUT_FILENO,
+                    LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot alloc\n",
+                    Log::kDaemon, (uint64_t)Process::pid());
+
+      return true;
+    }
+
+    void daemon_thread_guard(std::stop_token stop_token) {
+      constexpr int kOnceSleepMs = 1000;
+      int splits = Log::kProcessGuardTimeoutMilliseconds / kOnceSleepMs;
+      splits = UTILS_MAX(1, splits);
+
+      while (!stop_token.stop_requested()) {
+        for (int i = 0; i < splits; ++i) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(kOnceSleepMs));
+          if (stop_token.stop_requested()) [[unlikely]]
+            return;
+        }
+
+        uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
+
+        {
+          parent_.lock_guard();
+
+          for (size_t i = 0; i < Log::kProcessMax; ++i) {
+            if (!header_->attached_used[i])
+              continue;
+
+            AttachedMap *am = header_->attached_maps + i;
+            if (timestamp_ms - am->timestamp_ms <
+                Log::kProcessGuardTimeoutMilliseconds) [[likely]] {
+              continue;
+            }
+
+            std::memset(am, 0, sizeof(AttachedMap));
+            header_->attached_used[i] = false;
+            attached_count_sub1();
+          }
+
+          if (header_->attached_count == 0)
+            break;
+        }
+      }
+    }
+
+    void native_slot_free() {
+      thread_guard_.request_stop();
+      if (thread_guard_.joinable()) {
+        thread_guard_.join();
+      }
 
       {
-        lock_guard();
+        parent_.lock_guard();
 
-        if (attached_check(index)) [[likely]] {
-          header->attached_maps[index].timestamp_ms = timestamp_ms;
-        } else {
-          utils_dprintf(STDERR_FILENO,
-                        LOG_LEVEL_STR_WARN "%sInvalid argument. Pid: %" PRIu64
-                                           ". `attached` thread exit\n",
-                        Log::kNative, (uint64_t)Process::id());
-          return;
+        for (size_t i = 0; i < Log::kProcessMax; ++i) {
+          auto *am = header_->attached_maps + i;
+          if (header_->attached_used[i] && am->pid == Process::pid()) {
+            std::memset(am, 0, sizeof(AttachedMap));
+            header_->attached_used[i] = false;
+            attached_count_sub1();
+            break;
+          }
+          if (i == Log::kProcessMax - 1) {
+            utils_dprintf(STDERR_FILENO,
+                          LOG_LEVEL_STR_WARN "%sPID: %" PRIu64
+                                             ". No valid pid was matched\n",
+                          Log::kNative, (uint64_t)Process::pid());
+          }
         }
       }
 
-      for (int i = 0; i < splits; ++i) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(kOnceSleepMs));
-        if (stop_token.stop_requested())
-          return;
-      }
-    }
-  }
-
-  void slot_free() {
-    thread_guard_.request_stop();
-    if (thread_guard_.joinable()) {
-      thread_guard_.join();
-    }
-
-    {
-      lock_guard();
-
-      for (size_t i = 0; i < Log::kProcessMax; ++i) {
-        auto *am = header->attached_maps + i;
-        if (header->attached_used[i] && am->pid == Process::id()) {
-          std::memset(am, 0, sizeof(AttachedMap));
-          header->attached_used[i] = false;
-          attached_count_sub1();
-          break;
-        }
-        if (i == Log::kProcessMax - 1) {
-          utils_dprintf(STDERR_FILENO,
-                        LOG_LEVEL_STR_WARN "%sPID: %" PRIu64
-                                           ". No valid pid was matched\n",
-                        Log::kNative, (uint64_t)Process::id());
-        }
-      }
-    }
-
-    utils_dprintf(STDOUT_FILENO,
-                  LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot free\n",
-                  Log::kNative, (uint64_t)Process::id());
-  }
-
-  bool slot_alloc() {
-    {
-      lock_guard();
-
-      for (size_t i = 0; i < Log::kProcessMax; ++i) {
-        if (!header->attached_used[i]) {
-          ++header->attached_count;
-          header->attached_used[i] = true;
-          header->attached_maps[i].pid = Process::id();
-          header->attached_maps[i].timestamp_ms =
-            Time::get_monotonic_steady_ms();
-          break;
-        }
-        if (i == Log::kProcessMax - 1) {
-          utils_dprintf(STDERR_FILENO,
-                        LOG_LEVEL_STR_ERROR
-                        "%sCache full. Too many processes\n",
-                        Log::kNative);
-          return false;
-        }
-      }
-    }
-
-    std::promise<void> promise_guard;
-    std::future<void> future_guard = promise_guard.get_future();
-    thread_guard_ = std::jthread([this, promise = std::move(promise_guard)](
-                                   std::stop_token stop_token) mutable {
-      thread_guard(stop_token, std::move(promise));
-    });
-    auto wait_ret = future_guard.wait_for(std::chrono::milliseconds(500));
-    if (wait_ret != std::future_status::ready) {
-      slot_free();
       utils_dprintf(STDOUT_FILENO,
-                    LOG_LEVEL_STR_ERROR "%sFail to start `thread_guard`\n",
-                    Log::kNative);
-      return false;
+                    LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot free\n",
+                    Log::kNative, (uint64_t)Process::pid());
     }
 
-    utils_dprintf(STDOUT_FILENO,
-                  LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot alloc\n",
-                  Log::kNative, (uint64_t)Process::id());
+    bool native_slot_alloc() {
+      {
+        parent_.lock_guard();
 
-    return true;
-  }
-#endif
+        for (size_t i = 0; i < Log::kProcessMax; ++i) {
+          if (!header_->attached_used[i]) {
+            ++header_->attached_count;
+            header_->attached_used[i] = true;
+            header_->attached_maps[i].pid = Process::pid();
+            header_->attached_maps[i].timestamp_ms =
+              Time::get_monotonic_steady_ms();
+            break;
+          }
+          if (i == Log::kProcessMax - 1) {
+            utils_dprintf(STDERR_FILENO,
+                          LOG_LEVEL_STR_ERROR
+                          "%sCache full. Too many processes\n",
+                          Log::kNative);
+            return false;
+          }
+        }
+      }
+
+      std::promise<void> promise_guard;
+      std::future<void> future_guard = promise_guard.get_future();
+      thread_guard_ = std::jthread([this, promise = std::move(promise_guard)](
+                                     std::stop_token stop_token) mutable {
+        native_thread_guard(stop_token, std::move(promise));
+      });
+      auto wait_ret = future_guard.wait_for(std::chrono::milliseconds(500));
+      if (wait_ret != std::future_status::ready) {
+        native_slot_free();
+        utils_dprintf(STDOUT_FILENO,
+                      LOG_LEVEL_STR_ERROR "%sFail to start `thread_guard`\n",
+                      Log::kNative);
+        return false;
+      }
+
+      utils_dprintf(STDOUT_FILENO,
+                    LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot alloc\n",
+                    Log::kNative, (uint64_t)Process::pid());
+
+      return true;
+    }
+
+    void native_thread_guard(std::stop_token stop_token,
+                             std::promise<void> promise) {
+      size_t index = 0;
+
+      {
+        parent_.lock_guard();
+
+        while (!attached_check(index)) {
+          if (index == Log::kProcessMax - 1) {
+            utils_dprintf(STDERR_FILENO,
+                          LOG_LEVEL_STR_WARN "%sPID: %" PRIu64
+                                             ". No valid pid was matched\n",
+                          Log::kNative, (uint64_t)Process::pid());
+            return;
+          }
+          ++index;
+        }
+      }
+
+      /**
+       * @note Although the probability of occurrence is not high, the
+       * initialization function may be called repeatedly. Slightly shortening
+       * the duration of a single sleep can help threads exit quickly.
+       */
+      constexpr int kOnceSleepMs = 1000;
+      int splits = Log::kProcessFeedGuardMilliseconds / kOnceSleepMs;
+      splits = UTILS_MAX(1, splits);
+
+      promise.set_value();
+
+      while (!stop_token.stop_requested()) {
+        uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
+
+        {
+          parent_.lock_guard();
+
+          if (attached_check(index)) [[likely]] {
+            header_->attached_maps[index].timestamp_ms = timestamp_ms;
+          } else {
+            utils_dprintf(STDERR_FILENO,
+                          LOG_LEVEL_STR_WARN "%sInvalid argument. Pid: %" PRIu64
+                                             ". `attached` thread exit\n",
+                          Log::kNative, (uint64_t)Process::pid());
+            return;
+          }
+        }
+
+        for (int i = 0; i < splits; ++i) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(kOnceSleepMs));
+          if (stop_token.stop_requested())
+            return;
+        }
+      }
+    }
+  };
+
+ private:
+  Master *master_;
 };
 } // namespace Shm
 } // namespace Log

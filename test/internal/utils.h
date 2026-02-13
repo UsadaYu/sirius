@@ -102,15 +102,15 @@ extern "C" {
 
 static inline void _utils_xinit(const char *content) {
   int len = 0;
-  enum { MAX_LEN = 1024 };
-  char buf[MAX_LEN], bar_buf[MAX_LEN];
+  enum { kMaxLength = 1024 };
+  char buf[kMaxLength], bar_buf[kMaxLength];
 
-  memset(buf, 0, MAX_LEN);
-  memset(bar_buf, 0, MAX_LEN);
+  memset(buf, 0, kMaxLength);
+  memset(bar_buf, 0, kMaxLength);
 
   len = snprintf(buf, sizeof(buf), "--- " _SIRIUS_LOG_PRINT_NAME " %s ---",
                  content);
-  for (int i = 0; i < len && i < MAX_LEN - 1; i++) {
+  for (int i = 0; i < len && i < kMaxLength - 1; i++) {
     bar_buf[i] = '-';
   }
 

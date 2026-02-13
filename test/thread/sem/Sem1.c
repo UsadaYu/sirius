@@ -1,6 +1,5 @@
 #include <sirius/thread/sem.h>
 #include <sirius/thread/thread.h>
-#include <Windows.h>
 
 #include "internal/utils.h"
 

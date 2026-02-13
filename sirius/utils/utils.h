@@ -152,7 +152,7 @@ get_exe_path_matrix(std::string exe_name, std::filesystem::path base_dir) {
     return exe_path;
 
 #  if defined(_WIN32) || defined(_WIN64)
-  constexpr std::string suffix = ".exe";
+  const std::string suffix = ".exe";
   if (exe_name.ends_with(suffix)) {
     exe_path =
       base_dir / exe_name.substr(0, exe_name.length() - suffix.length());

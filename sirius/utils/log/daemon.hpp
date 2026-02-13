@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "utils/env.h"
+#include "utils/log/shm.hpp"
 #include "utils/time.hpp"
 
 namespace Utils {
@@ -16,6 +17,7 @@ static std::string &arg() {
   return arg;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
 static inline bool is_daemon() {
   LPSTR sz_cmd_line = GetCommandLineA();
   std::string cmd_line(sz_cmd_line);
@@ -23,10 +25,10 @@ static inline bool is_daemon() {
 
   return found != std::string::npos;
 }
+#endif
 
 namespace Daemon {
-#include "utils/log/shm.hpp"
-
+#if defined(_WIN32) || defined(_WIN64)
 static inline bool check() {
   if (!is_daemon()) {
     utils_dprintf(STDERR_FILENO,
@@ -38,10 +40,12 @@ static inline bool check() {
 
   return true;
 }
+#endif
 
 class LogManager {
  public:
-  LogManager() : log_shm_(std::make_unique<Shm::Shm>()) {
+  LogManager()
+      : log_shm_(std::make_unique<Shm::Shm>(Shm::MasterType::kDaemon)) {
     fd_out_ = STDOUT_FILENO;
     fd_err_ = STDERR_FILENO;
   }
@@ -167,7 +171,7 @@ class LogManager {
       if (opt_slot) [[likely]] {
         Shm::Slot &slot = opt_slot->get();
         Shm::Buffer &buffer = slot.buffer;
-        if (buffer.type == Shm::DataType::Log) [[likely]] {
+        if (buffer.type == Shm::DataType::kLog) [[likely]] {
           auto &data = buffer.data.log;
           log_write(buffer.level, (void *)data.buf, data.buf_size);
         } else {
@@ -175,7 +179,7 @@ class LogManager {
           /* ---------------- Not Yet ---------------- */
           /* ----------------------------------------- */
         }
-        slot.state.store(Shm::SlotState::FREE, std::memory_order_release);
+        slot.state.store(Shm::SlotState::kFree, std::memory_order_release);
       } else {
         if (stop_token.stop_requested()) {
           if (++exit_counter >= 5)
@@ -204,7 +208,7 @@ class LogManager {
       for (size_t i = 0; i < header->capacity; ++i) {
         Shm::SlotState s = slots[i].state.load(std::memory_order_acquire);
 
-        if (s == Shm::SlotState::WRITING) {
+        if (s == Shm::SlotState::kWaiting) {
           uint64_t ts = slots[i].timestamp_ms.load(std::memory_order_relaxed);
           if (now - ts > Log::kShmSlotResetTimeoutMilliseconds) {
             utils_dprintf(STDERR_FILENO,
@@ -219,7 +223,7 @@ class LogManager {
                           "{}Slot recovered/skipped due to timeout\n",
                           Log::kDaemon);
             const char *err_msg = es.c_str();
-            slots[i].buffer.type = Shm::DataType::Log;
+            slots[i].buffer.type = Shm::DataType::kLog;
             slots[i].buffer.level = SIRIUS_LOG_LEVEL_ERROR;
 
             auto &log = slots[i].buffer.data.log;
@@ -227,10 +231,10 @@ class LogManager {
             std::memcpy(log.buf, err_msg, log.buf_size + 1);
 
             /**
-             * @note Let it be `READY`, so that consumers can read it, thereby
+             * @note Let it be `kReady`, so that consumers can read it, thereby
              * advancing the index.
              */
-            slots[i].state.store(Shm::SlotState::READY,
+            slots[i].state.store(Shm::SlotState::kReady,
                                  std::memory_order_release);
           }
         }
@@ -245,7 +249,7 @@ class LogManager {
 
     int retries = 0;
     while (slot.state.load(std::memory_order_acquire) !=
-           Shm::SlotState::READY) {
+           Shm::SlotState::kReady) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (++retries > retry_times) {
         utils_dprintf(STDERR_FILENO,

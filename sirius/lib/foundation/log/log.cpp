@@ -11,26 +11,20 @@
 
 #include "lib/foundation/initializer.h"
 #include "sirius/foundation/thread.h"
-#include "utils/time.hpp"
-
-// clang-format off
-#undef UTILS_LOG_SHM_HPP_IS_DAEMON_
-#define UTILS_LOG_SHM_HPP_IS_DAEMON_ 0
-#include "utils/log/shm.hpp"
 #include "utils/log/daemon.hpp"
-// clang-format on
+#include "utils/time.hpp"
 
 namespace StdType {
 enum class Put : int {
-  In = 0,
-  Out = 1,
-  Err = 2,
+  kIn = 0,
+  kOut = 1,
+  kErr = 2,
 };
 
 static inline bool check(Utils::Utils::IntegralOrEnum auto type) {
   int index = static_cast<int>(type);
 
-  if (index < static_cast<int>(Put::In) || index > static_cast<int>(Put::Err))
+  if (index < static_cast<int>(Put::kIn) || index > static_cast<int>(Put::kErr))
     [[unlikely]] {
     return false;
   }
@@ -45,7 +39,8 @@ class LogManager {
       : is_activated_(false),
         is_creator_(false),
         daemon_arg_(Utils::Log::Daemon::arg()),
-        log_shm_(std::make_unique<Utils::Log::Shm::Shm>()) {
+        log_shm_(std::make_unique<Utils::Log::Shm::Shm>(
+          Utils::Log::Shm::MasterType::kNative)) {
     fd_out_ = STDOUT_FILENO;
     fd_err_ = STDERR_FILENO;
   }
@@ -141,7 +136,7 @@ class LogManager {
 
     int retries = 0;
     while (slot.state.load(std::memory_order_acquire) !=
-           Utils::Log::Shm::SlotState::FREE) {
+           Utils::Log::Shm::SlotState::kFree) {
       ++retries;
       if (retries % 10 == 0) {
         std::this_thread::yield();
@@ -151,7 +146,7 @@ class LogManager {
       }
     }
 
-    slot.state.store(Utils::Log::Shm::SlotState::WRITING,
+    slot.state.store(Utils::Log::Shm::SlotState::kWaiting,
                      std::memory_order_release);
 
     slot.timestamp_ms.store(Utils::Time::get_monotonic_steady_ms(),
@@ -159,12 +154,12 @@ class LogManager {
 
     std::memcpy(&slot.buffer, src, size);
 
-    slot.state.store(Utils::Log::Shm::SlotState::READY,
+    slot.state.store(Utils::Log::Shm::SlotState::kReady,
                      std::memory_order_release);
   }
 
   void log_write(int level, const void *buffer, size_t size) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard lock(mutex_);
 
     int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
 
@@ -216,6 +211,14 @@ class LogManager {
     return true;
   }
 #else
+  bool start_daemon() {
+    // --- fork ---
+    utils_dprintf(STDERR_FILENO, "Not Yet\n");
+
+    return false;
+
+    return true;
+  }
 #endif
 
   bool wait_for_daemon() {
@@ -248,17 +251,17 @@ class LogManager {
     Utils::Log::Shm::Buffer buffer {};
     auto &data = buffer.data.fs;
 
-    buffer.type = Utils::Log::Shm::DataType::Config;
-    buffer.level = put_type == StdType::Put::Out ? SIRIUS_LOG_LEVEL_DEBUG
-                                                 : SIRIUS_LOG_LEVEL_ERROR;
+    buffer.type = Utils::Log::Shm::DataType::kConfig;
+    buffer.level = put_type == StdType::Put::kOut ? SIRIUS_LOG_LEVEL_DEBUG
+                                                  : SIRIUS_LOG_LEVEL_ERROR;
 
     if (path_size) {
       std::memcpy(data.path, log_path, path_size);
       data.path[path_size] = '\0';
       path_size += 1;
-      data.state = Utils::Log::Shm::FsState::File;
+      data.state = Utils::Log::Shm::FsState::kFile;
     } else {
-      data.state = Utils::Log::Shm::FsState::Std;
+      data.state = Utils::Log::Shm::FsState::kStd;
     }
 
     produce(
@@ -274,8 +277,9 @@ class LogManager {
       /* ---------------- Not Yet ---------------- */
       /* ----------------------------------------- */
     } else {
-      std::lock_guard<std::mutex> lock(mutex_);
-      if (put_type == StdType::Put::Out) {
+      std::lock_guard lock(mutex_);
+
+      if (put_type == StdType::Put::kOut) {
         fd_out_ = STDOUT_FILENO;
       } else {
         fd_err_ = STDERR_FILENO;
@@ -291,7 +295,7 @@ class LogManager {
 
     auto buffer = (Utils::Log::Shm::Buffer *)src;
 
-    if (buffer->type == Utils::Log::Shm::DataType::Log) [[likely]] {
+    if (buffer->type == Utils::Log::Shm::DataType::kLog) [[likely]] {
       log_write(buffer->level, (void *)buffer->data.log.buf,
                 buffer->data.log.buf_size);
     }
@@ -339,6 +343,9 @@ extern "C" void destructor_foundation_log() {}
 static bool g_api_initialization = false;
 static std::mutex g_api_mutex;
 static std::unique_ptr<LogManager> g_log_manager;
+static uint64_t g_try_times = 0;
+static uint64_t g_try_timestamp_ms = 0;
+static constexpr uint64_t kRetryTimeIntervalMilliseconds = 9 * 1000;
 
 static void g_log_manager_deinit(void) {
   g_log_manager->deinit();
@@ -348,7 +355,18 @@ static force_inline bool initialization_check() {
   if (g_api_initialization) [[likely]]
     return true;
 
-  std::lock_guard<std::mutex> lock(g_api_mutex);
+  std::lock_guard lock(g_api_mutex);
+
+  if (g_try_times > 2) {
+    if (Utils::Time::get_monotonic_steady_ms() - g_try_timestamp_ms <
+        kRetryTimeIntervalMilliseconds) {
+      return false;
+    }
+    g_try_times = 0;
+  }
+
+  g_try_times += 1;
+  g_try_timestamp_ms = Utils::Time::get_monotonic_steady_ms();
 
   if (!g_api_initialization) {
     auto log_manager = std::make_unique<LogManager>();
@@ -384,8 +402,8 @@ sirius_log_configure(const sirius_log_config_t *config) {
   if (!initialization_check() || !config) [[unlikely]]
     return;
 
-  g_log_manager->fs_configure(config->out, StdType::Put::Out);
-  g_log_manager->fs_configure(config->err, StdType::Put::Out);
+  g_log_manager->fs_configure(config->out, StdType::Put::kOut);
+  g_log_manager->fs_configure(config->err, StdType::Put::kOut);
 }
 
 #define ISSUE_ERROR_STANDARD_FUNCTION(function) \
@@ -427,7 +445,7 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *level_str,
   auto &data = buffer.data.log;
   size_t len = 0;
 
-  buffer.type = Utils::Log::Shm::DataType::Log;
+  buffer.type = Utils::Log::Shm::DataType::kLog;
   buffer.level = level;
 
   time_t raw_time;
@@ -493,7 +511,7 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *level_str,
   auto &data = buffer.data.log;
   size_t len = 0;
 
-  buffer.type = Utils::Log::Shm::DataType::Log;
+  buffer.type = Utils::Log::Shm::DataType::kLog;
   buffer.level = level;
 
   time_t raw_time;

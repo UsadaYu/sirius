@@ -1,9 +1,4 @@
-# private
-.vscode
-
-# common directory
 /build*
 
-# common file
-*.gcno
-*.gcda
+.vscode
+.vscode-server

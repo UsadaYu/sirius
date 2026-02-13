@@ -1,15 +1,34 @@
 #pragma once
 
-#pragma once
-
 #include "utils/log.h"
 #include "utils/namespace.hpp"
+#include "utils/process/process.hpp"
 
 namespace Utils {
 namespace Process {
-class Mutex {
+// class Fmutex {
+//  public:
+//   explicit Mutex(const char *name = nullptr) noexcept
+//       :
+// #if defined(_WIN32) || defined(_WIN64)
+//         handle_(nullptr),
+// #else
+//         fd_(-1),
+// #endif
+//         name_(name ? std::string(name) : "") {
+//     if (name) {
+//       create();
+//     }
+//   }
+
+//   ~Mutex() noexcept {
+//     destroy();
+//   }
+// };
+
+class GMutex {
  public:
-  explicit Mutex(const char *name = nullptr) noexcept
+  explicit GMutex(const char *name = nullptr) noexcept
       :
 #if defined(_WIN32) || defined(_WIN64)
         handle_(nullptr),
@@ -22,11 +41,11 @@ class Mutex {
     }
   }
 
-  ~Mutex() noexcept {
+  ~GMutex() noexcept {
     destroy();
   }
 
-  Mutex(Mutex &&other) noexcept : name_(std::move(other.name_)) {
+  GMutex(GMutex &&other) noexcept : name_(std::move(other.name_)) {
 #if defined(_WIN32) || defined(_WIN64)
     handle_ = other.handle_;
     other.handle_ = nullptr;
@@ -36,7 +55,7 @@ class Mutex {
 #endif
   }
 
-  Mutex &operator=(Mutex &&other) noexcept {
+  GMutex &operator=(GMutex &&other) noexcept {
     if (this != &other) {
       destroy();
       name_ = std::move(other.name_);
@@ -52,8 +71,8 @@ class Mutex {
     return *this;
   }
 
-  Mutex(const Mutex &) = delete;
-  Mutex &operator=(const Mutex &) = delete;
+  GMutex(const GMutex &) = delete;
+  GMutex &operator=(const GMutex &) = delete;
 
   bool create(const char *mutex_name = nullptr) {
     std::string es;
@@ -68,7 +87,8 @@ class Mutex {
     destroy();
 
 #if defined(_WIN32) || defined(_WIN64)
-    handle_ = CreateMutexA(nullptr, FALSE, Ns::win_lock_name(name_).c_str());
+    handle_ =
+      CreateMutexA(nullptr, FALSE, Ns::Mutex::win_generate_name(name_).c_str());
     if (!handle_) {
       const DWORD dw_err = GetLastError();
       es = std::format("{} -> `CreateMutexA`", utils_pretty_function);
@@ -76,7 +96,7 @@ class Mutex {
       return false;
     }
 #else
-    auto path = Ns::posix_lockfile_path(name_);
+    auto path = Ns::Mutex::file_lock_path(name_);
     fd_ = open(path.c_str(), O_RDWR | O_CREAT,
                File::string_to_mode(_SIRIUS_POSIX_FILE_MODE));
     if (fd_ == -1) {
@@ -197,15 +217,5 @@ class Mutex {
 #endif
   std::string name_;
 };
-
-static inline auto id() {
-#if defined(_WIN32) || defined(_WIN64)
-  static auto pid = GetCurrentProcessId();
-#else
-  static auto pid = getpid();
-#endif
-
-  return pid;
-}
 } // namespace Process
 } // namespace Utils

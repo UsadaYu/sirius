@@ -9,12 +9,7 @@
 #  include <string.h>
 #endif
 
-// clang-format off
-#undef UTILS_LOG_SHM_HPP_IS_DAEMON_
-#define UTILS_LOG_SHM_HPP_IS_DAEMON_ 1
-#include "utils/log/shm.hpp"
 #include "utils/log/daemon.hpp"
-// clang-format on
 
 void thread_log() {
   auto log_manager = std::make_unique<Utils::Log::Daemon::Daemon::LogManager>();

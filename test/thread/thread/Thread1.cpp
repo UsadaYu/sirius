@@ -18,7 +18,8 @@ void *foo(void *arg) {
   std::string nspace;
 
   {
-    std::lock_guard<std::mutex> lock(g_mutex);
+    std::lock_guard lock(g_mutex);
+
     if (g_index.load() < 10) {
       nspace = "   ";
     } else if (g_index.load() < 100) {

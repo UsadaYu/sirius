@@ -4,6 +4,7 @@
 #include <cctype>
 #include <iomanip>
 #include <map>
+#include <mutex>
 #include <sstream>
 #include <system_error>
 
@@ -72,7 +73,8 @@ generate_namespace_prefix(const std::string &runtime_salt = "") {
   return sanitize_name(prefix);
 }
 
-inline std::string get_shm_name(const std::string &name) {
+namespace Shm {
+inline std::string generate_name(const std::string &name) {
 #if defined(_WIN32) || defined(_WIN64)
   /**
    * @note Windows uses `Local\\` or `Global\\` for some prefixes of named
@@ -92,23 +94,36 @@ inline std::string get_shm_name(const std::string &name) {
   return nm;
 #endif
 }
+} // namespace Shm
 
+namespace Mutex {
 #if defined(_WIN32) || defined(_WIN64)
-inline std::string win_lock_name(const std::string &name) {
+inline std::string win_generate_name(const std::string &name) {
   std::string prefix = std::string("Local\\") + std::string(_SIRIUS_NAMESPACE) +
     "_" + generate_namespace_prefix();
   std::string nm = prefix + "_" + sanitize_name(name) + "_lock";
 
   return nm;
 }
-#else
-inline std::map<std::string, std::filesystem::path> map_lock_name;
-inline std::filesystem::path posix_lockfile_path(const std::string &name) {
-  auto it = map_lock_name.find(name);
-  if (it != map_lock_name.end())
-    return it->second;
+#endif
 
+inline std::mutex g_mutex_map_lock_name;
+inline std::map<std::string, std::filesystem::path> g_map_lock_name;
+
+inline std::filesystem::path file_lock_path(const std::string &name) {
   std::filesystem::path lock_path = "";
+
+  {
+    std::lock_guard lock(g_mutex_map_lock_name);
+
+    auto it = g_map_lock_name.find(name);
+    if (it != g_map_lock_name.end())
+      return it->second;
+  }
+
+#if defined(_WIN32) || defined(_WIN64)
+
+#else
   std::filesystem::path base = "";
   std::vector<std::filesystem::path> prefixes;
 
@@ -148,11 +163,17 @@ inline std::filesystem::path posix_lockfile_path(const std::string &name) {
   std::string prefix = generate_namespace_prefix();
   std::string fname = prefix + "_" + sanitize_name(name) + ".lock";
   lock_path = base / fname;
-  map_lock_name.insert(
-    std::pair<std::string, std::filesystem::path>(name, lock_path));
+#endif
+
+  {
+    std::lock_guard lock(g_mutex_map_lock_name);
+
+    g_map_lock_name.insert(
+      std::pair<std::string, std::filesystem::path>(name, lock_path));
+  }
 
   return lock_path;
 }
-#endif
+} // namespace Mutex
 } // namespace Ns
 } // namespace Utils
