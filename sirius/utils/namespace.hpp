@@ -121,12 +121,16 @@ inline std::filesystem::path file_lock_path(const std::string &name) {
       return it->second;
   }
 
-#if defined(_WIN32) || defined(_WIN64)
-
-#else
   std::filesystem::path base = "";
   std::vector<std::filesystem::path> prefixes;
 
+#if defined(_WIN32) || defined(_WIN64)
+  TCHAR temp_path[MAX_PATH];
+  DWORD dw_ret = GetTempPath(MAX_PATH, temp_path);
+  if (dw_ret > 0 && dw_ret <= MAX_PATH) {
+    prefixes.push_back(std::filesystem::path(temp_path));
+  }
+#else
   prefixes.push_back(_SIRIUS_POSIX_TMP_DIR);
 
   const char *xdg = std::getenv("XDG_RUNTIME_DIR");
@@ -135,6 +139,7 @@ inline std::filesystem::path file_lock_path(const std::string &name) {
   }
 
   prefixes.push_back("/var/tmp");
+#endif
 
   for (auto &prefix : prefixes) {
     if (prefix.empty())
@@ -144,16 +149,18 @@ inline std::filesystem::path file_lock_path(const std::string &name) {
       std::filesystem::path b = prefix / _SIRIUS_NAMESPACE;
       std::filesystem::create_directories(b);
       base = b;
+#if !defined(_WIN32) && !defined(_WIN64)
       File::set_permissions_safe(base, _SIRIUS_POSIX_FILE_MODE);
+#endif
       break;
-    } catch (const std::filesystem::filesystem_error &e) {
-#  if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
+    } catch ([[maybe_unused]] const std::filesystem::filesystem_error &e) {
+#if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
       utils_dprintf(STDERR_FILENO, "`filesystem_error`: %s\n", e.what());
-#  endif
-    } catch (const std::exception &e) {
-#  if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
+#endif
+    } catch ([[maybe_unused]] const std::exception &e) {
+#if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
       utils_dprintf(STDERR_FILENO, "`exception`: %s\n", e.what());
-#  endif
+#endif
     }
   }
 
@@ -163,7 +170,6 @@ inline std::filesystem::path file_lock_path(const std::string &name) {
   std::string prefix = generate_namespace_prefix();
   std::string fname = prefix + "_" + sanitize_name(name) + ".lock";
   lock_path = base / fname;
-#endif
 
   {
     std::lock_guard lock(g_mutex_map_lock_name);

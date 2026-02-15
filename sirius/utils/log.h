@@ -47,7 +47,6 @@ static inline int utils_dprintf(int fd, const char *__restrict format, ...) {
 
 #if defined(_WIN32) || defined(_WIN64)
 static inline void utils_win_last_error(DWORD error_code, const char *msg) {
-  const DWORD dw_err = error_code;
   char es[512] = {0};
   char e[_SIRIUS_LOG_BUF_SIZE] = {0};
   char schrodinger_space = (likely(msg) && msg[0] == ' ') ? '\0' : ' ';
@@ -55,28 +54,27 @@ static inline void utils_win_last_error(DWORD error_code, const char *msg) {
   snprintf(es, sizeof(es), "%c%s", schrodinger_space, msg);
 
   DWORD flags = FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
-  DWORD size = FormatMessage(flags, nullptr, dw_err,
+  DWORD size = FormatMessage(flags, nullptr, error_code,
                              MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), e,
                              sizeof(e) / sizeof(TCHAR), nullptr);
   if (unlikely(size == 0)) {
-    utils_dprintf(STDERR_FILENO, "Error%s: %lu\n", es, dw_err);
+    utils_dprintf(STDERR_FILENO, "Error%s: %lu\n", es, error_code);
   } else {
-    utils_dprintf(STDERR_FILENO, "Error%s: %lu. %s", es, dw_err, e);
+    utils_dprintf(STDERR_FILENO, "Error%s: %lu. %s", es, error_code, e);
   }
 }
 #endif
 
 static inline void utils_errno_error(int error_code, const char *msg) {
-  const int errno_err = error_code;
   char es[512] = {0};
   char e[_SIRIUS_LOG_BUF_SIZE];
   char schrodinger_space = (likely(msg) && msg[0] == ' ') ? '\0' : ' ';
 
   snprintf(es, sizeof(es), "%c%s", schrodinger_space, msg);
 
-  if (likely(0 == UTILS_STRERROR_R(errno_err, e, sizeof(e)))) {
-    utils_dprintf(STDERR_FILENO, "Error%s: %d. %s", es, errno_err, e);
+  if (likely(0 == UTILS_STRERROR_R(error_code, e, sizeof(e)))) {
+    utils_dprintf(STDERR_FILENO, "Error%s: %d. %s", es, error_code, e);
   } else {
-    utils_dprintf(STDERR_FILENO, "Error%s: %d\n", es, errno_err);
+    utils_dprintf(STDERR_FILENO, "Error%s: %d\n", es, error_code);
   }
 }

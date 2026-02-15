@@ -307,7 +307,8 @@ static inline std::filesystem::path current_dll_dir() {
 }
 #endif
 
-inline std::filesystem::path daemon_exe_path = "";
+inline std::mutex g_mutex_daemon_exe_path;
+inline std::filesystem::path g_daemon_exe_path = "";
 static inline int set_path(std::filesystem::path path) {
   if (path.empty()) {
     utils_errno_error(EINVAL, utils_pretty_function);
@@ -321,7 +322,10 @@ static inline int set_path(std::filesystem::path path) {
     return errno;
   }
 
-  daemon_exe_path = path;
+  {
+    std::lock_guard lock(g_mutex_daemon_exe_path);
+    g_daemon_exe_path = path;
+  }
 
   return 0;
 }
@@ -338,6 +342,12 @@ static inline int set_path(std::filesystem::path path) {
  * - (4) Dafault.
  */
 static inline std::filesystem::path path() {
+  std::filesystem::path daemon_exe_path;
+  {
+    std::lock_guard lock(g_mutex_daemon_exe_path);
+    daemon_exe_path = g_daemon_exe_path;
+  }
+
   std::vector<std::filesystem::path> paths = {
     daemon_exe_path,
     env_path(),

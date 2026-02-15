@@ -130,13 +130,21 @@ struct Header {
 };
 
 namespace GMutex {
-static Process::GMutex *process_mutex_ = nullptr;
+#if defined(_WIN32) || defined(_WIN64)
+#  define MUTEX_TYPE Process::GMutex
+#else
+#  define MUTEX_TYPE Process::FMutex
+#endif
+
+static MUTEX_TYPE *process_mutex_ = nullptr;
 
 static inline bool create() {
-  process_mutex_ = new Process::GMutex(Log::kMutexProcessKey);
+  process_mutex_ = new MUTEX_TYPE(Log::kMutexProcessKey);
 
   return process_mutex_->valid();
 }
+
+#undef MUTEX_TYPE
 
 static inline void destroy() {
   delete process_mutex_;
@@ -144,7 +152,9 @@ static inline void destroy() {
 }
 
 static inline bool lock() {
-  return process_mutex_ ? process_mutex_->lock(utils_pretty_function) : false;
+  return process_mutex_
+    ? process_mutex_->lock() != Process::LockErrno::kFail ? true : false
+    : false;
 }
 
 static inline bool unlock() {
@@ -154,7 +164,6 @@ static inline bool unlock() {
 
 class Shm {
  public:
-  bool shm_creator = false;
   Header *header = nullptr;
   Slot *slots = nullptr;
 
@@ -165,6 +174,7 @@ class Shm {
 #else
         shm_fd_(-1),
 #endif
+        is_shm_creator_(false),
         master_type_(master_type),
         shm_name_(Ns::Shm::generate_name(Log::kKey)),
         mapped_size_(0),
@@ -188,7 +198,7 @@ class Shm {
                          size_high, size_low, shm_name_.c_str());
     dw_err = GetLastError();
     if (shm_handle_) {
-      shm_creator = dw_err == ERROR_ALREADY_EXISTS ? false : true;
+      is_shm_creator_ = dw_err == ERROR_ALREADY_EXISTS ? false : true;
     } else {
       es = std::format("{} -> `CreateFileMappingA`", utils_pretty_function);
       utils_win_last_error(dw_err, es.c_str());
@@ -253,7 +263,7 @@ class Shm {
                        File::string_to_mode(_SIRIUS_POSIX_FILE_MODE));
     errno_err = errno;
     if (shm_fd_ >= 0) {
-      shm_creator = true;
+      is_shm_creator_ = true;
       if (ftruncate(shm_fd_, size_needed) == -1) {
         errno_err = errno;
         es = std::format("{} -> `ftruncate`", utils_pretty_function);
@@ -263,7 +273,7 @@ class Shm {
         return false;
       }
     } else if (errno_err == EEXIST) {
-      shm_creator = false;
+      is_shm_creator_ = false;
       shm_fd_ = shm_open(shm_name_.c_str(), O_RDWR, 0);
       if (shm_fd_ < 0) {
         errno_err = errno;
@@ -337,7 +347,7 @@ class Shm {
   class LockGuard {
    public:
     explicit LockGuard(Process::GMutex &mutex) : mutex_(mutex) {
-      mutex_.lock(utils_pretty_function);
+      mutex_.lock();
     }
     ~LockGuard() {
       mutex_.unlock();
@@ -390,7 +400,7 @@ class Shm {
 
     master_ = new Master(*this, master_type_);
 
-    if (!shm_creator) {
+    if (!is_shm_creator_) {
       if (header->magic != Header::Header::kMagic) {
         utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_ERROR "%sInvalid argument. `magic`: %u\n",
@@ -418,6 +428,10 @@ class Shm {
     return false;
   }
 
+  bool is_shm_creator() const {
+    return is_shm_creator_;
+  }
+
  private:
 #if defined(_WIN32) || defined(_WIN64)
   HANDLE shm_handle_;
@@ -425,6 +439,7 @@ class Shm {
 #else
   int shm_fd_;
 #endif
+  bool is_shm_creator_;
   MasterType master_type_;
   std::string shm_name_;
   size_t mapped_size_;
