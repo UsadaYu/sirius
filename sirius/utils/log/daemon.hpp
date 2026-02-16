@@ -74,7 +74,7 @@ class LogManager {
   label_free4:
     log_shm_->memory_unmap();
   label_free3:
-    log_shm_->close_shm(ret);
+    log_shm_->close_shm();
   label_free2:
     Shm::GMutex::unlock();
   label_free1:

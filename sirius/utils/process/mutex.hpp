@@ -8,8 +8,9 @@ namespace Utils {
 namespace Process {
 enum class LockErrno : int {
   kSuccess = 0,
-  kFail = 1,
-  kOwnerDead = 2,
+  kOwnerDead = 1,
+  kFail = 2,
+  kBusy = 3,
 };
 
 class FMutex {
@@ -248,10 +249,8 @@ class FMutex {
 };
 
 /**
- * @note
- * --------------- !!! -------------------
- * Not Yet On POSIX.
- * ---------------------------------------
+ * @note On POSIX, only one construction and one destruction are required, the
+ * `create` and `destroy` functions need to be explicitly called..
  */
 class GMutex {
  public:
@@ -264,16 +263,16 @@ class GMutex {
     }
   }
 #else
-  explicit GMutex(pthread_mutex_t *mutex = nullptr) noexcept : mutex_(mutex) {
-    if (mutex) {
-      create();
-    }
-  }
+  explicit GMutex(pthread_mutex_t *mutex = nullptr) noexcept : mutex_(mutex) {}
 #endif
 
+#if defined(_WIN32) || defined(_WIN64)
   ~GMutex() noexcept {
     destroy();
   }
+#else
+  ~GMutex() = default;
+#endif
 
 #if defined(_WIN32) || defined(_WIN64)
   GMutex(GMutex &&other) noexcept
@@ -288,8 +287,8 @@ class GMutex {
 
   GMutex &operator=(GMutex &&other) noexcept {
     if (this != &other) {
-      destroy();
 #if defined(_WIN32) || defined(_WIN64)
+      destroy();
       mutex_name_ = std::move(other.mutex_name_);
 #endif
       mutex_ = other.mutex_;
@@ -335,50 +334,66 @@ class GMutex {
     if (!mutex_)
       return false;
 
-    // ----------- Robust ----------
+    int ret;
+    pthread_mutexattr_t attr;
+    std::string es;
+
+    ret = pthread_mutexattr_init(&attr);
+    if (ret) {
+      es = std::format("{} -> `pthread_mutexattr_init`", utils_pretty_function);
+      utils_errno_error(ret, es.c_str());
+      return false;
+    }
+
+    ret = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+    if (ret) {
+      es = std::format("{} -> `pthread_mutexattr_setpshared`",
+                       utils_pretty_function);
+      goto label_free;
+    }
+
+    ret = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
+    if (ret) {
+      es = std::format("{} -> `pthread_mutexattr_setrobust`",
+                       utils_pretty_function);
+      goto label_free;
+    }
+
+    ret = pthread_mutex_init(mutex_, &attr);
+    pthread_mutexattr_destroy(&attr);
+    if (ret) {
+      es = std::format("{} -> `pthread_mutex_init`", utils_pretty_function);
+      utils_errno_error(ret, es.c_str());
+      return false;
+    }
 
     return true;
+
+  label_free:
+    utils_errno_error(ret, es.c_str());
+    pthread_mutexattr_destroy(&attr);
+
+    return false;
   }
 #endif
 
   void destroy() noexcept {
-#if defined(_WIN32) || defined(_WIN64)
     if (mutex_ != nullptr) {
+#if defined(_WIN32) || defined(_WIN64)
       CloseHandle(mutex_);
+#else
+      pthread_mutex_destroy(mutex_);
+#endif
       mutex_ = nullptr;
     }
-#else
-    //
-#endif
   }
 
   LockErrno lock() {
-#if defined(_WIN32) || defined(_WIN64)
-    DWORD dw_err = ERROR_SUCCESS;
+    return lock_impl(false);
+  }
 
-    DWORD wait_ret = WaitForSingleObject(mutex_, INFINITE);
-    switch (wait_ret) {
-    [[likely]] case WAIT_OBJECT_0:
-      return LockErrno::kSuccess;
-    case WAIT_ABANDONED:
-      utils_dprintf(
-        STDERR_FILENO,
-        "--------------------------------\n"
-        "- Warning -> %s\n"
-        "- The process that previously held the lock may have crashed\n"
-        "--------------------------------\n",
-        utils_pretty_function);
-      return LockErrno::kOwnerDead;
-    case WAIT_FAILED:
-      dw_err = GetLastError();
-      utils_win_last_error(dw_err, utils_pretty_function);
-      return LockErrno::kFail;
-    default:
-      return LockErrno::kFail;
-    }
-#else
-    return LockErrno::kSuccess;
-#endif
+  LockErrno trylock() {
+    return lock_impl(true);
   }
 
   bool unlock() {
@@ -392,8 +407,12 @@ class GMutex {
       return false;
     }
 #else
-    //
-    (void)es;
+    int ret = pthread_mutex_unlock(mutex_);
+    if (ret) {
+      es = std::format("{} -> `pthread_mutex_unlock`", utils_pretty_function);
+      utils_errno_error(ret, es.c_str());
+      return false;
+    }
 #endif
 
     return true;
@@ -410,6 +429,66 @@ class GMutex {
 #else
   pthread_mutex_t *mutex_;
 #endif
+
+  LockErrno lock_impl(bool is_trylock = false) {
+    std::string es;
+
+#if defined(_WIN32) || defined(_WIN64)
+    DWORD dw_err = ERROR_SUCCESS;
+
+    DWORD wait_ms = is_trylock ? 0 : INFINITE;
+
+    DWORD wait_ret = WaitForSingleObject(mutex_, wait_ms);
+    switch (wait_ret) {
+    [[likely]] case WAIT_OBJECT_0:
+      return LockErrno::kSuccess;
+    case WAIT_ABANDONED:
+      goto label_owner_dead;
+    case WAIT_TIMEOUT:
+      return LockErrno::kBusy;
+    case WAIT_FAILED:
+      dw_err = GetLastError();
+      es = std::format("{0} -> `WaitForSingleObject` (trylock: {1})",
+                       utils_pretty_function, is_trylock);
+      utils_win_last_error(dw_err, es.c_str());
+      return LockErrno::kFail;
+    default:
+      return LockErrno::kFail;
+    }
+#else
+    int (*lock_ptr)(pthread_mutex_t *) =
+      is_trylock ? pthread_mutex_trylock : pthread_mutex_lock;
+
+    int ret = lock_ptr(mutex_);
+    switch (ret) {
+    [[likely]] case 0:
+      return LockErrno::kSuccess;
+    case EOWNERDEAD:
+      pthread_mutex_consistent(mutex_);
+      goto label_owner_dead;
+    case EBUSY:
+      return LockErrno::kBusy;
+    case ENOTRECOVERABLE:
+    default:
+      es = std::format("{} -> `lock_ptr`", utils_pretty_function);
+      utils_errno_error(ret, es.c_str());
+      return LockErrno::kFail;
+    }
+
+    return LockErrno::kSuccess;
+#endif
+
+  label_owner_dead:
+    utils_dprintf(
+      STDERR_FILENO,
+      "--------------------------------\n"
+      "- Warning -> %s\n"
+      "- The process that previously held the lock may have crashed\n"
+      "--------------------------------\n",
+      utils_pretty_function);
+
+    return LockErrno::kOwnerDead;
+  }
 };
 } // namespace Process
 } // namespace Utils

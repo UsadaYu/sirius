@@ -152,9 +152,16 @@ static inline void destroy() {
 }
 
 static inline bool lock() {
-  return process_mutex_
-    ? process_mutex_->lock() != Process::LockErrno::kFail ? true : false
-    : false;
+  if (!process_mutex_)
+    return false;
+
+  switch (process_mutex_->lock()) {
+  case Process::LockErrno::kSuccess:
+  case Process::LockErrno::kOwnerDead:
+    return true;
+  default:
+    return false;
+  }
 }
 
 static inline bool unlock() {
@@ -173,6 +180,7 @@ class Shm {
         shm_handle_(nullptr),
 #else
         shm_fd_(-1),
+        destructor_counter_(0),
 #endif
         is_shm_creator_(false),
         master_type_(master_type),
@@ -210,9 +218,7 @@ class Shm {
     return true;
   }
 
-  void close_shm(bool shm_should_destroy) {
-    (void)shm_should_destroy;
-
+  void close_shm() {
     if (shm_handle_) {
       CloseHandle(shm_handle_);
       shm_handle_ = nullptr;
@@ -292,13 +298,13 @@ class Shm {
     return true;
   }
 
-  void close_shm(bool shm_should_destroy) {
+  void close_shm() {
     if (shm_fd_ != -1) {
       close(shm_fd_);
       shm_fd_ = -1;
     }
 
-    if (shm_should_destroy) {
+    if (destructor_counter_ == 0) {
       utils_dprintf(STDOUT_FILENO,
                     LOG_LEVEL_STR_INFO "%sUnlink the share memory\n",
                     Log::kCommon);
@@ -319,7 +325,8 @@ class Shm {
     }
     header = static_cast<Header *>(ptr);
 
-    if (!shm_mutex_init(&header->shm_mutex))
+    shm_mutex_ = Process::GMutex(&header->shm_mutex);
+    if ((is_shm_creator_ && !shm_mutex_.create()) || !shm_mutex_.valid())
       goto label_free1;
 
     return true;
@@ -335,53 +342,50 @@ class Shm {
     if (!header)
       return;
 
-    shm_mutex_destroy(&header->shm_mutex);
+    {
+      lock_guard();
+
+      destructor_counter_ = header->attached_count;
+    }
+
+    if (destructor_counter_ == 0) {
+      shm_mutex_.destroy();
+    }
 
     munmap(header, mapped_size_);
     header = nullptr;
   }
 #endif
 
-// --- LockGuard ---
-#if defined(_WIN32) || defined(_WIN64)
+  // --- LockGuard ---
   class LockGuard {
    public:
-    explicit LockGuard(Process::GMutex &mutex) : mutex_(mutex) {
-      mutex_.lock();
+    explicit LockGuard(Process::GMutex &mutex)
+        : mutex_(mutex), lock_ret_(false) {
+      auto ret = mutex_.lock();
+      if (ret == Process::LockErrno::kSuccess ||
+          ret == Process::LockErrno::kOwnerDead) {
+        lock_ret_ = true;
+      }
     }
+
     ~LockGuard() {
-      mutex_.unlock();
+      if (lock_ret_) {
+        mutex_.unlock();
+      }
     }
+
     LockGuard(const LockGuard &) = delete;
     LockGuard &operator=(const LockGuard &) = delete;
 
    private:
     Process::GMutex &mutex_;
+    bool lock_ret_;
   };
 
   LockGuard lock_guard() {
     return LockGuard(shm_mutex_);
   }
-#else
-  class LockGuard {
-   public:
-    explicit LockGuard(pthread_mutex_t *mutex) : mutex_(mutex) {
-      pthread_mutex_lock(mutex_);
-    }
-    ~LockGuard() {
-      pthread_mutex_unlock(mutex_);
-    }
-    LockGuard(const LockGuard &) = delete;
-    LockGuard &operator=(const LockGuard &) = delete;
-
-   private:
-    pthread_mutex_t *mutex_;
-  };
-
-  LockGuard lock_guard() {
-    return LockGuard(&header->shm_mutex);
-  }
-#endif
 
   void slots_deinit() {
     if (master_) {
@@ -407,6 +411,7 @@ class Shm {
                       Log::kCommon, header->magic);
         return false;
       }
+
       return master_->slot_alloc();
     }
 
@@ -435,55 +440,15 @@ class Shm {
  private:
 #if defined(_WIN32) || defined(_WIN64)
   HANDLE shm_handle_;
-  Process::GMutex shm_mutex_;
 #else
   int shm_fd_;
+  size_t destructor_counter_;
 #endif
+  Process::GMutex shm_mutex_;
   bool is_shm_creator_;
   MasterType master_type_;
   std::string shm_name_;
   size_t mapped_size_;
-
-#if defined(_WIN32) || defined(_WIN64)
-#else
-  void shm_mutex_destroy(pthread_mutex_t *mutex) {
-    if (mutex) {
-      pthread_mutex_destroy(mutex);
-    }
-  }
-
-  bool shm_mutex_init(pthread_mutex_t *mutex) {
-    int ret;
-    pthread_mutexattr_t attr;
-    std::string es;
-
-    ret = pthread_mutexattr_init(&attr);
-    if (ret) {
-      es = std::format("{} -> `pthread_mutexattr_init`", utils_pretty_function);
-      utils_errno_error(ret, es.c_str());
-      return false;
-    }
-
-    ret = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-    if (ret) {
-      es = std::format("{} -> `pthread_mutexattr_setpshared`",
-                       utils_pretty_function);
-      utils_errno_error(ret, es.c_str());
-      pthread_mutexattr_destroy(&attr);
-      return false;
-    }
-
-    ret = pthread_mutex_init(mutex, &attr);
-    pthread_mutexattr_destroy(&attr);
-    if (ret) {
-      es = std::format("{} -> `pthread_mutex_init`", utils_pretty_function);
-      utils_errno_error(ret, es.c_str());
-      return false;
-    }
-
-    return true;
-  }
-#endif
 
   size_t get_shm_header_offset() const {
     size_t header_size = sizeof(Header);

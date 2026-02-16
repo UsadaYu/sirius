@@ -33,7 +33,9 @@ int main() {
   sirius_log_config_t cfg = {};
 
   cfg.out.log_path = GEN_FILE_NAME;
+  cfg.out.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
   cfg.err.log_path = GEN_FILE_NAME;
+  cfg.err.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
   sirius_log_configure(&cfg);
 
   std::thread threads[NB_THREADS];
@@ -41,20 +43,22 @@ int main() {
     threads[i] = std::thread(thread_foo);
   }
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.out.log_path = nullptr;
+  cfg.out.shared = SiriusThreadProcess::kSiriusThreadProcessPrivate;
   sirius_log_configure(&cfg);
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.err.log_path = nullptr;
+  cfg.err.shared = SiriusThreadProcess::kSiriusThreadProcessPrivate;
   sirius_log_configure(&cfg);
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.out.log_path = GEN_FILE_NAME;
   cfg.err.log_path = GEN_FILE_NAME;
   sirius_log_configure(&cfg);
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  std::this_thread::sleep_for(std::chrono::milliseconds(600));
   g_exit_flag = true;
 
   for (int i = 0; i < NB_THREADS; ++i) {
@@ -66,7 +70,9 @@ int main() {
    * Ultra-long log printing test.
    */
   cfg.out.log_path = nullptr;
+  cfg.out.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
   cfg.err.log_path = nullptr;
+  cfg.err.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
   sirius_log_configure(&cfg);
   sirius_warnsp("--------------------------------\n");
   sirius_warnsp("- Ultra-long log printing test\n");

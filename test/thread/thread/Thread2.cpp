@@ -47,10 +47,10 @@ void *foo(void *arg) {
     std::string es;
     es = std::format(LOG_RED
                      "\n"
-                     "  Sub-thread (TID: %llu)\n"
+                     "  Sub-thread (TID: {0})\n"
                      "  Fail to verifiy the `argument`:\n"
-                     "    Actual string:   {}\n"
-                     "    Expected string: {}\n" LOG_COLOR_NONE,
+                     "    Actual string:   {1}\n"
+                     "    Expected string: {2}\n" LOG_COLOR_NONE,
                      SIRIUS_THREAD_ID, content->string, hash1);
     throw std::runtime_error(es);
   }
@@ -82,8 +82,8 @@ int main() {
     if (ret) {
       es = std::format(LOG_RED
                        "\n"
-                       "  Main-Join (creating the index: %d)\n"
-                       "  `sirius_thread_create` error: {}\n" LOG_COLOR_NONE,
+                       "  Main-Join (creating the index: {0})\n"
+                       "  `sirius_thread_create` error: {1}\n" LOG_COLOR_NONE,
                        i, ret);
       throw std::runtime_error(es);
     }
@@ -95,8 +95,8 @@ int main() {
     if (ret) {
       es = std::format(LOG_RED
                        "\n"
-                       "  Main-Join (joining the index: %d)\n"
-                       "  `sirius_thread_join` error: {}\n" LOG_COLOR_NONE,
+                       "  Main-Join (joining the index: {0})\n"
+                       "  `sirius_thread_join` error: {1}\n" LOG_COLOR_NONE,
                        i, ret);
       throw std::runtime_error(es);
     }
@@ -110,10 +110,10 @@ int main() {
     } else {
       es = std::format(LOG_RED
                        "\n"
-                       "  Main-Join (joining the index: %d)\n"
+                       "  Main-Join (joining the index: {0})\n"
                        "  Fail to verifiy the `retval`:\n"
-                       "    Actual string:   {}\n"
-                       "    Expected string: {}\n" LOG_COLOR_NONE,
+                       "    Actual string:   {1}\n"
+                       "    Expected string: {2}\n" LOG_COLOR_NONE,
                        i, retval, hash2);
       throw std::runtime_error(es);
     }

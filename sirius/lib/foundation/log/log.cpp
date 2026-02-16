@@ -33,11 +33,11 @@ static inline bool check(Utils::Utils::IntegralOrEnum auto type) {
 }
 } // namespace StdType
 
-class FsManager {
+class PrivateManager {
  public:
-  FsManager() : fd_out_(STDOUT_FILENO), fd_err_(STDERR_FILENO) {}
+  PrivateManager() : fd_out_(STDOUT_FILENO), fd_err_(STDERR_FILENO) {}
 
-  ~FsManager() {}
+  ~PrivateManager() {}
 
   void log_write(int level, const void *buffer, size_t size) {
     std::lock_guard lock(mutex_);
@@ -47,7 +47,7 @@ class FsManager {
     UTILS_WRITE(fd, buffer, size);
   }
 
-  void fs_configure(const char *log_path, size_t path_size,
+  bool fs_configure(const char *log_path, size_t path_size,
                     StdType::Put put_type) {
     if (path_size != 0) {
       (void)log_path;
@@ -63,6 +63,8 @@ class FsManager {
         fd_err_ = STDERR_FILENO;
       }
     }
+
+    return true;
   }
 
  private:
@@ -71,17 +73,17 @@ class FsManager {
   int fd_err_;
 };
 
-static FsManager g_fs_manager;
+static PrivateManager g_private_manager;
 
-class LogManager {
+class SharedManager {
  public:
-  LogManager()
+  SharedManager()
       : is_activated_(false),
         daemon_arg_(Utils::Log::Daemon::arg()),
         log_shm_(std::make_unique<Utils::Log::Shm::Shm>(
           Utils::Log::Shm::MasterType::kNative)) {}
 
-  ~LogManager() {
+  ~SharedManager() {
     deinit();
   }
 
@@ -114,7 +116,7 @@ class LogManager {
   label_free4:
     log_shm_->memory_unmap();
   label_free3:
-    log_shm_->close_shm(log_shm_->is_shm_creator());
+    log_shm_->close_shm();
   label_free2:
     Utils::Log::Shm::GMutex::unlock();
   label_free1:
@@ -131,41 +133,11 @@ class LogManager {
 
     log_shm_->slots_deinit();
     log_shm_->memory_unmap();
-    log_shm_->close_shm(false);
+    log_shm_->close_shm();
 
     Utils::Log::Shm::GMutex::unlock();
 
     Utils::Log::Shm::GMutex::destroy();
-  }
-
-  /**
-   * @note In case of an emergency and when it is not possible to write data to
-   * the shared memory, the operation may revert to writing data "natively".
-   * At this point, it is necessary to ensure that the "native" file descriptor
-   * is valid.
-   */
-  void fs_configure(const sirius_log_fs_t &config, StdType::Put put_type) {
-    if (!StdType::check(put_type)) [[unlikely]]
-      return;
-
-    size_t path_size = 0;
-
-    if (config.log_path) {
-      path_size =
-        utils_string_length_check(config.log_path, Utils::Log::kLogPathMax);
-      if (path_size == 0 || path_size == Utils::Log::kLogPathMax) {
-        utils_dprintf(STDERR_FILENO,
-                      LOG_LEVEL_STR_WARN "%sInvalid argument. `log_path`\n",
-                      Utils::Log::kNative);
-        return;
-      }
-    }
-
-    if (config.shared == SiriusThreadProcess::kSiriusThreadProcessPrivate) {
-      g_fs_manager.fs_configure(config.log_path, path_size, put_type);
-    } else {
-      fs_configure_shared(config.log_path, path_size, put_type);
-    }
   }
 
   void produce_shared(void *src, size_t size) {
@@ -206,6 +178,34 @@ class LogManager {
       is_activated_.load(std::memory_order_relaxed);
   }
 
+  bool fs_configure(const char *log_path, size_t path_size,
+                    StdType::Put put_type) {
+    if (!shared_valid())
+      return false;
+
+    Utils::Log::Shm::Buffer buffer {};
+    auto &data = buffer.data.fs;
+
+    buffer.type = Utils::Log::Shm::DataType::kConfig;
+    buffer.level = put_type == StdType::Put::kOut ? SIRIUS_LOG_LEVEL_DEBUG
+                                                  : SIRIUS_LOG_LEVEL_ERROR;
+
+    if (path_size) {
+      std::memcpy(data.path, log_path, path_size);
+      data.path[path_size] = '\0';
+      path_size += 1;
+      data.state = Utils::Log::Shm::FsState::kFile;
+    } else {
+      data.state = Utils::Log::Shm::FsState::kStd;
+    }
+
+    produce_shared(
+      &buffer,
+      sizeof(Utils::Log::Shm::Buffer) - Utils::Log::kLogPathMax + path_size);
+
+    return true;
+  }
+
  private:
   std::atomic<bool> is_activated_;
   std::string daemon_arg_;
@@ -230,7 +230,7 @@ class LogManager {
                      nullptr, TRUE, 0, nullptr, nullptr, &si, &pi);
     if (!ret) {
       const DWORD dw_err = GetLastError();
-      es = std::format("{}{} -> `CreateProcessA`", Utils::Log::kNative,
+      es = std::format("{0}{1} -> `CreateProcessA`", Utils::Log::kNative,
                        utils_pretty_function);
       utils_win_last_error(dw_err, es.c_str());
       return false;
@@ -250,6 +250,8 @@ class LogManager {
     // --- fork ---
     utils_dprintf(STDERR_FILENO, "Not Yet\n");
 
+    // shm_unlink(Utils::Ns::Shm::generate_name(Utils::Log::kKey).c_str());
+
     return false;
 
     return true;
@@ -260,7 +262,7 @@ class LogManager {
     auto header = log_shm_->header;
 
     int retries = 0;
-    constexpr int kRetryTimes = 400;
+    constexpr int kRetryTimes = 500;
     while (!header->is_daemon_ready.load(std::memory_order_relaxed)) {
       if (retries++ > kRetryTimes) {
         utils_dprintf(STDERR_FILENO,
@@ -281,40 +283,15 @@ class LogManager {
     return true;
   }
 
-  void fs_configure_shared(const char *log_path, size_t path_size,
-                           StdType::Put put_type) {
-    Utils::Log::Shm::Buffer buffer {};
-    auto &data = buffer.data.fs;
-
-    buffer.type = Utils::Log::Shm::DataType::kConfig;
-    buffer.level = put_type == StdType::Put::kOut ? SIRIUS_LOG_LEVEL_DEBUG
-                                                  : SIRIUS_LOG_LEVEL_ERROR;
-
-    if (path_size) {
-      std::memcpy(data.path, log_path, path_size);
-      data.path[path_size] = '\0';
-      path_size += 1;
-      data.state = Utils::Log::Shm::FsState::kFile;
-    } else {
-      data.state = Utils::Log::Shm::FsState::kStd;
-    }
-
-    produce_shared(
-      &buffer,
-      sizeof(Utils::Log::Shm::Buffer) - Utils::Log::kLogPathMax + path_size);
-  }
-
   bool produce_fallback(void *src) {
-    if (log_shm_->header->is_daemon_ready.load(std::memory_order_relaxed) &&
-        is_activated_.load(std::memory_order_relaxed)) [[likely]] {
+    if (shared_valid()) [[likely]]
       return false;
-    }
 
     auto buffer = (Utils::Log::Shm::Buffer *)src;
 
     if (buffer->type == Utils::Log::Shm::DataType::kLog) [[likely]] {
-      g_fs_manager.log_write(buffer->level, (void *)buffer->data.log.buf,
-                             buffer->data.log.buf_size);
+      g_private_manager.log_write(buffer->level, (void *)buffer->data.log.buf,
+                                  buffer->data.log.buf_size);
     }
 
     return true;
@@ -357,51 +334,52 @@ extern "C" bool constructor_foundation_log() {
 extern "C" void destructor_foundation_log() {}
 
 // --- API ---
-static bool g_api_initialization = false;
-static std::mutex g_api_mutex;
-static std::unique_ptr<LogManager> g_log_manager;
-static uint64_t g_try_times = 0;
-static uint64_t g_try_timestamp_ms = 0;
-static constexpr uint64_t kRetryTimeIntervalMilliseconds = 15 * 1000;
+static std::atomic<bool> g_shared_initialization = false;
+static std::mutex g_shared_mutex;
+static uint64_t g_shared_try_times = 0;
+static uint64_t g_shared_try_timestamp_ms = 0;
+static constexpr uint64_t kSharedRetryTimeIntervalMilliseconds = 15 * 1000;
+static std::unique_ptr<SharedManager> g_shared_manager;
 
-static void g_log_manager_deinit(void) {
-  g_log_manager->deinit();
+static void g_shared_log_manager_deinit(void) {
+  g_shared_manager->deinit();
 }
 
-static force_inline bool initialization_check() {
-  if (g_api_initialization)
+static force_inline bool shared_initialization_check() {
+  if (g_shared_initialization.load(std::memory_order_relaxed))
     return true;
 
-  std::lock_guard lock(g_api_mutex);
+  std::lock_guard lock(g_shared_mutex);
 
-  if (g_try_times > 1) {
-    if (Utils::Time::get_monotonic_steady_ms() - g_try_timestamp_ms <
-        kRetryTimeIntervalMilliseconds) {
+  if (g_shared_try_times > 1) {
+    if (Utils::Time::get_monotonic_steady_ms() - g_shared_try_timestamp_ms <
+        kSharedRetryTimeIntervalMilliseconds) {
       return false;
     }
-    g_try_times = 0;
+    g_shared_try_times = 0;
   }
 
-  g_try_times += 1;
-  g_try_timestamp_ms = Utils::Time::get_monotonic_steady_ms();
+  g_shared_try_times += 1;
+  g_shared_try_timestamp_ms = Utils::Time::get_monotonic_steady_ms();
 
-  if (!g_api_initialization) {
-    auto log_manager = std::make_unique<LogManager>();
+  if (!g_shared_initialization.load(std::memory_order_relaxed)) {
+    auto log_manager = std::make_unique<SharedManager>();
 
-    g_api_initialization = log_manager->init();
+    g_shared_initialization.store(log_manager->init(),
+                                  std::memory_order_relaxed);
 
-    if (g_api_initialization) {
-      g_log_manager = std::move(log_manager);
-      std::atexit(g_log_manager_deinit);
+    if (g_shared_initialization.load(std::memory_order_relaxed)) {
+      g_shared_manager = std::move(log_manager);
+      std::atexit(g_shared_log_manager_deinit);
     }
   }
 
-  return g_api_initialization;
+  return g_shared_initialization.load(std::memory_order_relaxed);
 }
 
 #if defined(_WIN32) || defined(_WIN64)
 extern "C" sirius_api int sirius_log_set_daemon_path(const char *path) {
-  if (g_api_initialization) {
+  if (g_shared_initialization) {
     sirius_error("The Daemon has started, it is too late to configure\n");
     return EBUSY;
   }
@@ -414,13 +392,74 @@ extern "C" sirius_api int sirius_log_set_daemon_path(const char *path) {
 }
 #endif
 
+class FsManager {
+ public:
+  std::atomic<bool> out_to_shared = true;
+  std::atomic<bool> err_to_shared = true;
+
+  FsManager() = default;
+
+  ~FsManager() = default;
+
+  /**
+   * @note In case of an emergency and when it is not possible to write data to
+   * the shared memory, the operation may revert to writing data "natively".
+   * At this point, it is necessary to ensure that the "native" file descriptor
+   * is valid.
+   */
+  void fs_configure(const sirius_log_fs_t &config, StdType::Put put_type) {
+    if (!StdType::check(put_type)) [[unlikely]]
+      return;
+
+    size_t path_size = 0;
+
+    if (config.log_path) {
+      path_size =
+        utils_string_length_check(config.log_path, Utils::Log::kLogPathMax);
+      if (path_size == 0 || path_size == Utils::Log::kLogPathMax) {
+        utils_dprintf(STDERR_FILENO,
+                      LOG_LEVEL_STR_WARN "%sInvalid argument. `log_path`\n",
+                      Utils::Log::kNative);
+        return;
+      }
+    }
+
+    auto &to_shared =
+      put_type == StdType::Put::kOut ? out_to_shared : err_to_shared;
+
+    bool to_shared_state;
+    std::function<bool(const char *, size_t, StdType::Put)> fs_configure_fn;
+
+    if (config.shared == SiriusThreadProcess::kSiriusThreadProcessPrivate) {
+      to_shared_state = false;
+      fs_configure_fn = [&](const char *c, size_t s, StdType::Put p) {
+        return g_private_manager.fs_configure(c, s, p);
+      };
+    } else {
+      if (!shared_initialization_check())
+        return;
+
+      to_shared_state = true;
+      fs_configure_fn = [&](const char *c, size_t s, StdType::Put p) {
+        return g_shared_manager->fs_configure(c, s, p);
+      };
+    }
+
+    if (fs_configure_fn(config.log_path, path_size, put_type)) {
+      to_shared.store(to_shared_state, std::memory_order_relaxed);
+    }
+  }
+};
+
+static FsManager g_fs_manager;
+
 extern "C" sirius_api void
 sirius_log_configure(const sirius_log_config_t *config) {
-  if (!initialization_check() || !config)
+  if (!config)
     return;
 
-  g_log_manager->fs_configure(config->out, StdType::Put::kOut);
-  g_log_manager->fs_configure(config->err, StdType::Put::kOut);
+  g_fs_manager.fs_configure(config->out, StdType::Put::kOut);
+  g_fs_manager.fs_configure(config->err, StdType::Put::kErr);
 }
 
 #define ISSUE_ERROR_STANDARD_FUNCTION(function) \
@@ -429,7 +468,7 @@ sirius_log_configure(const sirius_log_config_t *config) {
       "\n" \
       "  The LOG module issues an ERROR\n" \
       "  " function " error\n"; \
-    g_fs_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
+    g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
   } while (0)
 
 #define ISSUE_ERROR_LOG_LOST() \
@@ -438,7 +477,7 @@ sirius_log_configure(const sirius_log_config_t *config) {
       "\n" \
       "  The LOG module issues an ERROR\n" \
       "  Log length exceeds the buffer, log will be lost\n"; \
-    g_fs_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
+    g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
   } while (0)
 
 #define ISSUE_WARNING_LOG_TRUNCATED() \
@@ -447,18 +486,24 @@ sirius_log_configure(const sirius_log_config_t *config) {
       "\n" \
       "  The LOG module issues a WARNING\n" \
       "  Log length exceeds the buffer, log will be truncated\n"; \
-    g_fs_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
+    g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
   } while (0)
 
-static force_inline void log_write(Utils::Log::Shm::Buffer &buffer,
-                                   size_t data_len) {
-  if (initialization_check()) {
-    g_log_manager->produce_shared(
+static inline void log_write(Utils::Log::Shm::Buffer &buffer, size_t data_len) {
+  auto &fs_to_shared = buffer.level <= SIRIUS_LOG_LEVEL_WARN
+    ? g_fs_manager.err_to_shared
+    : g_fs_manager.out_to_shared;
+
+  bool to_shared = fs_to_shared.load(std::memory_order_relaxed) &&
+    shared_initialization_check();
+
+  if (to_shared) {
+    g_shared_manager->produce_shared(
       &buffer,
       sizeof(Utils::Log::Shm::Buffer) - Utils::Log::kLogBufferSize + data_len);
   } else {
-    g_fs_manager.log_write(buffer.level, (void *)buffer.data.log.buf,
-                           buffer.data.log.buf_size);
+    g_private_manager.log_write(buffer.level, (void *)buffer.data.log.buf,
+                                buffer.data.log.buf_size);
   }
 }
 

@@ -35,8 +35,6 @@ class ThreadResourceManager {
       if (thr && !thr->resource_is_free) {
         thr->resource_is_free = true;
 
-        (void)TerminateThread(thr->handle, (DWORD)-1);
-
         sirius_spin_destroy(&thr->spin);
         free(thr);
       }

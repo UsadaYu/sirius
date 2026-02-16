@@ -99,7 +99,7 @@ typedef struct {
   const char *log_path;
 
   /**
-   * @note Not yet.
+   * @note Default: `SiriusThreadProcess::kSiriusThreadProcessShared`.
    */
   enum SiriusThreadProcess shared;
 } sirius_log_fs_t;
