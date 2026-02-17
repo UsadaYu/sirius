@@ -470,7 +470,8 @@ class GMutex {
       return LockErrno::kBusy;
     case ENOTRECOVERABLE:
     default:
-      es = std::format("{} -> `lock_ptr`", utils_pretty_function);
+      es = std::format("{0} -> `lock_ptr` (trylock: {1})",
+                       utils_pretty_function, is_trylock);
       utils_errno_error(ret, es.c_str());
       return LockErrno::kFail;
     }

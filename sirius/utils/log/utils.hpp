@@ -21,6 +21,7 @@ inline constexpr const char *kMutexShmKey = UTILS_LOG_KEY "_shm";
 inline constexpr size_t kLogBufferSize = 4096;
 inline constexpr size_t kLogPathMax = 4096;
 inline constexpr size_t kProcessMax = 128;
+inline constexpr size_t kProcessNbDaemon = 1;
 inline constexpr uint64_t kProcessFeedGuardMilliseconds = 2000;
 inline constexpr uint64_t kProcessGuardTimeoutMilliseconds = 10000;
 inline constexpr uint64_t kShmSlotResetTimeoutMilliseconds = 10000;

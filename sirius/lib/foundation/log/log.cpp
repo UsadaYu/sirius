@@ -14,6 +14,11 @@
 #include "utils/log/daemon.hpp"
 #include "utils/time.hpp"
 
+#if defined(_WIN32) || defined(_WIN64)
+#else
+#  include <sys/wait.h>
+#endif
+
 namespace StdType {
 enum class Put : int {
   kIn = 0,
@@ -37,7 +42,7 @@ class PrivateManager {
  public:
   PrivateManager() : fd_out_(STDOUT_FILENO), fd_err_(STDERR_FILENO) {}
 
-  ~PrivateManager() {}
+  ~PrivateManager() = default;
 
   void log_write(int level, const void *buffer, size_t size) {
     std::lock_guard lock(mutex_);
@@ -247,12 +252,70 @@ class SharedManager {
   }
 #else
   bool start_daemon() {
-    // --- fork ---
-    utils_dprintf(STDERR_FILENO, "Not Yet\n");
+    std::string es;
 
-    // shm_unlink(Utils::Ns::Shm::generate_name(Utils::Log::kKey).c_str());
+    auto errno_error = [&es](int errno_err, const std::string msg = "") {
+      es = std::format("{0}{1} -> {2}", Utils::Log::kNative,
+                       utils_pretty_function, msg);
+      utils_errno_error(errno_err, es.c_str());
+    };
 
-    return false;
+    pid_t pid1 = fork();
+    if (pid1 < 0) {
+      errno_error(errno, "`fork` pid1");
+      return false;
+    }
+
+    if (pid1 == 0) { // Subprocess.
+      pid_t pid2 = fork();
+      if (pid2 < 0) {
+        errno_error(errno, "`fork` pid2");
+        _exit(1);
+      }
+      if (pid2 > 0)
+        _exit(0);
+
+      if (setsid() < 0) {
+        errno_error(errno, "`setsid`");
+        _exit(1);
+      }
+
+      umask(0);
+      if (chdir("/") < 0) {
+        errno_error(errno, "`chdir`");
+        _exit(1);
+      }
+
+#  if 0
+      for (int i = 0; i < 3; ++i) {
+        close(i);
+      }
+
+      int fd = open("/dev/null", O_RDWR);
+      if (fd >= 0) {
+        dup2(fd, 0);
+        dup2(fd, 1);
+        dup2(fd, 2);
+        if (fd > 2)
+          close(fd);
+      }
+#  endif
+
+      auto log_manager =
+        std::make_unique<Utils::Log::Daemon::Daemon::LogManager>();
+      log_manager->main();
+
+      _exit(0);
+    } else { // Parent process.
+      int wstatus;
+      if (waitpid(pid1, &wstatus, 0) < 0) {
+        const int errno_err = errno;
+        if (errno_err != ECHILD) {
+          errno_error(errno_err, "`waitpid`");
+          return false;
+        }
+      }
+    }
 
     return true;
   }

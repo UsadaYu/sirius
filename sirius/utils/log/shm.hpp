@@ -23,8 +23,9 @@ namespace Utils {
 namespace Log {
 namespace Shm {
 enum class MasterType : int {
-  kDaemon = 0,
-  kNative = 1,
+  kNone = 0,
+  kDaemon = 1,
+  kNative = 2,
 };
 
 enum class SlotState : int {
@@ -114,7 +115,7 @@ struct Header {
    * lock.
    */
   size_t attached_count;
-  bool attached_used[Log::kProcessMax];
+  enum MasterType attached_master_type[Log::kProcessMax];
   AttachedMap attached_maps[Log::kProcessMax];
 
   std::atomic<uint64_t> write_index;
@@ -189,7 +190,7 @@ class Shm {
         master_(nullptr) {
   }
 
-  ~Shm() {}
+  ~Shm() = default;
 
 // --- Shared Memory ---
 #if defined(_WIN32) || defined(_WIN64)
@@ -357,36 +358,6 @@ class Shm {
   }
 #endif
 
-  // --- LockGuard ---
-  class LockGuard {
-   public:
-    explicit LockGuard(Process::GMutex &mutex)
-        : mutex_(mutex), lock_ret_(false) {
-      auto ret = mutex_.lock();
-      if (ret == Process::LockErrno::kSuccess ||
-          ret == Process::LockErrno::kOwnerDead) {
-        lock_ret_ = true;
-      }
-    }
-
-    ~LockGuard() {
-      if (lock_ret_) {
-        mutex_.unlock();
-      }
-    }
-
-    LockGuard(const LockGuard &) = delete;
-    LockGuard &operator=(const LockGuard &) = delete;
-
-   private:
-    Process::GMutex &mutex_;
-    bool lock_ret_;
-  };
-
-  LockGuard lock_guard() {
-    return LockGuard(shm_mutex_);
-  }
-
   void slots_deinit() {
     if (master_) {
       master_->slot_free();
@@ -418,7 +389,7 @@ class Shm {
     header->is_daemon_ready.store(false);
     header->attached_count = 0;
     for (size_t i = 0; i < Log::kProcessMax; ++i) {
-      header->attached_used[i] = false;
+      header->attached_master_type[i] = MasterType::kNone;
     }
     header->write_index.store(0);
     header->read_index.store(0);
@@ -435,6 +406,38 @@ class Shm {
 
   bool is_shm_creator() const {
     return is_shm_creator_;
+  }
+
+ private:
+  // --- LockGuard ---
+  class LockGuard {
+   public:
+    explicit LockGuard(Process::GMutex &mutex)
+        : mutex_(mutex), lock_ret_(false) {
+      auto ret = mutex_.lock();
+      if (ret == Process::LockErrno::kSuccess ||
+          ret == Process::LockErrno::kOwnerDead) {
+        lock_ret_ = true;
+      }
+    }
+
+    ~LockGuard() {
+      if (lock_ret_) {
+        mutex_.unlock();
+      }
+    }
+
+    LockGuard(const LockGuard &) = delete;
+    LockGuard &operator=(const LockGuard &) = delete;
+
+   private:
+    Process::GMutex &mutex_;
+    bool lock_ret_;
+  };
+
+ public:
+  LockGuard lock_guard() {
+    return LockGuard(shm_mutex_);
   }
 
  private:
@@ -462,20 +465,19 @@ class Shm {
     return get_shm_header_offset() + (Log::kShmCapacity * sizeof(Slot));
   }
 
+  // --- Master ---
   class Master {
    public:
     Master(Shm &parent, MasterType master_type)
         : parent_(parent), master_type_(master_type), header_(parent.header) {}
 
-    ~Master() {}
+    ~Master() = default;
 
     void slot_free() {
       switch (master_type_) {
       case MasterType::kDaemon:
-        return daemon_slot_free();
       case MasterType::kNative:
-        return native_slot_free();
-        break;
+        return T_slot_free();
       default:
         return;
       }
@@ -498,8 +500,24 @@ class Shm {
     Header *&header_;
     std::jthread thread_guard_;
 
-    bool attached_check(size_t index) {
-      return (header_->attached_used[index] &&
+    std::string master_string() const {
+      if (master_type_ == MasterType::kDaemon) {
+        static std::string string =
+          std::format("{0}[PID {1}] ", Log::kDaemon, Process::pid());
+        return string;
+      } else if (master_type_ == MasterType::kNative) {
+        static std::string string =
+          std::format("{0}[PID {1}] ", Log::kNative, Process::pid());
+        return string;
+      } else {
+        static std::string string =
+          std::format("{0}[PID {1}] ", Log::kCommon, Process::pid());
+        return string;
+      }
+    }
+
+    bool attached_check(size_t index) const {
+      return (header_->attached_master_type[index] == master_type_ &&
               header_->attached_maps[index].pid == Process::pid());
     }
 
@@ -511,31 +529,76 @@ class Shm {
         header_->attached_count ? header_->attached_count - 1 : 0;
     }
 
-    void daemon_slot_free() {
+    void attached_free() {
+      parent_.lock_guard();
+
+      for (size_t i = 0; i < Log::kProcessMax; ++i) {
+        if (attached_check(i)) {
+          std::memset(header_->attached_maps + i, 0, sizeof(AttachedMap));
+          header_->attached_master_type[i] = MasterType::kNone;
+          attached_count_sub1();
+          break;
+        }
+        if (i == Log::kProcessMax - 1) {
+          utils_dprintf(STDERR_FILENO,
+                        LOG_LEVEL_STR_WARN "%sNo valid pid was matched\n",
+                        master_string().c_str());
+        }
+      }
+    }
+
+    bool attached_alloc() {
+      parent_.lock_guard();
+
+      for (size_t i = 0; i < Log::kProcessMax; ++i) {
+        if (header_->attached_master_type[i] == MasterType::kNone) {
+          ++header_->attached_count;
+          header_->attached_master_type[i] = master_type_;
+          header_->attached_maps[i].pid = Process::pid();
+          header_->attached_maps[i].timestamp_ms =
+            Time::get_monotonic_steady_ms();
+          break;
+        }
+        if (i == Log::kProcessMax - 1) {
+          utils_dprintf(STDERR_FILENO,
+                        LOG_LEVEL_STR_ERROR
+                        "%sCache full. Too many processes\n",
+                        master_string().c_str());
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    void T_slot_free() {
       thread_guard_.request_stop();
       if (thread_guard_.joinable()) {
         thread_guard_.join();
       }
 
-      utils_dprintf(STDOUT_FILENO,
-                    LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot free\n",
-                    Log::kDaemon, (uint64_t)Process::pid());
+      attached_free();
+
+      utils_dprintf(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sSlot free\n",
+                    master_string().c_str());
     }
 
     bool daemon_slot_alloc() {
       if (header_->is_daemon_ready.load(std::memory_order_relaxed)) {
         utils_dprintf(STDOUT_FILENO,
                       LOG_LEVEL_STR_WARN "%sAnother daemon already exists\n",
-                      Log::kDaemon);
+                      master_string().c_str());
         return false;
       }
+
+      if (!attached_alloc())
+        return false;
 
       thread_guard_ =
         std::jthread(std::bind_front(&Shm::Master::daemon_thread_guard, this));
 
-      utils_dprintf(STDOUT_FILENO,
-                    LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot alloc\n",
-                    Log::kDaemon, (uint64_t)Process::pid());
+      utils_dprintf(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sSlot alloc\n",
+                    master_string().c_str());
 
       return true;
     }
@@ -558,79 +621,30 @@ class Shm {
           parent_.lock_guard();
 
           for (size_t i = 0; i < Log::kProcessMax; ++i) {
-            if (!header_->attached_used[i])
+            if (header_->attached_master_type[i] != MasterType::kNative) {
               continue;
+            }
 
-            AttachedMap *am = header_->attached_maps + i;
-            if (timestamp_ms - am->timestamp_ms <
+            AttachedMap *attached_map = header_->attached_maps + i;
+            if (timestamp_ms - attached_map->timestamp_ms <
                 Log::kProcessGuardTimeoutMilliseconds) [[likely]] {
               continue;
             }
 
-            std::memset(am, 0, sizeof(AttachedMap));
-            header_->attached_used[i] = false;
+            std::memset(attached_map, 0, sizeof(AttachedMap));
+            header_->attached_master_type[i] = MasterType::kNone;
             attached_count_sub1();
           }
 
-          if (header_->attached_count == 0)
+          if (header_->attached_count == Log::kProcessNbDaemon)
             break;
         }
       }
-    }
-
-    void native_slot_free() {
-      thread_guard_.request_stop();
-      if (thread_guard_.joinable()) {
-        thread_guard_.join();
-      }
-
-      {
-        parent_.lock_guard();
-
-        for (size_t i = 0; i < Log::kProcessMax; ++i) {
-          auto *am = header_->attached_maps + i;
-          if (header_->attached_used[i] && am->pid == Process::pid()) {
-            std::memset(am, 0, sizeof(AttachedMap));
-            header_->attached_used[i] = false;
-            attached_count_sub1();
-            break;
-          }
-          if (i == Log::kProcessMax - 1) {
-            utils_dprintf(STDERR_FILENO,
-                          LOG_LEVEL_STR_WARN "%sPID: %" PRIu64
-                                             ". No valid pid was matched\n",
-                          Log::kNative, (uint64_t)Process::pid());
-          }
-        }
-      }
-
-      utils_dprintf(STDOUT_FILENO,
-                    LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot free\n",
-                    Log::kNative, (uint64_t)Process::pid());
     }
 
     bool native_slot_alloc() {
-      {
-        parent_.lock_guard();
-
-        for (size_t i = 0; i < Log::kProcessMax; ++i) {
-          if (!header_->attached_used[i]) {
-            ++header_->attached_count;
-            header_->attached_used[i] = true;
-            header_->attached_maps[i].pid = Process::pid();
-            header_->attached_maps[i].timestamp_ms =
-              Time::get_monotonic_steady_ms();
-            break;
-          }
-          if (i == Log::kProcessMax - 1) {
-            utils_dprintf(STDERR_FILENO,
-                          LOG_LEVEL_STR_ERROR
-                          "%sCache full. Too many processes\n",
-                          Log::kNative);
-            return false;
-          }
-        }
-      }
+      if (!attached_alloc())
+        return false;
 
       std::promise<void> promise_guard;
       std::future<void> future_guard = promise_guard.get_future();
@@ -640,16 +654,15 @@ class Shm {
       });
       auto wait_ret = future_guard.wait_for(std::chrono::milliseconds(500));
       if (wait_ret != std::future_status::ready) {
-        native_slot_free();
+        T_slot_free();
         utils_dprintf(STDOUT_FILENO,
                       LOG_LEVEL_STR_ERROR "%sFail to start `thread_guard`\n",
-                      Log::kNative);
+                      master_string().c_str());
         return false;
       }
 
-      utils_dprintf(STDOUT_FILENO,
-                    LOG_LEVEL_STR_INFO "%sPID: %" PRIu64 ". Slot alloc\n",
-                    Log::kNative, (uint64_t)Process::pid());
+      utils_dprintf(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sSlot alloc\n",
+                    master_string().c_str());
 
       return true;
     }
@@ -664,9 +677,8 @@ class Shm {
         while (!attached_check(index)) {
           if (index == Log::kProcessMax - 1) {
             utils_dprintf(STDERR_FILENO,
-                          LOG_LEVEL_STR_WARN "%sPID: %" PRIu64
-                                             ". No valid pid was matched\n",
-                          Log::kNative, (uint64_t)Process::pid());
+                          LOG_LEVEL_STR_WARN "%sNo valid pid was matched\n",
+                          master_string().c_str());
             return;
           }
           ++index;
@@ -694,9 +706,9 @@ class Shm {
             header_->attached_maps[index].timestamp_ms = timestamp_ms;
           } else {
             utils_dprintf(STDERR_FILENO,
-                          LOG_LEVEL_STR_WARN "%sInvalid argument. Pid: %" PRIu64
-                                             ". `attached` thread exit\n",
-                          Log::kNative, (uint64_t)Process::pid());
+                          LOG_LEVEL_STR_WARN
+                          "%sInvalid argument. `attached` thread exit\n",
+                          master_string().c_str());
             return;
           }
         }

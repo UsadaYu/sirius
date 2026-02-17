@@ -50,7 +50,7 @@ class LogManager {
     fd_err_ = STDERR_FILENO;
   }
 
-  ~LogManager() {}
+  ~LogManager() = default;
 
   bool main() {
     bool ret = false;
@@ -122,7 +122,7 @@ class LogManager {
       {
         log_shm_->lock_guard();
 
-        if (header->attached_count == 0) [[unlikely]] {
+        if (header->attached_count == Log::kProcessNbDaemon) [[unlikely]] {
           header->magic = 0;
           header->is_daemon_ready.store(false, std::memory_order_relaxed);
           break;
