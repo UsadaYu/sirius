@@ -170,7 +170,7 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue) {
  * @param[in] mutex Mutex handle.
  * @param[in] cond Condition handle.
  */
-#define QUEUE_T(ret, type, mutex, cond) \
+#define T_QUEUE(ret, type, mutex, cond) \
   do { \
     ret = 0; \
     switch (type) { \
@@ -208,7 +208,7 @@ sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
   }
 #define G QUEUE_WAIT(ret, queue->cond_non_empty, queue, 0, milliseconds)
 
-  QUEUE_T(ret, queue->type, queue->mutex, queue->cond_non_full);
+  T_QUEUE(ret, queue->type, queue->mutex, queue->cond_non_full);
 
   return ret;
 
@@ -236,7 +236,7 @@ sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
 #define G \
   QUEUE_WAIT(ret, queue->cond_non_full, queue, queue->capacity, milliseconds)
 
-  QUEUE_T(ret, queue->type, queue->mutex, queue->cond_non_empty);
+  T_QUEUE(ret, queue->type, queue->mutex, queue->cond_non_empty);
 
   return ret;
 

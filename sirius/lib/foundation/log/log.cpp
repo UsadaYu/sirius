@@ -106,7 +106,7 @@ class SharedManager {
 
     Utils::Log::Shm::GMutex::unlock();
 
-    if (log_shm_->is_shm_creator() && !start_daemon())
+    if (log_shm_->is_shm_creator() && !spawn_daemon())
       goto label_free5;
     if (!wait_for_daemon())
       goto label_free5;
@@ -217,7 +217,7 @@ class SharedManager {
   std::unique_ptr<Utils::Log::Shm::Shm> log_shm_;
 
 #if defined(_WIN32) || defined(_WIN64)
-  bool start_daemon() {
+  bool spawn_daemon() {
     std::string es;
 
     auto daemon_exe = Utils::Log::Daemon::Exe::path();
@@ -251,7 +251,20 @@ class SharedManager {
     return true;
   }
 #else
-  bool start_daemon() {
+  /**
+   * @note The `fork` function will copy a large amount of `VIRT`, but the `RSS`
+   * remains small, so this is not a major issue.
+   * The main issue lies in the fact that in a multi-threaded environment, it
+   * may lead to fatal problems such as `deadlocks` and `C++ destructors`
+   * errors, so here synchronize Windows, using `Helper Binary` way.
+   */
+  bool spawn_daemon() {
+    return false;
+
+    return true;
+  }
+
+  [[deprecated]] bool deprecated_spawn_daemon() {
     std::string es;
 
     auto errno_error = [&es](int errno_err, const std::string msg = "") {
@@ -266,48 +279,12 @@ class SharedManager {
       return false;
     }
 
-    if (pid1 == 0) { // Subprocess.
-      pid_t pid2 = fork();
-      if (pid2 < 0) {
-        errno_error(errno, "`fork` pid2");
-        _exit(1);
-      }
-      if (pid2 > 0)
-        _exit(0);
+    constexpr int kNormalExitStatus = 0;
 
-      if (setsid() < 0) {
-        errno_error(errno, "`setsid`");
-        _exit(1);
-      }
-
-      umask(0);
-      if (chdir("/") < 0) {
-        errno_error(errno, "`chdir`");
-        _exit(1);
-      }
-
-#  if 0
-      for (int i = 0; i < 3; ++i) {
-        close(i);
-      }
-
-      int fd = open("/dev/null", O_RDWR);
-      if (fd >= 0) {
-        dup2(fd, 0);
-        dup2(fd, 1);
-        dup2(fd, 2);
-        if (fd > 2)
-          close(fd);
-      }
-#  endif
-
-      auto log_manager =
-        std::make_unique<Utils::Log::Daemon::Daemon::LogManager>();
-      log_manager->main();
-
-      _exit(0);
-    } else { // Parent process.
+    // --- Parent Process ---
+    if (pid1 > 0) {
       int wstatus;
+
       if (waitpid(pid1, &wstatus, 0) < 0) {
         const int errno_err = errno;
         if (errno_err != ECHILD) {
@@ -315,8 +292,67 @@ class SharedManager {
           return false;
         }
       }
+
+      if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus) != kNormalExitStatus) {
+        utils_dprintf(STDERR_FILENO,
+                      LOG_LEVEL_STR_ERROR
+                      "%sFailed to initialize. wstatus: %d\n",
+                      Utils::Log::kNative, wstatus);
+        return false;
+      }
+
+      return true;
     }
 
+    // --- Subprocess ---
+    /**
+     * @note Here, the `_exit` function is used instead of `exit` to prevent
+     * tools like ASAN from reporting memory leak issues for the daemon process.
+     */
+
+    if (setsid() < 0) {
+      errno_error(errno, "`setsid`");
+      _exit(kNormalExitStatus + 1);
+    }
+
+    pid_t pid2 = fork();
+    if (pid2 < 0) {
+      errno_error(errno, "`fork` pid2");
+      _exit(kNormalExitStatus + 2);
+    }
+    if (pid2 > 0) {
+      _exit(kNormalExitStatus);
+    }
+
+    umask(0);
+    if (chdir("/") < 0) {
+      errno_error(errno, "`chdir`");
+      _exit(1);
+    }
+
+#  if 0
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+
+    int fd = open("/dev/null", O_RDWR);
+    if (fd >= 0) {
+      dup2(fd, STDIN_FILENO);
+      dup2(fd, STDOUT_FILENO);
+      dup2(fd, STDERR_FILENO);
+      if (fd > 2) {
+        close(fd);
+      }
+    }
+#  endif
+
+    {
+      auto log_manager =
+        std::make_unique<Utils::Log::Daemon::Daemon::LogManager>();
+      log_manager->main();
+    }
+
+    _exit(0);
     return true;
   }
 #endif

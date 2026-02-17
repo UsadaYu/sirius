@@ -389,11 +389,11 @@ class GMutex {
   }
 
   LockErrno lock() {
-    return lock_impl(false);
+    return T_lock(false);
   }
 
   LockErrno trylock() {
-    return lock_impl(true);
+    return T_lock(true);
   }
 
   bool unlock() {
@@ -430,7 +430,7 @@ class GMutex {
   pthread_mutex_t *mutex_;
 #endif
 
-  LockErrno lock_impl(bool is_trylock = false) {
+  LockErrno T_lock(bool is_trylock = false) {
     std::string es;
 
 #if defined(_WIN32) || defined(_WIN64)

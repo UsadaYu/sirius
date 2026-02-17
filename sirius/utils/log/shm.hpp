@@ -10,18 +10,17 @@
 #endif
 
 #include <functional>
-#include <future>
 #include <thread>
 
+namespace Utils {
+namespace Log {
+namespace Shm {
 /**
  * @note The use of `std::hardware_destructive_interference_size` is waived
  * here.
  */
 inline constexpr size_t kShmCacheLineSize = 64;
 
-namespace Utils {
-namespace Log {
-namespace Shm {
 enum class MasterType : int {
   kNone = 0,
   kDaemon = 1,
@@ -132,20 +131,20 @@ struct Header {
 
 namespace GMutex {
 #if defined(_WIN32) || defined(_WIN64)
-#  define MUTEX_TYPE Process::GMutex
+#  define MUTEX_TYPE_ Process::GMutex
 #else
-#  define MUTEX_TYPE Process::FMutex
+#  define MUTEX_TYPE_ Process::FMutex
 #endif
 
-static MUTEX_TYPE *process_mutex_ = nullptr;
+static MUTEX_TYPE_ *process_mutex_ = nullptr;
 
 static inline bool create() {
-  process_mutex_ = new MUTEX_TYPE(Log::kMutexProcessKey);
+  process_mutex_ = new MUTEX_TYPE_(Log::kMutexProcessKey);
 
   return process_mutex_->valid();
 }
 
-#undef MUTEX_TYPE
+#undef MUTEX_TYPE_
 
 static inline void destroy() {
   delete process_mutex_;
@@ -209,7 +208,8 @@ class Shm {
     if (shm_handle_) {
       is_shm_creator_ = dw_err == ERROR_ALREADY_EXISTS ? false : true;
     } else {
-      es = std::format("{} -> `CreateFileMappingA`", utils_pretty_function);
+      es = std::format("{0}\n  {1} -> `CreateFileMappingA`", master_string(),
+                       utils_pretty_function);
       utils_win_last_error(dw_err, es.c_str());
       return false;
     }
@@ -233,7 +233,8 @@ class Shm {
       MapViewOfFile(shm_handle_, FILE_MAP_ALL_ACCESS, 0, 0, mapped_size_);
     if (!ptr) {
       const DWORD dw_err = GetLastError();
-      es = std::format("{} -> `MapViewOfFile`", utils_pretty_function);
+      es = std::format("{0}\n  {1} -> `MapViewOfFile`", master_string(),
+                       utils_pretty_function);
       utils_win_last_error(dw_err, es.c_str());
       return false;
     }
@@ -273,7 +274,8 @@ class Shm {
       is_shm_creator_ = true;
       if (ftruncate(shm_fd_, size_needed) == -1) {
         errno_err = errno;
-        es = std::format("{} -> `ftruncate`", utils_pretty_function);
+        es = std::format("{0}\n  {1} -> `ftruncate`", master_string(),
+                         utils_pretty_function);
         utils_errno_error(errno_err, es.c_str());
         shm_unlink(shm_name_.c_str());
         close(shm_fd_);
@@ -284,12 +286,14 @@ class Shm {
       shm_fd_ = shm_open(shm_name_.c_str(), O_RDWR, 0);
       if (shm_fd_ < 0) {
         errno_err = errno;
-        es = std::format("{} -> `shm_open` attach", utils_pretty_function);
+        es = std::format("{0}\n  {1} -> `shm_open` attach", master_string(),
+                         utils_pretty_function);
         utils_errno_error(errno_err, es.c_str());
         return false;
       }
     } else {
-      es = std::format("{} -> `shm_open` open", utils_pretty_function);
+      es = std::format("{0}\n  {1} -> `shm_open` open", master_string(),
+                       utils_pretty_function);
       utils_errno_error(errno_err, es.c_str());
       return false;
     }
@@ -308,7 +312,7 @@ class Shm {
     if (destructor_counter_ == 0) {
       utils_dprintf(STDOUT_FILENO,
                     LOG_LEVEL_STR_INFO "%sUnlink the share memory\n",
-                    Log::kCommon);
+                    master_string().c_str());
       shm_unlink(shm_name_.c_str());
     }
   }
@@ -320,7 +324,8 @@ class Shm {
                      shm_fd_, 0);
     if (ptr == MAP_FAILED) {
       const int errno_err = errno;
-      es = std::format("{} -> `mmap`", utils_pretty_function);
+      es = std::format("{0}\n  {1} -> `mmap`", master_string(),
+                       utils_pretty_function);
       utils_errno_error(errno_err, es.c_str());
       return false;
     }
@@ -379,7 +384,7 @@ class Shm {
       if (header->magic != Header::Header::kMagic) {
         utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_ERROR "%sInvalid argument. `magic`: %u\n",
-                      Log::kCommon, header->magic);
+                      master_string().c_str(), header->magic);
         return false;
       }
 
@@ -453,6 +458,22 @@ class Shm {
   std::string shm_name_;
   size_t mapped_size_;
 
+  std::string master_string() const {
+    if (master_type_ == MasterType::kDaemon) {
+      static std::string string =
+        std::format("{0}[PID {1}] ", Log::kDaemon, Process::pid());
+      return string;
+    } else if (master_type_ == MasterType::kNative) {
+      static std::string string =
+        std::format("{0}[PID {1}] ", Log::kNative, Process::pid());
+      return string;
+    } else {
+      static std::string string =
+        std::format("{0}[PID {1}] ", Log::kCommon, Process::pid());
+      return string;
+    }
+  }
+
   size_t get_shm_header_offset() const {
     size_t header_size = sizeof(Header);
     size_t header_aligned =
@@ -469,12 +490,12 @@ class Shm {
   class Master {
    public:
     Master(Shm &parent, MasterType master_type)
-        : parent_(parent), master_type_(master_type), header_(parent.header) {}
+        : parent_(parent), header_(parent.header), thread_guard_ready_(false) {}
 
     ~Master() = default;
 
     void slot_free() {
-      switch (master_type_) {
+      switch (parent_.master_type_) {
       case MasterType::kDaemon:
       case MasterType::kNative:
         return T_slot_free();
@@ -484,7 +505,7 @@ class Shm {
     }
 
     bool slot_alloc() {
-      switch (master_type_) {
+      switch (parent_.master_type_) {
       case MasterType::kDaemon:
         return daemon_slot_alloc();
       case MasterType::kNative:
@@ -496,28 +517,12 @@ class Shm {
 
    private:
     Shm &parent_;
-    MasterType master_type_;
     Header *&header_;
     std::jthread thread_guard_;
-
-    std::string master_string() const {
-      if (master_type_ == MasterType::kDaemon) {
-        static std::string string =
-          std::format("{0}[PID {1}] ", Log::kDaemon, Process::pid());
-        return string;
-      } else if (master_type_ == MasterType::kNative) {
-        static std::string string =
-          std::format("{0}[PID {1}] ", Log::kNative, Process::pid());
-        return string;
-      } else {
-        static std::string string =
-          std::format("{0}[PID {1}] ", Log::kCommon, Process::pid());
-        return string;
-      }
-    }
+    std::atomic<bool> thread_guard_ready_;
 
     bool attached_check(size_t index) const {
-      return (header_->attached_master_type[index] == master_type_ &&
+      return (header_->attached_master_type[index] == parent_.master_type_ &&
               header_->attached_maps[index].pid == Process::pid());
     }
 
@@ -542,7 +547,7 @@ class Shm {
         if (i == Log::kProcessMax - 1) {
           utils_dprintf(STDERR_FILENO,
                         LOG_LEVEL_STR_WARN "%sNo valid pid was matched\n",
-                        master_string().c_str());
+                        parent_.master_string().c_str());
         }
       }
     }
@@ -553,7 +558,7 @@ class Shm {
       for (size_t i = 0; i < Log::kProcessMax; ++i) {
         if (header_->attached_master_type[i] == MasterType::kNone) {
           ++header_->attached_count;
-          header_->attached_master_type[i] = master_type_;
+          header_->attached_master_type[i] = parent_.master_type_;
           header_->attached_maps[i].pid = Process::pid();
           header_->attached_maps[i].timestamp_ms =
             Time::get_monotonic_steady_ms();
@@ -563,7 +568,7 @@ class Shm {
           utils_dprintf(STDERR_FILENO,
                         LOG_LEVEL_STR_ERROR
                         "%sCache full. Too many processes\n",
-                        master_string().c_str());
+                        parent_.master_string().c_str());
           return false;
         }
       }
@@ -580,14 +585,14 @@ class Shm {
       attached_free();
 
       utils_dprintf(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sSlot free\n",
-                    master_string().c_str());
+                    parent_.master_string().c_str());
     }
 
     bool daemon_slot_alloc() {
       if (header_->is_daemon_ready.load(std::memory_order_relaxed)) {
         utils_dprintf(STDOUT_FILENO,
                       LOG_LEVEL_STR_WARN "%sAnother daemon already exists\n",
-                      master_string().c_str());
+                      parent_.master_string().c_str());
         return false;
       }
 
@@ -598,7 +603,7 @@ class Shm {
         std::jthread(std::bind_front(&Shm::Master::daemon_thread_guard, this));
 
       utils_dprintf(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sSlot alloc\n",
-                    master_string().c_str());
+                    parent_.master_string().c_str());
 
       return true;
     }
@@ -646,29 +651,29 @@ class Shm {
       if (!attached_alloc())
         return false;
 
-      std::promise<void> promise_guard;
-      std::future<void> future_guard = promise_guard.get_future();
-      thread_guard_ = std::jthread([this, promise = std::move(promise_guard)](
-                                     std::stop_token stop_token) mutable {
-        native_thread_guard(stop_token, std::move(promise));
-      });
-      auto wait_ret = future_guard.wait_for(std::chrono::milliseconds(500));
-      if (wait_ret != std::future_status::ready) {
-        T_slot_free();
-        utils_dprintf(STDOUT_FILENO,
-                      LOG_LEVEL_STR_ERROR "%sFail to start `thread_guard`\n",
-                      master_string().c_str());
-        return false;
+      thread_guard_ =
+        std::jthread(std::bind_front(&Shm::Master::native_thread_guard, this));
+      constexpr int kRetryTimes = 10;
+      for (int i = 0; i < kRetryTimes; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        if (thread_guard_ready_.load(std::memory_order_relaxed))
+          break;
+        if (i == kRetryTimes - 1) {
+          T_slot_free();
+          utils_dprintf(STDOUT_FILENO,
+                        LOG_LEVEL_STR_ERROR "%sFail to start `thread_guard`\n",
+                        parent_.master_string().c_str());
+          return false;
+        }
       }
 
       utils_dprintf(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sSlot alloc\n",
-                    master_string().c_str());
+                    parent_.master_string().c_str());
 
       return true;
     }
 
-    void native_thread_guard(std::stop_token stop_token,
-                             std::promise<void> promise) {
+    void native_thread_guard(std::stop_token stop_token) {
       size_t index = 0;
 
       {
@@ -678,7 +683,7 @@ class Shm {
           if (index == Log::kProcessMax - 1) {
             utils_dprintf(STDERR_FILENO,
                           LOG_LEVEL_STR_WARN "%sNo valid pid was matched\n",
-                          master_string().c_str());
+                          parent_.master_string().c_str());
             return;
           }
           ++index;
@@ -694,7 +699,7 @@ class Shm {
       int splits = Log::kProcessFeedGuardMilliseconds / kOnceSleepMs;
       splits = UTILS_MAX(1, splits);
 
-      promise.set_value();
+      thread_guard_ready_.store(true, std::memory_order_relaxed);
 
       while (!stop_token.stop_requested()) {
         uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
@@ -708,7 +713,7 @@ class Shm {
             utils_dprintf(STDERR_FILENO,
                           LOG_LEVEL_STR_WARN
                           "%sInvalid argument. `attached` thread exit\n",
-                          master_string().c_str());
+                          parent_.master_string().c_str());
             return;
           }
         }

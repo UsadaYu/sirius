@@ -2,7 +2,10 @@
 
 #include "utils/utils.h"
 
-// --- stdout / stderr ---
+// --- stdin / stdout / stderr ---
+#ifndef STDIN_FILENO
+#  define STDIN_FILENO (0)
+#endif
 #ifndef STDOUT_FILENO
 #  define STDOUT_FILENO (1)
 #endif
