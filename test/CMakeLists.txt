@@ -9,6 +9,13 @@ include(CheckCompilerFlag)
 set(TEST_ENV "")
 set(TEST_ENV_MODIFICATION "")
 
+set(var "")
+
+set(var "${SIRIUS_EXE_DAEMON_NAME}")
+list(APPEND TEST_ENV "SIRIUS_ENV_EXE_DAEMON_PATH=$<TARGET_FILE:${var}>")
+
+unset(var)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   set(var "")
 
@@ -26,9 +33,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     list(APPEND TEST_ENV_MODIFICATION
          "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
   endif()
-
-  set(var "${SIRIUS_EXE_DAEMON_NAME}")
-  list(APPEND TEST_ENV "SIRIUS_ENV_EXE_DAEMON_PATH=$<TARGET_FILE:${var}>")
 
   unset(var)
 endif()

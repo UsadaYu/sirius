@@ -83,8 +83,7 @@ static PrivateManager g_private_manager;
 class SharedManager {
  public:
   SharedManager()
-      : is_activated_(false),
-        daemon_arg_(Utils::Log::Daemon::arg()),
+      : is_initialization_(false),
         log_shm_(std::make_unique<Utils::Log::Shm::Shm>(
           Utils::Log::Shm::MasterType::kNative)) {}
 
@@ -92,53 +91,50 @@ class SharedManager {
     deinit();
   }
 
-  bool init() {
+  [[nodiscard]] bool init() {
+    if (is_initialization_.exchange(true, std::memory_order_relaxed)) {
+      return false;
+    }
+
     if (!Utils::Log::Shm::GMutex::create())
       return false;
     if (!Utils::Log::Shm::GMutex::lock())
       goto label_free1;
-    if (!log_shm_->open_shm())
+    if (!log_shm_->init())
       goto label_free2;
-    if (!log_shm_->memory_map())
-      goto label_free3;
-    if (!log_shm_->slots_init())
-      goto label_free4;
 
     Utils::Log::Shm::GMutex::unlock();
 
     if (log_shm_->is_shm_creator() && !spawn_daemon())
-      goto label_free5;
+      goto label_free3;
     if (!wait_for_daemon())
-      goto label_free5;
+      goto label_free3;
 
-    is_activated_.store(true, std::memory_order_relaxed);
+    is_initialization_.store(true, std::memory_order_relaxed);
 
     return true;
 
-  label_free5:
-    Utils::Log::Shm::GMutex::lock();
-    log_shm_->slots_deinit();
-  label_free4:
-    log_shm_->memory_unmap();
   label_free3:
-    log_shm_->close_shm();
+    Utils::Log::Shm::GMutex::lock();
+    log_shm_->deinit();
   label_free2:
     Utils::Log::Shm::GMutex::unlock();
   label_free1:
     Utils::Log::Shm::GMutex::destroy();
 
+    is_initialization_.store(false, std::memory_order_relaxed);
+
     return false;
   }
 
   void deinit() {
-    if (!is_activated_.exchange(false, std::memory_order_relaxed))
+    if (!is_initialization_.exchange(false, std::memory_order_relaxed)) {
       return;
+    }
 
     Utils::Log::Shm::GMutex::lock();
 
-    log_shm_->slots_deinit();
-    log_shm_->memory_unmap();
-    log_shm_->close_shm();
+    log_shm_->deinit();
 
     Utils::Log::Shm::GMutex::unlock();
 
@@ -168,10 +164,10 @@ class SharedManager {
 
     slot.state.store(Utils::Log::Shm::SlotState::kWaiting,
                      std::memory_order_release);
-
     slot.timestamp_ms.store(Utils::Time::get_monotonic_steady_ms(),
                             std::memory_order_relaxed);
 
+    slot.pid = Utils::Process::pid();
     std::memcpy(&slot.buffer, src, size);
 
     slot.state.store(Utils::Log::Shm::SlotState::kReady,
@@ -180,7 +176,7 @@ class SharedManager {
 
   bool shared_valid() const {
     return log_shm_->header->is_daemon_ready.load(std::memory_order_relaxed) &&
-      is_activated_.load(std::memory_order_relaxed);
+      is_initialization_.load(std::memory_order_relaxed);
   }
 
   bool fs_configure(const char *log_path, size_t path_size,
@@ -212,27 +208,34 @@ class SharedManager {
   }
 
  private:
-  std::atomic<bool> is_activated_;
-  std::string daemon_arg_;
+  std::atomic<bool> is_initialization_;
   std::unique_ptr<Utils::Log::Shm::Shm> log_shm_;
 
 #if defined(_WIN32) || defined(_WIN64)
   bool spawn_daemon() {
     std::string es;
 
-    auto daemon_exe = Utils::Log::Daemon::Exe::path();
+    auto daemon_exe = Utils::Log::Daemon::exe_instance.get_path();
     if (daemon_exe.empty())
       return false;
 
-    std::string cmd_line = Utils::Log::Daemon::arg();
+    std::string cmd_line = "\"" + daemon_exe.string() + "\" ";
+
+    for (const auto &cmd : Utils::Log::Daemon::args_instance.arg_spawn_cmds()) {
+      cmd_line += "\"" + cmd + "\" ";
+    }
 
     STARTUPINFOA si {};
     si.cb = sizeof(STARTUPINFOA);
     PROCESS_INFORMATION pi {};
 
-    BOOL ret =
-      CreateProcessA(daemon_exe.string().c_str(), cmd_line.data(), nullptr,
-                     nullptr, TRUE, 0, nullptr, nullptr, &si, &pi);
+    utils_dprintf(STDOUT_FILENO,
+                  LOG_LEVEL_STR_INFO "%sTry to start the daemon\n",
+                  Utils::Log::kNative);
+
+    BOOL ret = CreateProcessA(nullptr, cmd_line.data(), nullptr, nullptr, TRUE,
+                              DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+                              nullptr, nullptr, &si, &pi);
     if (!ret) {
       const DWORD dw_err = GetLastError();
       es = std::format("{0}{1} -> `CreateProcessA`", Utils::Log::kNative,
@@ -243,10 +246,6 @@ class SharedManager {
 
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
-
-    utils_dprintf(STDOUT_FILENO,
-                  LOG_LEVEL_STR_INFO "%sTry to start the daemon\n",
-                  Utils::Log::kNative);
 
     return true;
   }
@@ -259,12 +258,6 @@ class SharedManager {
    * errors, so here synchronize Windows, using `Helper Binary` way.
    */
   bool spawn_daemon() {
-    return false;
-
-    return true;
-  }
-
-  [[deprecated]] bool deprecated_spawn_daemon() {
     std::string es;
 
     auto errno_error = [&es](int errno_err, const std::string msg = "") {
@@ -272,6 +265,28 @@ class SharedManager {
                        utils_pretty_function, msg);
       utils_errno_error(errno_err, es.c_str());
     };
+
+#  ifndef LOG_DAEMON_FORK_AND_EXEC
+#    define LOG_DAEMON_FORK_AND_EXEC 1
+#  endif
+
+#  if LOG_DAEMON_FORK_AND_EXEC
+    auto daemon_exe = Utils::Log::Daemon::exe_instance.get_path();
+    if (daemon_exe.empty())
+      return false;
+
+    std::vector<std::string> arg_cmds =
+      Utils::Log::Daemon::args_instance.arg_spawn_cmds();
+    std::vector<char *> argv;
+
+    std::string exe_path = daemon_exe.string();
+    argv.push_back(const_cast<char *>(exe_path.c_str()));
+
+    for (const auto &cmd : arg_cmds) {
+      argv.push_back(const_cast<char *>(cmd.c_str()));
+    }
+    argv.push_back(nullptr);
+#  endif
 
     pid_t pid1 = fork();
     if (pid1 < 0) {
@@ -307,27 +322,32 @@ class SharedManager {
     // --- Subprocess ---
     /**
      * @note Here, the `_exit` function is used instead of `exit` to prevent
-     * tools like ASAN from reporting memory leak issues for the daemon process.
+     * tools like ASAN from flooding the memory leak log.
      */
 
     if (setsid() < 0) {
       errno_error(errno, "`setsid`");
-      _exit(kNormalExitStatus + 1);
+      std::exit(kNormalExitStatus + 1);
     }
+
+    utils_dprintf(STDOUT_FILENO,
+                  LOG_LEVEL_STR_INFO "%sTry to start the daemon\n",
+                  Utils::Log::kNative);
 
     pid_t pid2 = fork();
     if (pid2 < 0) {
       errno_error(errno, "`fork` pid2");
-      _exit(kNormalExitStatus + 2);
+      std::exit(kNormalExitStatus + 2);
     }
     if (pid2 > 0) {
-      _exit(kNormalExitStatus);
+      std::exit(kNormalExitStatus);
     }
 
     umask(0);
     if (chdir("/") < 0) {
-      errno_error(errno, "`chdir`");
-      _exit(1);
+      const int errno_err = errno;
+      errno_error(errno_err, "`chdir`");
+      _exit(errno_err);
     }
 
 #  if 0
@@ -346,6 +366,13 @@ class SharedManager {
     }
 #  endif
 
+#  if LOG_DAEMON_FORK_AND_EXEC
+    execvp(argv[0], argv.data());
+
+    const int errno_err = errno;
+    errno_error(errno_err, "`execvp`");
+    _exit(errno_err);
+#  else
     {
       auto log_manager =
         std::make_unique<Utils::Log::Daemon::Daemon::LogManager>();
@@ -353,7 +380,10 @@ class SharedManager {
     }
 
     _exit(0);
+#  endif
+
     return true;
+#  undef LOG_DAEMON_FORK_AND_EXEC
   }
 #endif
 
@@ -476,20 +506,14 @@ static force_inline bool shared_initialization_check() {
   return g_shared_initialization.load(std::memory_order_relaxed);
 }
 
-#if defined(_WIN32) || defined(_WIN64)
 extern "C" sirius_api int sirius_log_set_daemon_path(const char *path) {
   if (g_shared_initialization) {
     sirius_error("The Daemon has started, it is too late to configure\n");
     return EBUSY;
   }
 
-  return Utils::Log::Daemon::Exe::set_path(path);
+  return Utils::Log::Daemon::exe_instance.set_path(path);
 }
-#else
-extern "C" sirius_api int sirius_log_set_daemon_path(const char *path) {
-  return 0;
-}
-#endif
 
 class FsManager {
  public:

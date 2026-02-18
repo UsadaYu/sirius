@@ -76,6 +76,7 @@ struct alignas(kShmCacheLineSize) Slot {
   std::atomic<SlotState> state;
   std::atomic<uint64_t> timestamp_ms;
 
+  Process::Pid pid;
   Buffer buffer;
 };
 #if defined(_MSC_VER)
@@ -83,13 +84,7 @@ struct alignas(kShmCacheLineSize) Slot {
 #endif
 
 struct AttachedMap {
-#if defined(_WIN32) || defined(_WIN64)
-  DWORD
-#else
-  pid_t
-#endif
-  pid;
-
+  Process::Pid pid;
   uint64_t timestamp_ms;
 };
 
@@ -136,9 +131,9 @@ namespace GMutex {
 #  define MUTEX_TYPE_ Process::FMutex
 #endif
 
-static MUTEX_TYPE_ *process_mutex_ = nullptr;
+inline MUTEX_TYPE_ *process_mutex_ = nullptr;
 
-static inline bool create() {
+inline bool create() {
   process_mutex_ = new MUTEX_TYPE_(Log::kMutexProcessKey);
 
   return process_mutex_->valid();
@@ -146,12 +141,12 @@ static inline bool create() {
 
 #undef MUTEX_TYPE_
 
-static inline void destroy() {
+inline void destroy() {
   delete process_mutex_;
   process_mutex_ = nullptr;
 }
 
-static inline bool lock() {
+inline bool lock() {
   if (!process_mutex_)
     return false;
 
@@ -164,7 +159,7 @@ static inline bool lock() {
   }
 }
 
-static inline bool unlock() {
+inline bool unlock() {
   return process_mutex_ ? process_mutex_->unlock() : false;
 }
 } // namespace GMutex
@@ -189,7 +184,102 @@ class Shm {
         master_(nullptr) {
   }
 
-  ~Shm() = default;
+  ~Shm() {
+    deinit();
+  }
+
+  [[nodiscard]] bool init() {
+    if (is_initialization_.exchange(true, std::memory_order_relaxed)) {
+      return false;
+    }
+
+    if (!open_shm())
+      return false;
+    if (!memory_map())
+      goto label_free1;
+    if (!slots_init())
+      goto label_free2;
+
+    is_initialization_.store(true, std::memory_order_relaxed);
+
+    return true;
+
+    // slots_deinit();
+  label_free2:
+    memory_unmap();
+  label_free1:
+    close_shm();
+
+    is_initialization_.store(false, std::memory_order_relaxed);
+
+    return false;
+  }
+
+  void deinit() {
+    if (!is_initialization_.exchange(false, std::memory_order_relaxed)) {
+      return;
+    }
+
+    slots_deinit();
+    memory_unmap();
+    close_shm();
+  }
+
+  bool is_shm_creator() const {
+    if (is_initialization_.load(std::memory_order_relaxed)) [[likely]] {
+      return is_shm_creator_;
+    }
+
+    return false;
+  }
+
+ private:
+  std::atomic<bool> is_initialization_;
+
+ private:
+  // --- LockGuard ---
+  class LockGuard {
+   public:
+    explicit LockGuard(Process::GMutex &mutex)
+        : mutex_(mutex), lock_ret_(false) {
+      auto ret = mutex_.lock();
+      if (ret == Process::LockErrno::kSuccess ||
+          ret == Process::LockErrno::kOwnerDead) {
+        lock_ret_ = true;
+      }
+    }
+
+    ~LockGuard() {
+      if (lock_ret_) {
+        mutex_.unlock();
+      }
+    }
+
+    LockGuard(const LockGuard &) = delete;
+    LockGuard &operator=(const LockGuard &) = delete;
+
+   private:
+    Process::GMutex &mutex_;
+    bool lock_ret_;
+  };
+
+ public:
+  LockGuard lock_guard() {
+    return LockGuard(shm_mutex_);
+  }
+
+ private:
+#if defined(_WIN32) || defined(_WIN64)
+  HANDLE shm_handle_;
+#else
+  int shm_fd_;
+  size_t destructor_counter_;
+#endif
+  Process::GMutex shm_mutex_;
+  bool is_shm_creator_;
+  MasterType master_type_;
+  std::string shm_name_;
+  size_t mapped_size_;
 
 // --- Shared Memory ---
 #if defined(_WIN32) || defined(_WIN64)
@@ -378,13 +468,16 @@ class Shm {
 
     slots = reinterpret_cast<Slot *>(base_ptr + get_shm_header_offset());
 
-    master_ = new Master(*this, master_type_);
+    master_ = new Master(*this);
 
     if (!is_shm_creator_) {
       if (header->magic != Header::Header::kMagic) {
         utils_dprintf(STDERR_FILENO,
                       LOG_LEVEL_STR_ERROR "%sInvalid argument. `magic`: %u\n",
                       master_string().c_str(), header->magic);
+#if !defined(_WIN32) && !defined(_WIN64)
+        shm_unlink(shm_name_.c_str());
+#endif
         return false;
       }
 
@@ -408,55 +501,6 @@ class Shm {
 
     return false;
   }
-
-  bool is_shm_creator() const {
-    return is_shm_creator_;
-  }
-
- private:
-  // --- LockGuard ---
-  class LockGuard {
-   public:
-    explicit LockGuard(Process::GMutex &mutex)
-        : mutex_(mutex), lock_ret_(false) {
-      auto ret = mutex_.lock();
-      if (ret == Process::LockErrno::kSuccess ||
-          ret == Process::LockErrno::kOwnerDead) {
-        lock_ret_ = true;
-      }
-    }
-
-    ~LockGuard() {
-      if (lock_ret_) {
-        mutex_.unlock();
-      }
-    }
-
-    LockGuard(const LockGuard &) = delete;
-    LockGuard &operator=(const LockGuard &) = delete;
-
-   private:
-    Process::GMutex &mutex_;
-    bool lock_ret_;
-  };
-
- public:
-  LockGuard lock_guard() {
-    return LockGuard(shm_mutex_);
-  }
-
- private:
-#if defined(_WIN32) || defined(_WIN64)
-  HANDLE shm_handle_;
-#else
-  int shm_fd_;
-  size_t destructor_counter_;
-#endif
-  Process::GMutex shm_mutex_;
-  bool is_shm_creator_;
-  MasterType master_type_;
-  std::string shm_name_;
-  size_t mapped_size_;
 
   std::string master_string() const {
     if (master_type_ == MasterType::kDaemon) {
@@ -489,7 +533,7 @@ class Shm {
   // --- Master ---
   class Master {
    public:
-    Master(Shm &parent, MasterType master_type)
+    Master(Shm &parent)
         : parent_(parent), header_(parent.header), thread_guard_ready_(false) {}
 
     ~Master() = default;

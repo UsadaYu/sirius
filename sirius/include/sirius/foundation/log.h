@@ -116,7 +116,6 @@ typedef struct {
 
 /**
  * @brief Set the path of the daemon executable file.
- * Currently, it is only necessary to do it under Windows.
  */
 sirius_api int sirius_log_set_daemon_path(const char *path);
 

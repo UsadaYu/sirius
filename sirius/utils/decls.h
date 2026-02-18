@@ -35,6 +35,9 @@
 #  if __cplusplus >= 201103L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201103L)
 #    include <atomic>
 #  endif
+#  if __cplusplus >= 202302L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
+#    include <expected>
+#  endif
 #else
 #  ifdef __STDC_VERSION__
 #    if (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)

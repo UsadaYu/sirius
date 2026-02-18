@@ -64,7 +64,8 @@
     "project": {
       "standards": {
         "c": "/std:c17",
-        "cxx": "/std:c++20"
+        "cxx": "/std:c++latest"
+        // "cxx": "/std:c++23"
       }
     },
     "test": {
@@ -74,7 +75,9 @@
           "/std:c17"
         ],
         "cxx": [
-          "/std:c++20"
+          "/std:c++20",
+          "/std:c++latest"
+          // "cxx": "/std:c++23"
         ]
       }
     }
@@ -84,7 +87,8 @@
     "project": {
       "standards": {
         "c": "/std:c17",
-        "cxx": "/std:c++20"
+        "cxx": "/std:c++latest"
+        // "cxx": "/std:c++23"
       }
     },
     "test": {

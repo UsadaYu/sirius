@@ -108,10 +108,6 @@ class FMutex {
     }
   }
 
-  /**
-   * @note On Windows, the file lock will not be automatically `unlock` when the
-   * process crashes.
-   */
   LockErrno lock() {
     std::string es;
 
@@ -200,9 +196,9 @@ class FMutex {
     header.owner_pid = 0;
 
 #if defined(_WIN32) || defined(_WIN64)
-    DWORD bytesWritten;
+    DWORD written_bytes;
     OVERLAPPED ov_write {};
-    if (!WriteFile(fd_, &header, sizeof(FHeader), &bytesWritten, &ov_write)) {
+    if (!WriteFile(fd_, &header, sizeof(FHeader), &written_bytes, &ov_write)) {
       FlushFileBuffers(fd_);
     }
 

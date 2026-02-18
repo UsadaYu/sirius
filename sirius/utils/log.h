@@ -76,7 +76,7 @@ static inline void utils_errno_error(int error_code, const char *msg) {
   snprintf(es, sizeof(es), "%c%s", schrodinger_space, msg);
 
   if (likely(0 == UTILS_STRERROR_R(error_code, e, sizeof(e)))) {
-    utils_dprintf(STDERR_FILENO, "Error%s: %d. %s", es, error_code, e);
+    utils_dprintf(STDERR_FILENO, "Error%s: %d. %s\n", es, error_code, e);
   } else {
     utils_dprintf(STDERR_FILENO, "Error%s: %d\n", es, error_code);
   }

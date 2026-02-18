@@ -2,13 +2,26 @@
 
 #if defined(_MSC_VER)
 #  if defined(_M_IX86) || defined(_M_X64)
-#    include <intrin.h>
+#    ifdef __cplusplus
+extern "C"
+#    endif
+  void _mm_pause(void);
+#    pragma intrinsic(_mm_pause)
 #    define sirius_cpu_relax() _mm_pause()
 #  elif defined(_M_ARM) || defined(_M_ARM64)
 #    if _MSC_VER >= 1920 && defined(_M_ARM64)
-#      include <intrin.h>
+#      ifdef __cplusplus
+extern "C"
+#      endif
+  void __yield(void);
+#      pragma intrinsic(__yield)
 #      define sirius_cpu_relax() __yield()
 #    else
+#      ifdef __cplusplus
+extern "C"
+#      endif
+  void __nop(void);
+#      pragma intrinsic(__nop)
 #      define sirius_cpu_relax() __nop()
 #    endif
 #  else

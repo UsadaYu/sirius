@@ -51,6 +51,4 @@ function(bin_set_exe_args)
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endfunction()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  add_subdirectory(windows/daemon)
-endif()
+add_subdirectory(daemon)

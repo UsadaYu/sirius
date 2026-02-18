@@ -3,6 +3,7 @@
 #include <functional>
 #include <vector>
 
+#include "utils/args.hpp"
 #include "utils/env.h"
 #include "utils/log/shm.hpp"
 #include "utils/time.hpp"
@@ -10,38 +11,224 @@
 namespace Utils {
 namespace Log {
 namespace Daemon {
-static std::string &arg() {
-  static std::string arg = std::string(_SIRIUS_NAMESPACE) + "_" +
-    Ns::generate_namespace_prefix(Log::kDaemonArgKey);
+class Args {
+ public:
+  enum class ArgValue : int {
+    kNone = 0,
+    kSpawn = 10,
+  };
 
-  return arg;
-}
+  inline static const std::string kArgSpawn = "spawn";
 
-#if defined(_WIN32) || defined(_WIN64)
-static inline bool is_daemon() {
-  LPSTR sz_cmd_line = GetCommandLineA();
-  std::string cmd_line(sz_cmd_line);
-  size_t found = cmd_line.find(arg());
-
-  return found != std::string::npos;
-}
-#endif
-
-namespace Daemon {
-#if defined(_WIN32) || defined(_WIN64)
-static inline bool check() {
-  if (!is_daemon()) {
-    utils_dprintf(STDERR_FILENO,
-                  LOG_LEVEL_STR_ERROR
-                  "%sThe startup parameters for the daemon are invalid\n",
-                  Log::kDaemon);
-    return false;
+ private:
+  Args() : is_initialization_(false) {
+    parser_.add_option(kArgSpawn, {arg_spawn_value()}, true, false,
+                       "Run the executable");
+    list_.emplace(kArgSpawn, arg_spawn_value());
   }
 
-  return true;
-}
-#endif
+  ~Args() = default;
 
+ public:
+  Args(const Args &) = delete;
+  Args &operator=(const Args &) = delete;
+
+  static Args &get_instance() {
+    static Args instance;
+
+    return instance;
+  }
+
+  bool parse(int argc, char **argv) {
+    if (is_initialization_.exchange(true, std::memory_order_relaxed)) {
+      utils_dprintf(STDIN_FILENO,
+                    "Warn  This function can only be called once\n");
+      return false;
+    }
+
+    return parser_.parse(argc, argv);
+  }
+
+  ArgValue get_type() const {
+    if (!check_initialization(true))
+      return ArgValue::kNone;
+
+    if (parser_.has(kArgSpawn) && !parser_.get(kArgSpawn).empty()) {
+      return ArgValue::kSpawn;
+    } else {
+      return ArgValue::kNone;
+    }
+  }
+
+  static std::string &arg_spawn_value() {
+    static std::string value = std::string(_SIRIUS_NAMESPACE) + "_" +
+      Ns::generate_namespace_prefix(Log::kDaemonArgExeSpawn);
+
+    return value;
+  }
+
+  static std::vector<std::string> &arg_spawn_cmds() {
+    static std::vector<std::string> cmd = {"--" + kArgSpawn, arg_spawn_value()};
+
+    return cmd;
+  }
+
+ private:
+  ::Utils::Args::Parser parser_;
+  std::atomic<bool> is_initialization_;
+  std::unordered_multimap<std::string, std::string> list_;
+
+  bool check_initialization(bool print_error = true) const {
+    if (!is_initialization_.load(std::memory_order_relaxed)) {
+      if (print_error) {
+        utils_dprintf(
+          STDERR_FILENO,
+          "Warn  The `args_parse` function needs to be called first\n");
+      }
+      return false;
+    }
+
+    return true;
+  }
+};
+
+class Exe {
+ private:
+  Exe() : path_("") {}
+
+  ~Exe() = default;
+
+ public:
+  Exe(const Exe &) = delete;
+  Exe &operator=(const Exe &) = delete;
+
+  static Exe &get_instance() {
+    static Exe instance;
+
+    return instance;
+  }
+
+ public:
+  /**
+   * @return 0 on success, or an `errno` value on failure.
+   */
+  int set_path(std::filesystem::path path) {
+    if (path.empty()) {
+      utils_errno_error(EINVAL, utils_pretty_function);
+      errno = EINVAL;
+      return errno;
+    }
+
+    if (!std::filesystem::exists(path)) {
+      utils_errno_error(ENOENT, utils_pretty_function);
+      errno = ENOENT;
+      return errno;
+    }
+
+    {
+      std::lock_guard lock(mutex_);
+      path_ = path;
+    }
+
+    return 0;
+  }
+
+  /**
+   * @note Priority (from top to bottom).
+   *
+   * - (1) Api configuration.
+   *
+   * - (2) Environment.
+   *
+   * - (3) Search from shared library (dll only).
+   *
+   * - (4) Dafault.
+   */
+  std::filesystem::path get_path() {
+    std::filesystem::path daemon_exe_path;
+    {
+      std::lock_guard lock(mutex_);
+      daemon_exe_path = path_;
+    }
+
+    std::vector<std::filesystem::path> paths = {
+      daemon_exe_path,
+      env_path(),
+      File::get_exe_path_matrix(_SIRIUS_EXE_DAEMON_NAME, current_shared_dir()),
+      default_path(),
+    };
+
+    for (auto path : paths) {
+      if (!path.empty()) {
+        utils_dprintf(STDOUT_FILENO,
+                      LOG_LEVEL_STR_INFO "%sThe daemon executable file: `%s`\n",
+                      Log::kCommon, path.string().c_str());
+        return path;
+      }
+    }
+
+    utils_dprintf(STDERR_FILENO,
+                  LOG_LEVEL_STR_ERROR
+                  "%sFail to find the daemon executable file\n",
+                  Log::kCommon);
+
+    return "";
+  }
+
+ private:
+  std::filesystem::path path_;
+  std::mutex mutex_;
+
+  static std::filesystem::path env_path() {
+    std::string env = Env::get_env(SIRIUS_ENV_EXE_DAEMON_PATH);
+
+    auto path = std::filesystem::path(env);
+
+    return (!path.empty() && std::filesystem::exists(path)) ? path : "";
+  }
+
+  static std::filesystem::path default_path() {
+    return File::get_exe_path_matrix(_SIRIUS_EXE_DAEMON_NAME, _SIRIUS_EXE_DIR);
+  }
+
+#ifdef _SIRIUS_WIN_DLL
+  static std::filesystem::path current_shared_dir() {
+    std::string es;
+    HMODULE modele = nullptr;
+    wchar_t path[MAX_PATH];
+
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                              GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            (LPCWSTR)&current_shared_dir, &modele)) {
+      const DWORD dw_err = GetLastError();
+      es = std::format("{} -> `GetModuleHandleExW`", utils_pretty_function);
+      utils_win_last_error(dw_err, es.c_str());
+      return "";
+    }
+
+    DWORD length = GetModuleFileNameW(modele, path, MAX_PATH);
+    if (length == 0) {
+      const DWORD dw_err = GetLastError();
+      es = std::format("{} -> `GetModuleFileNameW`", utils_pretty_function);
+      utils_win_last_error(dw_err, es.c_str());
+      return "";
+    }
+
+    auto bin_dir = std::filesystem::path(path).parent_path();
+
+    return bin_dir;
+  }
+#else
+  static std::filesystem::path current_shared_dir() {
+    return "";
+  }
+#endif
+};
+
+inline auto &exe_instance = Exe::get_instance();
+inline auto &args_instance = Args::get_instance();
+
+namespace Daemon {
 class LogManager {
  public:
   LogManager()
@@ -59,22 +246,14 @@ class LogManager {
       return false;
     if (!Shm::GMutex::lock())
       goto label_free1;
-    if (!log_shm_->open_shm())
+    if (!log_shm_->init())
       goto label_free2;
-    if (!log_shm_->memory_map())
-      goto label_free3;
-    if (!log_shm_->slots_init())
-      goto label_free4;
 
     Shm::GMutex::unlock();
 
     ret = daemon_main();
 
-    log_shm_->slots_deinit();
-  label_free4:
-    log_shm_->memory_unmap();
-  label_free3:
-    log_shm_->close_shm();
+    log_shm_->deinit();
   label_free2:
     Shm::GMutex::unlock();
   label_free1:
@@ -264,116 +443,6 @@ class LogManager {
   }
 };
 } // namespace Daemon
-
-namespace Exe {
-static inline std::filesystem::path env_path() {
-  std::string env = Env::get_env(SIRIUS_ENV_EXE_DAEMON_PATH);
-
-  auto path = std::filesystem::path(env);
-
-  return (!path.empty() && std::filesystem::exists(path)) ? path : "";
-}
-
-static inline std::filesystem::path default_path() {
-  return File::get_exe_path_matrix(_SIRIUS_EXE_DAEMON_NAME, _SIRIUS_EXE_DIR);
-}
-
-#ifdef _SIRIUS_WIN_DLL
-static inline std::filesystem::path current_dll_dir() {
-  std::string es;
-  HMODULE modele = nullptr;
-  wchar_t path[MAX_PATH];
-
-  if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                            GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          (LPCWSTR)&current_dll_dir, &modele)) {
-    const DWORD dw_err = GetLastError();
-    es = std::format("{} -> `GetModuleHandleExW`", utils_pretty_function);
-    utils_win_last_error(dw_err, es.c_str());
-    return "";
-  }
-
-  DWORD length = GetModuleFileNameW(modele, path, MAX_PATH);
-  if (length == 0) {
-    const DWORD dw_err = GetLastError();
-    es = std::format("{} -> `GetModuleFileNameW`", utils_pretty_function);
-    utils_win_last_error(dw_err, es.c_str());
-    return "";
-  }
-
-  auto bin_dir = std::filesystem::path(path).parent_path();
-
-  return bin_dir;
-}
-#endif
-
-inline std::mutex g_mutex_daemon_exe_path;
-inline std::filesystem::path g_daemon_exe_path = "";
-static inline int set_path(std::filesystem::path path) {
-  if (path.empty()) {
-    utils_errno_error(EINVAL, utils_pretty_function);
-    errno = EINVAL;
-    return errno;
-  }
-
-  if (!std::filesystem::exists(path)) {
-    utils_errno_error(ENOENT, utils_pretty_function);
-    errno = ENOENT;
-    return errno;
-  }
-
-  {
-    std::lock_guard lock(g_mutex_daemon_exe_path);
-    g_daemon_exe_path = path;
-  }
-
-  return 0;
-}
-
-/**
- * @note Priority (from top to bottom).
- *
- * - (1) Api configuration.
- *
- * - (2) Environment.
- *
- * - (3) Search from shared library (dll only).
- *
- * - (4) Dafault.
- */
-static inline std::filesystem::path path() {
-  std::filesystem::path daemon_exe_path;
-  {
-    std::lock_guard lock(g_mutex_daemon_exe_path);
-    daemon_exe_path = g_daemon_exe_path;
-  }
-
-  std::vector<std::filesystem::path> paths = {
-    daemon_exe_path,
-    env_path(),
-#ifdef _SIRIUS_WIN_DLL
-    File::get_exe_path_matrix(_SIRIUS_EXE_DAEMON_NAME, current_dll_dir()),
-#endif
-    default_path(),
-  };
-
-  for (auto path : paths) {
-    if (!path.empty()) {
-      utils_dprintf(STDOUT_FILENO,
-                    LOG_LEVEL_STR_INFO "%sThe daemon executable file: `%s`\n",
-                    Log::kCommon, path.string().c_str());
-      return path;
-    }
-  }
-
-  utils_dprintf(STDERR_FILENO,
-                LOG_LEVEL_STR_ERROR
-                "%sFail to find the daemon executable file\n",
-                Log::kCommon);
-
-  return "";
-}
-} // namespace Exe
 } // namespace Daemon
 } // namespace Log
 } // namespace Utils
