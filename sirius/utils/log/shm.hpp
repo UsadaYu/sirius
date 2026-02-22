@@ -151,8 +151,8 @@ inline bool lock() {
     return false;
 
   switch (process_mutex_->lock()) {
-  case Process::LockErrno::kSuccess:
-  case Process::LockErrno::kOwnerDead:
+  case Process::LockState::kSuccess:
+  case Process::LockState::kOwnerDead:
     return true;
   default:
     return false;
@@ -243,8 +243,8 @@ class Shm {
     explicit LockGuard(Process::GMutex &mutex)
         : mutex_(mutex), lock_ret_(false) {
       auto ret = mutex_.lock();
-      if (ret == Process::LockErrno::kSuccess ||
-          ret == Process::LockErrno::kOwnerDead) {
+      if (ret == Process::LockState::kSuccess ||
+          ret == Process::LockState::kOwnerDead) {
         lock_ret_ = true;
       }
     }

@@ -1,100 +1,89 @@
 #pragma once
 
-#include "utils/log.h"
+#include "utils/io.h"
 #include "utils/namespace.hpp"
 #include "utils/process/process.hpp"
 
 namespace Utils {
 namespace Process {
-enum class LockErrno : int {
+enum class LockState : int {
   kSuccess = 0,
   kOwnerDead = 1,
-  kFail = 2,
-  kBusy = 3,
+  kBusy = 2,
+
+  // kFail = 3,
 };
 
 class FMutex {
+ private:
   struct FHeader {
     uint8_t is_dirty; // 0: Clean; 1: Dirty
     uint64_t owner_pid;
   };
 
- private:
 #if defined(_WIN32) || defined(_WIN64)
   static inline const HANDLE kInvalidFd = INVALID_HANDLE_VALUE;
+  using FdHandle = HANDLE;
 #else
   static constexpr int kInvalidFd = -1;
+  using FdHandle = int;
 #endif
 
+ private:
+  explicit FMutex(FdHandle fd) noexcept : fd_(fd) {}
+
  public:
-  explicit FMutex(const char *file_name = nullptr) noexcept
-      : fd_(kInvalidFd), file_name_(file_name ? std::string(file_name) : "") {
-    if (file_name) {
-      create();
+  static auto create(const char *file_name)
+    -> std::expected<FMutex, std::string> {
+    std::string es;
+
+    if (!file_name) {
+      return std::unexpected("Error Invalid argument. Null `file_name`" +
+                             Io::row(utils_pretty_function) +
+                             Io::row(pid_string()));
     }
+
+    auto lock_path = Ns::Mutex::instance().file_lock_path(file_name);
+    if (lock_path.has_value()) {
+      if (lock_path.value().empty()) {
+        return std::unexpected("Error `file_lock_path`" +
+                               Io::row(utils_pretty_function) +
+                               Io::row(pid_string()));
+      }
+    } else {
+      return std::unexpected(lock_path.error() +
+                             Io::row(utils_pretty_function) +
+                             Io::row(pid_string()));
+    }
+
+    FdHandle fd;
+
+#if defined(_WIN32) || defined(_WIN64)
+    fd = CreateFileW(lock_path.value().c_str(), GENERIC_READ | GENERIC_WRITE,
+                     FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+                     FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (fd == INVALID_HANDLE_VALUE) {
+      const DWORD dw_err = GetLastError();
+      return std::unexpected(Io::win_last_error(dw_err, "CreateFile") +
+                             Io::row(utils_pretty_function) +
+                             Io::row(pid_string()));
+    }
+#else
+    fd = open(lock_path.value().c_str(), O_RDWR | O_CREAT,
+              File::string_to_mode(_SIRIUS_POSIX_FILE_MODE));
+    if (fd == -1) {
+      const int errno_err = errno;
+      return std::unexpected(Io::errno_error(errno_err, "open") +
+                             Io::row(utils_pretty_function) +
+                             Io::row(pid_string()));
+    }
+#endif
+
+    return FMutex(fd);
   }
 
   ~FMutex() noexcept {
     destroy();
-  }
-
-  FMutex(FMutex &&other) noexcept : file_name_(std::move(other.file_name_)) {
-    fd_ = other.fd_;
-    other.fd_ = kInvalidFd;
-  }
-
-  FMutex &operator=(FMutex &&other) noexcept {
-    if (this != &other) {
-      destroy();
-      file_name_ = std::move(other.file_name_);
-      fd_ = other.fd_;
-      other.fd_ = kInvalidFd;
-    }
-
-    return *this;
-  }
-
-  FMutex(const FMutex &) = delete;
-  FMutex &operator=(const FMutex &) = delete;
-
-  bool create(const char *file_name = nullptr) {
-    std::string es;
-
-    if (file_name) {
-      file_name_ = file_name;
-    }
-
-    if (file_name_.empty())
-      return false;
-
-    auto lock_path = Ns::Mutex::file_lock_path(file_name_);
-
-    destroy();
-
-#if defined(_WIN32) || defined(_WIN64)
-    fd_ = CreateFileW(lock_path.c_str(), GENERIC_READ | GENERIC_WRITE,
-                      FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
-                      FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (fd_ == INVALID_HANDLE_VALUE) {
-      fd_ = kInvalidFd;
-      const DWORD dw_err = GetLastError();
-      es = std::format("{} -> `CreateFile`", utils_pretty_function);
-      utils_win_last_error(dw_err, es.c_str());
-      return false;
-    }
-#else
-    fd_ = open(lock_path.c_str(), O_RDWR | O_CREAT,
-               File::string_to_mode(_SIRIUS_POSIX_FILE_MODE));
-    if (fd_ == -1) {
-      fd_ = kInvalidFd;
-      const int errno_err = errno;
-      es = std::format("{} -> `open`", utils_pretty_function);
-      utils_errno_error(errno_err, es.c_str());
-      return false;
-    }
-#endif
-
-    return true;
   }
 
   void destroy() noexcept {
@@ -108,16 +97,33 @@ class FMutex {
     }
   }
 
-  LockErrno lock() {
+  auto lock() -> std::expected<LockState, std::string> {
     std::string es;
 
 #if defined(_WIN32) || defined(_WIN64)
     OVERLAPPED overlapped {};
     if (!LockFileEx(fd_, LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &overlapped)) {
       const DWORD dw_err = GetLastError();
-      es = std::format("{} -> `LockFileEx`", utils_pretty_function);
-      utils_win_last_error(dw_err, es.c_str());
-      return LockErrno::kFail;
+      es = Io::win_last_error(
+        dw_err, std::format("{} -> `LockFileEx`", utils_pretty_function),
+        std::format("Process id: {0}", pid()));
+      return std::unexpected(es);
+    }
+#else
+#endif
+  }
+
+  LockState lock() {
+    std::string es;
+
+#if defined(_WIN32) || defined(_WIN64)
+    OVERLAPPED overlapped {};
+    if (!LockFileEx(fd_, LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &overlapped)) {
+      const DWORD dw_err = GetLastError();
+      es = Io::win_last_error(
+        dw_err, std::format("{} -> `LockFileEx`", utils_pretty_function),
+        std::format("Process id: {0}", pid()));
+      return LockState::kFail;
     }
 #else
     struct flock lock_ptr;
@@ -130,11 +136,11 @@ class FMutex {
       const int errno_err = errno;
       es = std::format("{} -> `fcntl` lock", utils_pretty_function);
       utils_errno_error(errno_err, es.c_str());
-      return LockErrno::kFail;
+      return LockState::kFail;
     }
 #endif
 
-    LockErrno lock_errno = LockErrno::kSuccess;
+    LockState lock_errno = LockState::kSuccess;
     FHeader header;
     [[maybe_unused]] bool is_first_create = false;
 
@@ -157,7 +163,7 @@ class FMutex {
       is_first_create = true;
     } else {
       if (header.is_dirty == 1) {
-        lock_errno = LockErrno::kOwnerDead;
+        lock_errno = LockState::kOwnerDead;
         utils_dprintf(STDERR_FILENO,
                       "--------------------------------\n"
                       "- Warning -> %s\n"
@@ -241,7 +247,10 @@ class FMutex {
 #else
   int fd_;
 #endif
-  std::string file_name_;
+
+  static std::string pid_string() {
+    return std::format("PID: {0}", pid());
+  }
 };
 
 /**
@@ -384,11 +393,11 @@ class GMutex {
     }
   }
 
-  LockErrno lock() {
+  LockState lock() {
     return T_lock(false);
   }
 
-  LockErrno trylock() {
+  LockState trylock() {
     return T_lock(true);
   }
 
@@ -426,7 +435,7 @@ class GMutex {
   pthread_mutex_t *mutex_;
 #endif
 
-  LockErrno T_lock(bool is_trylock = false) {
+  LockState T_lock(bool is_trylock = false) {
     std::string es;
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -437,19 +446,19 @@ class GMutex {
     DWORD wait_ret = WaitForSingleObject(mutex_, wait_ms);
     switch (wait_ret) {
     [[likely]] case WAIT_OBJECT_0:
-      return LockErrno::kSuccess;
+      return LockState::kSuccess;
     case WAIT_ABANDONED:
       goto label_owner_dead;
     case WAIT_TIMEOUT:
-      return LockErrno::kBusy;
+      return LockState::kBusy;
     case WAIT_FAILED:
       dw_err = GetLastError();
       es = std::format("{0} -> `WaitForSingleObject` (trylock: {1})",
                        utils_pretty_function, is_trylock);
       utils_win_last_error(dw_err, es.c_str());
-      return LockErrno::kFail;
+      return LockState::kFail;
     default:
-      return LockErrno::kFail;
+      return LockState::kFail;
     }
 #else
     int (*lock_ptr)(pthread_mutex_t *) =
@@ -458,21 +467,21 @@ class GMutex {
     int ret = lock_ptr(mutex_);
     switch (ret) {
     [[likely]] case 0:
-      return LockErrno::kSuccess;
+      return LockState::kSuccess;
     case EOWNERDEAD:
       pthread_mutex_consistent(mutex_);
       goto label_owner_dead;
     case EBUSY:
-      return LockErrno::kBusy;
+      return LockState::kBusy;
     case ENOTRECOVERABLE:
     default:
       es = std::format("{0} -> `lock_ptr` (trylock: {1})",
                        utils_pretty_function, is_trylock);
       utils_errno_error(ret, es.c_str());
-      return LockErrno::kFail;
+      return LockState::kFail;
     }
 
-    return LockErrno::kSuccess;
+    return LockState::kSuccess;
 #endif
 
   label_owner_dead:
@@ -484,7 +493,7 @@ class GMutex {
       "--------------------------------\n",
       utils_pretty_function);
 
-    return LockErrno::kOwnerDead;
+    return LockState::kOwnerDead;
   }
 };
 } // namespace Process

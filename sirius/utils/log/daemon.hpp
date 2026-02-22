@@ -21,7 +21,7 @@ class Args {
   inline static const std::string kArgSpawn = "spawn";
 
  private:
-  Args() : is_initialization_(false) {
+  Args() {
     parser_.add_option(kArgSpawn, {arg_spawn_value()}, true, false,
                        "Run the executable");
     list_.emplace(kArgSpawn, arg_spawn_value());
@@ -33,7 +33,7 @@ class Args {
   Args(const Args &) = delete;
   Args &operator=(const Args &) = delete;
 
-  static Args &get_instance() {
+  static Args &instance() {
     static Args instance;
 
     return instance;
@@ -74,8 +74,8 @@ class Args {
   }
 
  private:
+  static std::atomic<bool> is_initialization_;
   ::Utils::Args::Parser parser_;
-  std::atomic<bool> is_initialization_;
   std::unordered_multimap<std::string, std::string> list_;
 
   bool check_initialization(bool print_error = true) const {
@@ -102,7 +102,7 @@ class Exe {
   Exe(const Exe &) = delete;
   Exe &operator=(const Exe &) = delete;
 
-  static Exe &get_instance() {
+  static Exe &instance() {
     static Exe instance;
 
     return instance;
@@ -224,9 +224,6 @@ class Exe {
   }
 #endif
 };
-
-inline auto &exe_instance = Exe::get_instance();
-inline auto &args_instance = Args::get_instance();
 
 namespace Daemon {
 class LogManager {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "sirius/foundation/log.h"
-#include "utils/log.h"
+#include "utils/io.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 static inline void foundation_win_last_error(DWORD error_code,

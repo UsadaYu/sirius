@@ -96,90 +96,106 @@ inline std::string generate_name(const std::string &name) {
 }
 } // namespace Shm
 
-namespace Mutex {
-#if defined(_WIN32) || defined(_WIN64)
-inline std::string win_generate_name(const std::string &name) {
-  std::string prefix = std::string("Local\\") + std::string(_SIRIUS_NAMESPACE) +
-    "_" + generate_namespace_prefix();
-  std::string nm = prefix + "_" + sanitize_name(name) + "_lock";
+class Mutex {
+ private:
+  Mutex() = default;
 
-  return nm;
-}
-#endif
+  ~Mutex() = default;
 
-inline std::mutex g_mutex_map_lock_name;
-inline std::map<std::string, std::filesystem::path> g_map_lock_name;
+ public:
+  Mutex(const Mutex &) = delete;
+  Mutex &operator=(const Mutex &) = delete;
 
-inline std::filesystem::path file_lock_path(const std::string &name) {
-  std::filesystem::path lock_path = "";
+  static Mutex &instance() {
+    static Mutex instance;
 
-  {
-    std::lock_guard lock(g_mutex_map_lock_name);
-
-    auto it = g_map_lock_name.find(name);
-    if (it != g_map_lock_name.end())
-      return it->second;
+    return instance;
   }
-
-  std::filesystem::path base = "";
-  std::vector<std::filesystem::path> prefixes;
 
 #if defined(_WIN32) || defined(_WIN64)
-  TCHAR temp_path[MAX_PATH];
-  DWORD dw_ret = GetTempPath(MAX_PATH, temp_path);
-  if (dw_ret > 0 && dw_ret <= MAX_PATH) {
-    prefixes.push_back(std::filesystem::path(temp_path));
+  std::string win_generate_name(const std::string &name) {
+    std::string prefix = std::string("Local\\") +
+      std::string(_SIRIUS_NAMESPACE) + "_" + generate_namespace_prefix();
+    std::string nm = prefix + "_" + sanitize_name(name) + "_lock";
+
+    return nm;
   }
-#else
-  prefixes.push_back(_SIRIUS_POSIX_TMP_DIR);
-
-  const char *xdg = std::getenv("XDG_RUNTIME_DIR");
-  if (xdg) {
-    prefixes.push_back(xdg);
-  }
-
-  prefixes.push_back("/var/tmp");
 #endif
 
-  for (auto &prefix : prefixes) {
-    if (prefix.empty())
-      continue;
+  auto file_lock_path(const std::string &name)
+    -> std::expected<std::filesystem::path, std::string> {
+    std::string es;
+    std::filesystem::path lock_path = "";
 
-    try {
-      std::filesystem::path b = prefix / _SIRIUS_NAMESPACE;
-      std::filesystem::create_directories(b);
-      base = b;
-#if !defined(_WIN32) && !defined(_WIN64)
-      File::set_permissions_safe(base, _SIRIUS_POSIX_FILE_MODE);
-#endif
-      break;
-    } catch ([[maybe_unused]] const std::filesystem::filesystem_error &e) {
-#if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
-      utils_dprintf(STDERR_FILENO, "`filesystem_error`: %s\n", e.what());
-#endif
-    } catch ([[maybe_unused]] const std::exception &e) {
-#if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
-      utils_dprintf(STDERR_FILENO, "`exception`: %s\n", e.what());
-#endif
+    {
+      std::lock_guard lock(mutex_map_lock_name_);
+
+      auto it = map_lock_name_.find(name);
+      if (it != map_lock_name_.end())
+        return it->second;
     }
+
+    std::filesystem::path base = "";
+    std::vector<std::filesystem::path> prefixes;
+
+#if defined(_WIN32) || defined(_WIN64)
+    TCHAR temp_path[MAX_PATH];
+    DWORD dw_ret = GetTempPath(MAX_PATH, temp_path);
+    if (dw_ret > 0 && dw_ret <= MAX_PATH) {
+      prefixes.push_back(std::filesystem::path(temp_path));
+    }
+#else
+    prefixes.push_back(_SIRIUS_POSIX_TMP_DIR);
+
+    const char *xdg = std::getenv("XDG_RUNTIME_DIR");
+    if (xdg) {
+      prefixes.push_back(xdg);
+    }
+
+    prefixes.push_back("/var/tmp");
+#endif
+
+    for (auto &prefix : prefixes) {
+      if (prefix.empty())
+        continue;
+
+      try {
+        std::filesystem::path b = prefix / _SIRIUS_NAMESPACE;
+        std::filesystem::create_directories(b);
+        base = b;
+#if !defined(_WIN32) && !defined(_WIN64)
+        File::set_permissions_safe(base, _SIRIUS_POSIX_FILE_MODE);
+#endif
+        break;
+      } catch (const std::filesystem::filesystem_error &e) {
+        es = std::format("`filesystem_error`: {0}", e.what());
+        return std::unexpected(es);
+      } catch (const std::exception &e) {
+        es = std::format("`exception`: {0}", e.what());
+        return std::unexpected(es);
+      }
+    }
+
+    if (base.empty())
+      return "";
+
+    std::string prefix = generate_namespace_prefix();
+    std::string fname = prefix + "_" + sanitize_name(name) + ".lock";
+    lock_path = base / fname;
+
+    {
+      std::lock_guard lock(mutex_map_lock_name_);
+
+      map_lock_name_.insert(
+        std::pair<std::string, std::filesystem::path>(name, lock_path));
+    }
+
+    return lock_path;
   }
 
-  if (base.empty())
-    return "";
-
-  std::string prefix = generate_namespace_prefix();
-  std::string fname = prefix + "_" + sanitize_name(name) + ".lock";
-  lock_path = base / fname;
-
-  {
-    std::lock_guard lock(g_mutex_map_lock_name);
-
-    g_map_lock_name.insert(
-      std::pair<std::string, std::filesystem::path>(name, lock_path));
-  }
-
-  return lock_path;
-}
-} // namespace Mutex
+ private:
+  std::mutex mutex_map_lock_name_;
+  std::map<std::string, std::filesystem::path> map_lock_name_;
+};
 } // namespace Ns
 } // namespace Utils

@@ -10,11 +10,11 @@
    */
   // ---
   "gnu": {
-    "min_version": "13.2.0",
+    "min_version": "14.2.0",
     "project": {
       "standards": {
         "c": "-std=gnu17",
-        "cxx": "-std=gnu++20"
+        "cxx": "-std=gnu++23"
       }
     },
     "test": {
