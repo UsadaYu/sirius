@@ -4,10 +4,6 @@
 #include "utils/config.h"
 #include "utils/decls.h"
 
-#ifdef __cplusplus
-#  include <filesystem>
-#endif
-
 // --- max / min ---
 #ifndef UTILS_MIN
 #  define UTILS_MIN(x, y) ((x) < (y) ? (x) : (y))
@@ -83,89 +79,4 @@ static inline size_t utils_next_power_of_2(size_t n) {
 
   return n;
 }
-#endif
-
-#ifdef __cplusplus
-namespace Utils {
-namespace File {
-#  if !defined(_WIN32) && !defined(_WIN64)
-static inline mode_t string_to_mode(const std::string &mode_str) {
-  return static_cast<mode_t>(std::stoul(mode_str, nullptr, 8));
-}
-#  endif
-
-static inline std::filesystem::perms
-string_to_perms(const std::string &perm_str) {
-  std::string str = perm_str;
-  if (str.size() > 1 && str[0] == '0') {
-    str = str.substr(1);
-  }
-
-  uint32_t perm_value;
-  try {
-    perm_value = std::stoi(str, nullptr, 8);
-  } catch (...) {
-    return std::filesystem::perms::none;
-  }
-
-  return static_cast<std::filesystem::perms>(perm_value);
-}
-
-static inline bool set_permissions_safe(const std::filesystem::path &path,
-                                        const std::string &perm_str,
-                                        bool symlink_perms = false) {
-  try {
-    if (!std::filesystem::exists(path))
-      return false;
-
-    std::filesystem::perms perm = string_to_perms(perm_str);
-
-    std::filesystem::perm_options options =
-      std::filesystem::perm_options::replace;
-    if (symlink_perms) {
-      options |= std::filesystem::perm_options::nofollow;
-    }
-
-    std::filesystem::permissions(path, perm, options);
-    return true;
-  } catch (const std::exception &e) {
-    std::string es = std::format("`exception`: {}\n", e.what());
-#  if defined(_WIN32) || defined(_WIN64)
-    _write(2, es.c_str(), (unsigned int)es.length());
-#  else
-    write(2, es.c_str(), es.length());
-#  endif
-    return false;
-  } catch (...) {
-    return false;
-  }
-}
-
-static inline std::filesystem::path
-get_exe_path_matrix(std::string exe_name, std::filesystem::path base_dir) {
-  if (exe_name.empty() || base_dir.empty())
-    return "";
-
-  std::filesystem::path exe_path = base_dir / exe_name;
-
-  if (std::filesystem::exists(exe_path))
-    return exe_path;
-
-#  if defined(_WIN32) || defined(_WIN64)
-  const std::string suffix = ".exe";
-  if (exe_name.ends_with(suffix)) {
-    exe_path =
-      base_dir / exe_name.substr(0, exe_name.length() - suffix.length());
-  } else {
-    exe_path = base_dir / (exe_name + suffix);
-  }
-
-  if (std::filesystem::exists(exe_path))
-    return exe_path;
-#  endif
-
-  return "";
-}
-} // namespace File
-} // namespace Utils
 #endif

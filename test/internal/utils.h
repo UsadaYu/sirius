@@ -108,7 +108,7 @@ static inline void _utils_xinit(const char *content) {
   memset(buf, 0, kMaxLength);
   memset(bar_buf, 0, kMaxLength);
 
-  len = snprintf(buf, sizeof(buf), "--- " _SIRIUS_LOG_PRINT_NAME " %s ---",
+  len = snprintf(buf, sizeof(buf), "--- " _SIRIUS_LOG_MODULE_NAME " %s ---",
                  content);
   for (int i = 0; i < len && i < kMaxLength - 1; i++) {
     bar_buf[i] = '-';

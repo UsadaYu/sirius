@@ -2,7 +2,7 @@
 
 #include <unordered_map>
 
-#include "utils/log.h"
+#include "utils/io.h"
 
 namespace Utils {
 namespace Args {
@@ -61,7 +61,7 @@ class Parser {
     specs_[option] = std::move(s);
   }
 
-  bool parse(int argc, char **argv) {
+  auto parse(int argc, char **argv) -> std::expected<void, std::string> {
     parsed_.clear();
     positional_.clear();
 
@@ -69,12 +69,7 @@ class Parser {
       return s.size() >= 2 && s[0] == '-' && s[1] == '-';
     };
 
-    auto os_error = [](const std::string &msg) {
-      utils_dprintf(STDERR_FILENO,
-                    "Error %s\n"
-                    "  %s\n",
-                    utils_pretty_function, msg.c_str());
-    };
+#define S_ERROR (Io::io().s_error(SIRIUS_FILE_NAME, __LINE__))
 
     for (int i = 1; i < argc; ++i) {
       std::string token = argv[i];
@@ -94,8 +89,7 @@ class Parser {
 
         auto it = specs_.find(option);
         if (it == specs_.end()) {
-          os_error("Unknown option `--" + option + "`");
-          return false;
+          return std::unexpected(S_ERROR + "Unknown option `--" + option + "`");
         }
 
         const OptionSpec &spec = it->second;
@@ -105,14 +99,16 @@ class Parser {
         } else {
           if (value.empty()) {
             if (i + 1 >= argc) {
-              os_error("Missing value for option `--" + option + "`");
-              return false;
+              return std::unexpected(S_ERROR + "Missing value for option `--" +
+                                     option + "`");
             }
             std::string next = argv[++i];
             if (is_option(next)) {
-              os_error("Missing value for option `--" + option + "`" +
-                       " (next token looks like an option: " + next + ")");
-              return false;
+              return std::unexpected(
+                S_ERROR +
+                Io::row("Missing value for option `--{0}` (next token looks "
+                        "like an option: {1})",
+                        option, next));
             }
             value = next;
           }
@@ -125,15 +121,17 @@ class Parser {
               }
             }
             if (!ok) {
-              os_error("Invalid value for option `--" + option + "`: " + value +
-                       ". Allowed: " + join(spec.allowed_values, ", "));
-              return false;
+              return std::unexpected(
+                S_ERROR +
+                Io::row("Invalid value for option `--{0}`: {1}", option,
+                        value) +
+                Io::row("Allowed: {0}", join(spec.allowed_values, ", ")));
             }
           }
           if (!spec.multiple && parsed_.count(option) &&
               !parsed_[option].empty()) {
-            os_error("Option `--" + option + "` may only appear once.");
-            return false;
+            return std::unexpected(S_ERROR + "Option `--" + option +
+                                   "` may only appear once");
           }
           parsed_[option].push_back(value);
         }
@@ -145,13 +143,14 @@ class Parser {
     for (auto const &[k, spec] : specs_) {
       if (spec.required) {
         if (!parsed_.count(k) || parsed_.at(k).empty()) {
-          os_error("Required option missing `--" + k + "`");
-          return false;
+          return std::unexpected(S_ERROR + "Required option missing `--" + k +
+                                 "`");
         }
       }
     }
 
-    return true;
+    return {};
+#undef S_ERROR
   }
 
   bool has(const std::string &option) const {
@@ -184,11 +183,11 @@ class Parser {
   }
 
   void print_usage(const std::string &prog_name) const {
-    auto os_info = [](const std::string &msg) {
-      utils_dprintf(STDOUT_FILENO, "%s", msg.c_str());
+    auto info = [](const std::string &msg) {
+      UTILS_WRITE(STDOUT_FILENO, msg.c_str(), msg.size());
     };
 
-    os_info("Usage: " + prog_name + " [options]\n\nOptions:\n");
+    info("Usage: " + prog_name + " [options]\n\nOptions:\n");
     for (auto const &[option, spec] : specs_) {
       std::string line = "  --" + option;
       if (spec.requires_value)
@@ -205,7 +204,7 @@ class Parser {
       if (spec.multiple) {
         line += " [multiple]";
       }
-      os_info(line + "\n");
+      info(line + "\n");
     }
   }
 

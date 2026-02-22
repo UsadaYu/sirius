@@ -14,7 +14,7 @@ foreach group : groups
         'target': target,
         'compile_args': [
             std['std'],
-            '-D_SIRIUS_LOG_PRINT_NAME="@0@"'.format(target)
+            '-D_SIRIUS_LOG_MODULE_NAME="@0@"'.format(target)
         ],
         'sources': group['sources'],
         'subdir': fs.name(meson.current_source_dir()),

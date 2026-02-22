@@ -18,14 +18,10 @@ class Args {
     kSpawn = 10,
   };
 
-  inline static const std::string kArgSpawn = "spawn";
+  static inline const std::string kArgSpawn = "spawn";
 
  private:
-  Args() : is_initialization_(false) {
-    parser_.add_option(kArgSpawn, {arg_spawn_value()}, true, false,
-                       "Run the executable");
-    list_.emplace(kArgSpawn, arg_spawn_value());
-  }
+  Args() = default;
 
   ~Args() = default;
 
@@ -33,26 +29,23 @@ class Args {
   Args(const Args &) = delete;
   Args &operator=(const Args &) = delete;
 
-  static Args &get_instance() {
+  static Args &instance(int argc, char **argv) {
     static Args instance;
+    static std::once_flag once_flag;
+
+    std::call_once(once_flag, [&]() {
+      /**
+       * @note Even if `once_flag_` will not be marked after an exception is
+       * thrown, it is no longer desired here for the process to survive after
+       * this error.
+       */
+      instance.init(argc, argv);
+    });
 
     return instance;
   }
 
-  bool parse(int argc, char **argv) {
-    if (is_initialization_.exchange(true, std::memory_order_relaxed)) {
-      utils_dprintf(STDIN_FILENO,
-                    "Warn  This function can only be called once\n");
-      return false;
-    }
-
-    return parser_.parse(argc, argv);
-  }
-
   ArgValue get_type() const {
-    if (!check_initialization(true))
-      return ArgValue::kNone;
-
     if (parser_.has(kArgSpawn) && !parser_.get(kArgSpawn).empty()) {
       return ArgValue::kSpawn;
     } else {
@@ -75,20 +68,17 @@ class Args {
 
  private:
   ::Utils::Args::Parser parser_;
-  std::atomic<bool> is_initialization_;
   std::unordered_multimap<std::string, std::string> list_;
 
-  bool check_initialization(bool print_error = true) const {
-    if (!is_initialization_.load(std::memory_order_relaxed)) {
-      if (print_error) {
-        utils_dprintf(
-          STDERR_FILENO,
-          "Warn  The `args_parse` function needs to be called first\n");
-      }
-      return false;
-    }
+  void init(int argc, char **argv) {
+    parser_.add_option(kArgSpawn, {arg_spawn_value()}, true, false,
+                       "Run the executable");
+    list_.emplace(kArgSpawn, arg_spawn_value());
 
-    return true;
+    auto parse_ret = parser_.parse(argc, argv);
+    if (!parse_ret.has_value()) {
+      throw std::runtime_error(parse_ret.error());
+    }
   }
 };
 
@@ -102,7 +92,7 @@ class Exe {
   Exe(const Exe &) = delete;
   Exe &operator=(const Exe &) = delete;
 
-  static Exe &get_instance() {
+  static Exe &instance() {
     static Exe instance;
 
     return instance;
@@ -113,20 +103,15 @@ class Exe {
    * @return 0 on success, or an `errno` value on failure.
    */
   int set_path(std::filesystem::path path) {
-    if (path.empty()) {
-      utils_errno_error(EINVAL, utils_pretty_function);
-      errno = EINVAL;
-      return errno;
-    }
+    if (path.empty())
+      return EINVAL;
 
-    if (!std::filesystem::exists(path)) {
-      utils_errno_error(ENOENT, utils_pretty_function);
-      errno = ENOENT;
-      return errno;
-    }
+    if (!std::filesystem::exists(path))
+      return ENOENT;
 
     {
       std::lock_guard lock(mutex_);
+
       path_ = path;
     }
 
@@ -144,35 +129,43 @@ class Exe {
    *
    * - (4) Dafault.
    */
-  std::filesystem::path get_path() {
-    std::filesystem::path daemon_exe_path;
+  auto get_path() -> std::expected<std::filesystem::path, int /* errno */> {
+    std::filesystem::path exe_set;
+    std::filesystem::path exe_dll;
+    std::filesystem::path exe_default;
+
     {
       std::lock_guard lock(mutex_);
-      daemon_exe_path = path_;
+
+      exe_set = path_;
     }
 
-    std::vector<std::filesystem::path> paths = {
-      daemon_exe_path,
+    std::string const kExeDaemonName = std::string(_SIRIUS_EXE_DAEMON_NAME);
+    auto exe_dll_ret =
+      File::get_exe_path_matrix(kExeDaemonName, current_shared_dir());
+    exe_dll = exe_dll_ret.has_value() ? exe_dll_ret.value() : "";
+
+    auto exe_default_ret = default_path();
+    exe_default = exe_default_ret.has_value() ? exe_default_ret.value() : "";
+
+    std::vector paths = {
+      exe_set,
       env_path(),
-      File::get_exe_path_matrix(_SIRIUS_EXE_DAEMON_NAME, current_shared_dir()),
-      default_path(),
+      exe_dll,
+      exe_default,
     };
 
     for (auto path : paths) {
-      if (!path.empty()) {
-        utils_dprintf(STDOUT_FILENO,
-                      LOG_LEVEL_STR_INFO "%sThe daemon executable file: `%s`\n",
-                      Log::kCommon, path.string().c_str());
+      if (!path.empty() && std::filesystem::exists(path)) {
+        auto es = std::format(
+          "{0}{1}", Io::io().s_info(""),
+          Io::row("The daemon executable file: {0}\n", path.string()));
+        UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
         return path;
       }
     }
 
-    utils_dprintf(STDERR_FILENO,
-                  LOG_LEVEL_STR_ERROR
-                  "%sFail to find the daemon executable file\n",
-                  Log::kCommon);
-
-    return "";
+    return std::unexpected(ENOENT);
   }
 
  private:
@@ -187,8 +180,9 @@ class Exe {
     return (!path.empty() && std::filesystem::exists(path)) ? path : "";
   }
 
-  static std::filesystem::path default_path() {
-    return File::get_exe_path_matrix(_SIRIUS_EXE_DAEMON_NAME, _SIRIUS_EXE_DIR);
+  auto default_path() -> std::expected<std::filesystem::path, int /* errno */> {
+    return File::get_exe_path_matrix(std::string(_SIRIUS_EXE_DAEMON_NAME),
+                                     std::filesystem::path(_SIRIUS_EXE_DIR));
   }
 
 #ifdef _SIRIUS_WIN_DLL
@@ -201,16 +195,18 @@ class Exe {
                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                             (LPCWSTR)&current_shared_dir, &modele)) {
       const DWORD dw_err = GetLastError();
-      es = std::format("{} -> `GetModuleHandleExW`", utils_pretty_function);
-      utils_win_last_error(dw_err, es.c_str());
+      es = Io::win_last_error(dw_err, "GetModuleHandleExW") +
+        Io::row("{0}\n", utils_pretty_function);
+      UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
       return "";
     }
 
     DWORD length = GetModuleFileNameW(modele, path, MAX_PATH);
     if (length == 0) {
       const DWORD dw_err = GetLastError();
-      es = std::format("{} -> `GetModuleFileNameW`", utils_pretty_function);
-      utils_win_last_error(dw_err, es.c_str());
+      es = Io::win_last_error(dw_err, "GetModuleFileNameW") +
+        Io::row("{0}\n", utils_pretty_function);
+      UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
       return "";
     }
 
@@ -225,37 +221,32 @@ class Exe {
 #endif
 };
 
-inline auto &exe_instance = Exe::get_instance();
-inline auto &args_instance = Args::get_instance();
-
-namespace Daemon {
 class LogManager {
  public:
   LogManager()
-      : log_shm_(std::make_unique<Shm::Shm>(Shm::MasterType::kDaemon)) {
-    fd_out_ = STDOUT_FILENO;
-    fd_err_ = STDERR_FILENO;
-  }
+      : log_shm_(std::make_unique<Shm::Shm>(Shm::MasterType::kDaemon)),
+        fd_out_(STDOUT_FILENO),
+        fd_err_(STDERR_FILENO) {}
 
   ~LogManager() = default;
 
-  bool main() {
-    bool ret = false;
+  auto main() -> std::expected<void, std::string> {
+    std::expected<void, std::string> ret;
 
-    if (!Shm::GMutex::create())
-      return false;
-    if (!Shm::GMutex::lock())
+    if (ret = Shm::GMutex::create(); !ret.has_value())
+      return std::unexpected(ret.error());
+    if (ret = Shm::GMutex::lock(); !ret.has_value())
       goto label_free1;
-    if (!log_shm_->init())
+    if (ret = log_shm_->init(); !ret.has_value())
       goto label_free2;
 
-    Shm::GMutex::unlock();
+    (void)Shm::GMutex::unlock();
 
     ret = daemon_main();
 
     log_shm_->deinit();
   label_free2:
-    Shm::GMutex::unlock();
+    (void)Shm::GMutex::unlock();
   label_free1:
     Shm::GMutex::destroy();
 
@@ -263,7 +254,7 @@ class LogManager {
   }
 
   void log_write(int level, const void *buffer, size_t size) {
-    int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_err_;
+    int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
 
     UTILS_WRITE(fd, buffer, size);
   }
@@ -280,11 +271,13 @@ class LogManager {
   /**
    * @note After this function ends, the `Shm::GMutex` will be held.
    */
-  bool daemon_main() {
+  auto daemon_main() -> std::expected<void, std::string> {
+    std::string es;
     auto header = log_shm_->header;
 
-    utils_dprintf(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sThe daemon starts\n",
-                  Log::kDaemon);
+    es = std::format("{0}The daemon starts (PID: {1})\n", Io::io().s_info(""),
+                     Process::pid());
+    UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
 
     thread_consumer_ =
       std::jthread(std::bind_front(&LogManager::thread_consumer, this));
@@ -296,7 +289,7 @@ class LogManager {
     while (true) {
       std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-      Shm::GMutex::lock();
+      (void)Shm::GMutex::lock();
 
       {
         log_shm_->lock_guard();
@@ -308,7 +301,7 @@ class LogManager {
         }
       }
 
-      Shm::GMutex::unlock();
+      (void)Shm::GMutex::unlock();
     }
 
     thread_monitor_.request_stop();
@@ -321,10 +314,11 @@ class LogManager {
       thread_consumer_.join();
     }
 
-    utils_dprintf(STDOUT_FILENO, LOG_LEVEL_STR_INFO "%sThe daemon ended\n",
-                  Log::kDaemon);
+    es = std::format("{0}The daemon ended (PID: {1})\n", Io::io().s_info(""),
+                     Process::pid());
+    UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
 
-    return true;
+    return {};
   }
 
   void thread_consumer(std::stop_token stop_token) {
@@ -363,9 +357,6 @@ class LogManager {
         if (stop_token.stop_requested()) {
           if (++exit_counter >= 5)
             break;
-          utils_dprintf(STDOUT_FILENO,
-                        LOG_LEVEL_STR_WARN "%s`exit_counter`: %d\n",
-                        Log::kDaemon, exit_counter);
         } else {
           exit_counter = 0;
         }
@@ -390,17 +381,17 @@ class LogManager {
         if (s == Shm::SlotState::kWaiting) {
           uint64_t ts = slots[i].timestamp_ms.load(std::memory_order_relaxed);
           if (now - ts > Log::kShmSlotResetTimeoutMilliseconds) {
-            utils_dprintf(STDERR_FILENO,
-                          LOG_LEVEL_STR_WARN "%sRecovering stuck slot: %zu\n",
-                          Log::kDaemon, i);
+            std::string es;
+
+            es = std::format("{0}Recovering stuck slot: {1}\n",
+                             Io::io().s_warn(""), i);
+            UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
 
             /**
              * @note Construct a forged log indicating data loss.
              */
-            std::string es =
-              std::format(LOG_RED LOG_LEVEL_STR_ERROR
-                          "{}Slot recovered/skipped due to timeout\n",
-                          Log::kDaemon);
+            es = std::format("{0}Slot recovered/skipped due to timeout\n",
+                             Io::io().s_error(""));
             const char *err_msg = es.c_str();
             slots[i].buffer.type = Shm::DataType::kLog;
             slots[i].buffer.level = SIRIUS_LOG_LEVEL_ERROR;
@@ -431,10 +422,9 @@ class LogManager {
            Shm::SlotState::kReady) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (++retries > retry_times) {
-        utils_dprintf(STDERR_FILENO,
-                      LOG_LEVEL_STR_WARN "%sSkip corrupted slot index: %" PRIu64
-                                         "\n",
-                      Log::kDaemon, read_index);
+        auto es = std::format("{0}Skip corrupted slot index: {1}\n",
+                              Io::io().s_warn(""), read_index);
+        UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
         return std::nullopt;
       }
     }
@@ -442,7 +432,6 @@ class LogManager {
     return slot;
   }
 };
-} // namespace Daemon
 } // namespace Daemon
 } // namespace Log
 } // namespace Utils

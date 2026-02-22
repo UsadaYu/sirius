@@ -8,12 +8,6 @@
 namespace Utils {
 namespace Log {
 inline constexpr const char *kKey = UTILS_LOG_KEY;
-inline constexpr const char *kCommon =
-  " [Common " _SIRIUS_NAMESPACE " " UTILS_LOG_KEY "] ";
-inline constexpr const char *kNative =
-  " [Native " _SIRIUS_NAMESPACE " " UTILS_LOG_KEY "] ";
-inline constexpr const char *kDaemon =
-  " [Daemon " _SIRIUS_NAMESPACE " " UTILS_LOG_KEY "] ";
 inline constexpr const char *kDaemonArgExeSpawn =
   UTILS_LOG_KEY "_daemon_exe_spawn";
 inline constexpr const char *kMutexProcessKey = UTILS_LOG_KEY "_process";

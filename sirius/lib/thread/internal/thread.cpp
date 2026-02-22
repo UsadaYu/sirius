@@ -113,16 +113,14 @@ static inline bool has_been_destructed() {
   if (once_print.exchange(true, std::memory_order_relaxed))
     return true;
 
-  sirius_log_impl(0, LOG_LEVEL_STR_ERROR, LOG_RED, _SIRIUS_LOG_PRINT_NAME,
-                  SIRIUS_FILE_NAME, __func__, __LINE__,
-                  LOG_PURPLE
-                  "\n"
-                  "---------- Fatal Error ----------\n"
-                  "- The thread manager has been destructed\n"
-                  "- The `main` function may have already ended\n"
-                  "- Or some unknown errors occurred\n"
-                  "- There should be no further operations on the thread\n"
-                  "---------------------------------\n" LOG_COLOR_NONE);
+  auto es = Utils::Io::io().s_error("") +
+    Utils::Io::row("---------- Fatal Error ----------") +
+    Utils::Io::row("The thread manager has been destructed") +
+    Utils::Io::row("The `main` function may have already ended") +
+    Utils::Io::row("Or some unknown errors occurred") +
+    Utils::Io::row("There should be no further operations on the thread");
+  es.append("\n");
+  UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
 
   return true;
 }

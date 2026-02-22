@@ -127,7 +127,7 @@ function(test_add_single_test)
                                        ${ARG_DIRECTORY})
 
   target_compile_definitions(${ARG_TARGET}
-                             PRIVATE "_SIRIUS_LOG_PRINT_NAME=\"${ARG_TARGET}\"")
+                             PRIVATE "_SIRIUS_LOG_MODULE_NAME=\"${ARG_TARGET}\"")
 
   target_compile_definitions(${ARG_TARGET} PRIVATE ${TEST_COMPILE_DEFINITIONS})
   target_compile_options(${ARG_TARGET} PRIVATE ${TEST_COMPILE_OPTIONS})

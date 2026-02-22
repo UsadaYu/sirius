@@ -205,11 +205,9 @@ static inline bool test_reentrancy() {
 
   lock_lock(lock);
 
-  sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, LOG_LEVEL_STR_INFO, LOG_PURPLE,
-                    _SIRIUS_LOG_PRINT_NAME,
+  sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, LOG_PURPLE, _SIRIUS_LOG_MODULE_NAME,
                     "Successfully lock for the second time\n");
-  sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, LOG_LEVEL_STR_INFO, LOG_PURPLE,
-                    _SIRIUS_LOG_PRINT_NAME,
+  sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, LOG_PURPLE, _SIRIUS_LOG_MODULE_NAME,
                     "This should be a reentrable lock\n");
 
   lock_unlock(lock);

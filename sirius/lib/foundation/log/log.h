@@ -1,7 +1,7 @@
 #pragma once
 
 #include "sirius/foundation/log.h"
-#include "utils/log.h"
+#include "utils/io.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 static inline void foundation_win_last_error(DWORD error_code,
@@ -31,7 +31,11 @@ static inline void foundation_errno_error(int error_code, const char *msg) {
 
   snprintf(es, sizeof(es), "%c%s", schrodinger_space, msg);
 
-  if (likely(0 == UTILS_STRERROR_R(error_code, e, sizeof(e)))) {
+#if defined(_WIN32) || defined(_WIN64)
+  if (likely(0 == strerror_s(e, sizeof(e), error_code))) {
+#else
+  if (likely(0 == strerror_r(error_code, e, sizeof(e)))) {
+#endif
     sirius_errorsp("%s: %lu. %s", es, error_code, e);
   } else {
     sirius_errorsp("%s: %lu\n", es, error_code);

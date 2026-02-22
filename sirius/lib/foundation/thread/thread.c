@@ -181,7 +181,7 @@ static DWORD g_thread_tls_index = TLS_OUT_OF_INDEXES;
 void destructor_foundation_thread() {
   if (g_thread_tls_index != TLS_OUT_OF_INDEXES) {
     if (!TlsFree(g_thread_tls_index)) {
-      OutputDebugStringA(LOG_LEVEL_STR_ERROR " TlsFree\n");
+      OutputDebugStringA("Error `TlsFree`\n");
     }
     g_thread_tls_index = TLS_OUT_OF_INDEXES;
   }
@@ -191,7 +191,7 @@ bool constructor_foundation_thread() {
   if (g_thread_tls_index == TLS_OUT_OF_INDEXES) {
     g_thread_tls_index = TlsAlloc();
     if (g_thread_tls_index == TLS_OUT_OF_INDEXES) {
-      OutputDebugStringA(LOG_LEVEL_STR_ERROR " TlsAlloc\n");
+      OutputDebugStringA("Error `TlsAlloc`\n");
       return false;
     }
   }

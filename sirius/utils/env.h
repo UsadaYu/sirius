@@ -13,7 +13,7 @@
 #ifdef __cplusplus
 namespace Utils {
 namespace Env {
-static inline std::string get_env(const char *name) {
+inline std::string get_env(const char *name) {
   if (!name)
     return "";
 

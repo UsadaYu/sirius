@@ -4,22 +4,24 @@
 
 #include "utils/log/daemon.hpp"
 
-static inline bool main_log_manager() {
-  auto log_manager = std::make_unique<Utils::Log::Daemon::Daemon::LogManager>();
+static inline auto main_log_manager() -> std::expected<void, std::string> {
+  auto log_manager = std::make_unique<Utils::Log::Daemon::LogManager>();
 
   return log_manager->main();
 }
 
 int main(int argc, char **argv) {
   auto debug = Debug();
-  auto &args_instance = Utils::Log::Daemon::args_instance;
-
-  if (!args_instance.parse(argc, argv))
-    return EINVAL;
+  auto &args_instance = Utils::Log::Daemon::Args::instance(argc, argv);
 
   switch (args_instance.get_type()) {
   case Utils::Log::Daemon::Args::ArgValue::kSpawn:
-    return (int)!main_log_manager();
+    if (auto ret = main_log_manager(); !ret.has_value()) {
+      auto es = ret.error() + "\n";
+      UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+      return -1;
+    }
+    break;
   default:
     break;
   }

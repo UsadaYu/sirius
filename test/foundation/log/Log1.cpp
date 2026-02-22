@@ -83,7 +83,7 @@ int main() {
   sirius_warnsp("- The length of the string to be printed: %zu\n",
                 strlen(ultra_long_string));
   sirius_logsp_impl(SIRIUS_LOG_LEVEL_NONE, "Ultra", LOG_PURPLE,
-                    _SIRIUS_LOG_PRINT_NAME, "- %s\n", ultra_long_string);
+                    _SIRIUS_LOG_MODULE_NAME, "- %s\n", ultra_long_string);
   sirius_warnsp("--------------------------------\n");
 
   return 0;
