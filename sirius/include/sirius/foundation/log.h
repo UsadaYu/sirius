@@ -108,35 +108,33 @@ sirius_api int sirius_log_set_daemon_path(const char *path);
 
 sirius_api void sirius_log_configure(const sirius_log_config_t *cfg);
 
-sirius_api void sirius_log_impl(int level, const char *color,
-                                const char *module, const char *file,
-                                const char *func, int line, const char *fmt,
-                                ...);
+sirius_api void sirius_log_impl(int level, const char *module, const char *file,
+                                int line, const char *fmt, ...);
 
-sirius_api void sirius_logsp_impl(int level, const char *color,
-                                  const char *module, const char *fmt, ...);
+sirius_api void sirius_logsp_impl(int level, const char *module,
+                                  const char *fmt, ...);
 
 #define _sirius_log_void(level, fmt, ...) \
   do { \
     if (0) { \
-      sirius_log_impl(level, "", "", "", "", 0, fmt, ##__VA_ARGS__); \
+      sirius_log_impl(level, "", "", 0, fmt, ##__VA_ARGS__); \
     } \
   } while (0)
 
 #define _sirius_logsp_void(level, fmt, ...) \
   do { \
     if (0) { \
-      sirius_logsp_impl(level, "", "", fmt, ##__VA_ARGS__); \
+      sirius_logsp_impl(level, "", fmt, ##__VA_ARGS__); \
     } \
   } while (0)
 
 #if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_ERROR)
 #  define _sirius_error(fmt, ...) \
-    sirius_log_impl(SIRIUS_LOG_LEVEL_ERROR, LOG_RED, _SIRIUS_LOG_MODULE_NAME, \
-                    SIRIUS_FILE_NAME, __func__, __LINE__, fmt, ##__VA_ARGS__)
+    sirius_log_impl(SIRIUS_LOG_LEVEL_ERROR, _SIRIUS_LOG_MODULE_NAME, \
+                    SIRIUS_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
 #  define _sirius_errorsp(fmt, ...) \
-    sirius_logsp_impl(SIRIUS_LOG_LEVEL_ERROR, LOG_RED, \
-                      _SIRIUS_LOG_MODULE_NAME, fmt, ##__VA_ARGS__)
+    sirius_logsp_impl(SIRIUS_LOG_LEVEL_ERROR, _SIRIUS_LOG_MODULE_NAME, fmt, \
+                      ##__VA_ARGS__)
 #else
 #  define _sirius_error(fmt, ...) \
     _sirius_log_void(SIRIUS_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
@@ -146,12 +144,11 @@ sirius_api void sirius_logsp_impl(int level, const char *color,
 
 #if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_WARN)
 #  define _sirius_warn(fmt, ...) \
-    sirius_log_impl(SIRIUS_LOG_LEVEL_WARN, LOG_YELLOW, \
-                    _SIRIUS_LOG_MODULE_NAME, SIRIUS_FILE_NAME, __func__, \
-                    __LINE__, fmt, ##__VA_ARGS__)
+    sirius_log_impl(SIRIUS_LOG_LEVEL_WARN, _SIRIUS_LOG_MODULE_NAME, \
+                    SIRIUS_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
 #  define _sirius_warnsp(fmt, ...) \
-    sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, LOG_YELLOW, \
-                      _SIRIUS_LOG_MODULE_NAME, fmt, ##__VA_ARGS__)
+    sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, _SIRIUS_LOG_MODULE_NAME, fmt, \
+                      ##__VA_ARGS__)
 #else
 #  define _sirius_warn(fmt, ...) \
     _sirius_log_void(SIRIUS_LOG_LEVEL_WARN, fmt, ##__VA_ARGS__)
@@ -161,11 +158,11 @@ sirius_api void sirius_logsp_impl(int level, const char *color,
 
 #if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_INFO)
 #  define _sirius_info(fmt, ...) \
-    sirius_log_impl(SIRIUS_LOG_LEVEL_INFO, LOG_GREEN, _SIRIUS_LOG_MODULE_NAME, \
-                    SIRIUS_FILE_NAME, __func__, __LINE__, fmt, ##__VA_ARGS__)
+    sirius_log_impl(SIRIUS_LOG_LEVEL_INFO, _SIRIUS_LOG_MODULE_NAME, \
+                    SIRIUS_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
 #  define _sirius_infosp(fmt, ...) \
-    sirius_logsp_impl(SIRIUS_LOG_LEVEL_INFO, LOG_GREEN, \
-                      _SIRIUS_LOG_MODULE_NAME, fmt, ##__VA_ARGS__)
+    sirius_logsp_impl(SIRIUS_LOG_LEVEL_INFO, _SIRIUS_LOG_MODULE_NAME, fmt, \
+                      ##__VA_ARGS__)
 #else
 #  define _sirius_info(fmt, ...) \
     _sirius_log_void(SIRIUS_LOG_LEVEL_INFO, fmt, ##__VA_ARGS__)
@@ -175,12 +172,11 @@ sirius_api void sirius_logsp_impl(int level, const char *color,
 
 #if (_SIRIUS_LOG_LEVEL >= SIRIUS_LOG_LEVEL_DEBUG)
 #  define _sirius_debug(fmt, ...) \
-    sirius_log_impl(SIRIUS_LOG_LEVEL_DEBUG, LOG_COLOR_NONE, \
-                    _SIRIUS_LOG_MODULE_NAME, SIRIUS_FILE_NAME, __func__, \
-                    __LINE__, fmt, ##__VA_ARGS__)
+    sirius_log_impl(SIRIUS_LOG_LEVEL_DEBUG, _SIRIUS_LOG_MODULE_NAME, \
+                    SIRIUS_FILE_NAME, __LINE__, fmt, ##__VA_ARGS__)
 #  define _sirius_debugsp(fmt, ...) \
-    sirius_logsp_impl(SIRIUS_LOG_LEVEL_DEBUG, LOG_COLOR_NONE, \
-                      _SIRIUS_LOG_MODULE_NAME, fmt, ##__VA_ARGS__)
+    sirius_logsp_impl(SIRIUS_LOG_LEVEL_DEBUG, _SIRIUS_LOG_MODULE_NAME, fmt, \
+                      ##__VA_ARGS__)
 #else
 #  define _sirius_debug(fmt, ...) \
     _sirius_log_void(SIRIUS_LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)

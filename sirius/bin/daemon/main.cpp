@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
   switch (args_instance.get_type()) {
   case Utils::Log::Daemon::Args::ArgValue::kSpawn:
     if (auto ret = main_log_manager(); !ret.has_value()) {
-      auto es = ret.error() + "\n";
+      auto es = ret.error().append("\n");
       UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
       return -1;
     }

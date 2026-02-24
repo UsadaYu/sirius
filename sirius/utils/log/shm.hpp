@@ -137,19 +137,20 @@ inline auto create() -> std::expected<void, std::string> {
   auto ret = MHandle::create(Log::kMutexProcessKey);
 
   if (!ret.has_value()) {
-    return std::unexpected(ret.error() + Io::row(utils_pretty_function));
+    return std::unexpected(
+      ret.error().append(Io::row_gs("\n{0}", utils_pretty_func)));
   }
 
   if (!ret.value().valid()) {
-    return std::unexpected(Io::io().s_error(SIRIUS_FILE_NAME, __LINE__));
+    return std::unexpected(Io::io()
+                             .s_error(SIRIUS_FILE_NAME, __LINE__)
+                             .append(Io::row_gs("The mutex address is empty")));
   }
 
   mutex_.emplace(std::move(ret.value()));
 
   return {};
 }
-
-#undef MUTEX_TYPE_
 
 inline void destroy() {
   if (!mutex_.has_value())
@@ -161,14 +162,16 @@ inline void destroy() {
 
 inline auto lock() -> std::expected<void, std::string> {
   if (!mutex_.has_value()) {
-    return std::unexpected(Io::io().s_error(SIRIUS_FILE_NAME, __LINE__));
+    return std::unexpected(Io::io()
+                             .s_error(SIRIUS_FILE_NAME, __LINE__)
+                             .append(Io::row_gs("Invalid argument. `mutex`")));
   }
 
   auto ret = mutex_->lock();
 
-  return ret.has_value()
-    ? std::expected<void, std::string> {}
-    : std::unexpected(ret.error() + Io::row(utils_pretty_function));
+  return ret.has_value() ? std::expected<void, std::string> {}
+                         : std::unexpected(ret.error().append(
+                             Io::row_gs("\n{0}", utils_pretty_func)));
 }
 
 inline auto unlock() -> std::expected<void, std::string> {
@@ -178,7 +181,10 @@ inline auto unlock() -> std::expected<void, std::string> {
 
 class Shm {
 #define SHM_SUFFIX \
-  (Io::row("PID: {0}", Process::pid()) + Io::row(utils_pretty_function))
+  ( \
+    Io::row_gs("\nPID: {0}" \
+               "\n{1}", \
+               Process::pid(), utils_pretty_func))
 
  public:
   Header *header = nullptr;
@@ -257,7 +263,14 @@ class Shm {
    public:
     explicit LockGuard(Process::GMutex &mutex)
         : mutex_(mutex), lock_ret_(false) {
-      lock_ret_ = mutex_.lock().has_value();
+      if (auto ret = mutex_.lock(); ret.has_value()) {
+        lock_ret_ = true;
+      } else {
+        auto es = ret.error()
+                    .append(Io::row_gs("\n{0}", utils_pretty_func))
+                    .append("\n");
+        UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+      }
     }
 
     ~LockGuard() {
@@ -309,8 +322,8 @@ class Shm {
     if (shm_handle_) {
       is_shm_creator_ = dw_err == ERROR_ALREADY_EXISTS ? false : true;
     } else {
-      return std::unexpected(Io::win_last_error(dw_err, "CreateFileMappingA") +
-                             SHM_SUFFIX);
+      return std::unexpected(
+        Io::win_last_error(dw_err, "CreateFileMappingA").append(SHM_SUFFIX));
     }
 
     mapped_size_ = size_needed;
@@ -330,8 +343,8 @@ class Shm {
       MapViewOfFile(shm_handle_, FILE_MAP_ALL_ACCESS, 0, 0, mapped_size_);
     if (!ptr) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(Io::win_last_error(dw_err, "MapViewOfFile") +
-                             SHM_SUFFIX);
+      return std::unexpected(
+        Io::win_last_error(dw_err, "MapViewOfFile").append(SHM_SUFFIX));
     }
     header = static_cast<Header *>(ptr);
 
@@ -367,20 +380,20 @@ class Shm {
         errno_err = errno;
         shm_unlink(shm_name_.c_str());
         close(shm_fd_);
-        return std::unexpected(Io::errno_error(errno_err, "ftruncate") +
-                               SHM_SUFFIX);
+        return std::unexpected(
+          Io::errno_error(errno_err, "ftruncate").append(SHM_SUFFIX));
       }
     } else if (errno_err == EEXIST) {
       is_shm_creator_ = false;
       shm_fd_ = shm_open(shm_name_.c_str(), O_RDWR, 0);
       if (shm_fd_ < 0) {
         errno_err = errno;
-        return std::unexpected(Io::errno_error(errno_err, "shm_open (attach)") +
-                               SHM_SUFFIX);
+        return std::unexpected(
+          Io::errno_error(errno_err, "shm_open (attach)").append(SHM_SUFFIX));
       }
     } else {
-      return std::unexpected(Io::errno_error(errno_err, "shm_open (open)") +
-                             SHM_SUFFIX);
+      return std::unexpected(
+        Io::errno_error(errno_err, "shm_open (open)").append(SHM_SUFFIX));
     }
 
     mapped_size_ = size_needed;
@@ -395,7 +408,10 @@ class Shm {
     }
 
     if (destructor_counter_ == 0) {
-      auto es = Io::io().s_info("") + "Unlink the share memory\n";
+      auto es = Io::io()
+                  .s_info("")
+                  .append(Io::row_gs("Unlink the share memory"))
+                  .append("\n");
       UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
       shm_unlink(shm_name_.c_str());
     }
@@ -408,7 +424,8 @@ class Shm {
                      shm_fd_, 0);
     if (ptr == MAP_FAILED) {
       const int errno_err = errno;
-      return std::unexpected(Io::errno_error(errno_err, "mmap") + SHM_SUFFIX);
+      return std::unexpected(
+        Io::errno_error(errno_err, "mmap").append(SHM_SUFFIX));
     }
     header = static_cast<Header *>(ptr);
 
@@ -463,12 +480,12 @@ class Shm {
       Process::GMutex::create(&header->shm_mutex, is_shm_creator_);
 #endif
     if (!create_ret.has_value()) {
-      return std::unexpected(create_ret.error() + SHM_SUFFIX);
+      return std::unexpected(create_ret.error().append(SHM_SUFFIX));
     }
 
     if (!create_ret.value().valid()) {
-      return std::unexpected(Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-                             SHM_SUFFIX);
+      return std::unexpected(
+        Io::io().s_error(SIRIUS_FILE_NAME, __LINE__).append(SHM_SUFFIX));
     }
 
     shm_mutex_.emplace(std::move(create_ret.value()));
@@ -499,9 +516,10 @@ class Shm {
         shm_unlink(shm_name_.c_str());
 #endif
         return std::unexpected(
-          Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-          Io::row("Invalid argument. `magic`: {0}", header->magic) +
-          SHM_SUFFIX);
+          Io::io()
+            .s_error(SIRIUS_FILE_NAME, __LINE__)
+            .append(Io::row_gs("Invalid argument. `magic`: {0}", header->magic))
+            .append(SHM_SUFFIX));
       }
 
       return master_->slot_alloc();
@@ -563,10 +581,12 @@ class Shm {
       case MasterType::kNative:
         return native_slot_alloc();
       default:
-        return std::unexpected(Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-                               Io::row("Invalid argument. `master_type_`: {0}",
-                                       static_cast<int>(parent_.master_type_)) +
-                               SHM_SUFFIX);
+        return std::unexpected(
+          Io::io()
+            .s_error(SIRIUS_FILE_NAME, __LINE__)
+            .append(Io::row_gs("Invalid argument. `master_type_`: {0}",
+                               static_cast<int>(parent_.master_type_))
+                      .append(SHM_SUFFIX)));
       }
     }
 
@@ -601,8 +621,11 @@ class Shm {
           break;
         }
         if (i == Log::kProcessMax - 1) {
-          auto es =
-            Io::io().s_warn("") + "No valid pid was matched" + SHM_SUFFIX;
+          auto es = Io::io()
+                      .s_warn("")
+                      .append(Io::row_gs("No valid pid was matched"))
+                      .append(SHM_SUFFIX)
+                      .append("\n");
           UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
         }
       }
@@ -621,9 +644,11 @@ class Shm {
           break;
         }
         if (i == Log::kProcessMax - 1) {
-          return std::unexpected(Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-                                 Io::row("Cache full. Too many processes\n") +
-                                 SHM_SUFFIX);
+          return std::unexpected(
+            Io::io()
+              .s_error(SIRIUS_FILE_NAME, __LINE__)
+              .append(Io::row_gs("\nCache full. Too many processes"))
+              .append(SHM_SUFFIX));
         }
       }
 
@@ -638,14 +663,15 @@ class Shm {
 
       attached_free();
 
-      auto es = Io::io().s_info("") + "Slot free\n";
+      auto es =
+        Io::io().s_info("").append(Io::row_gs("Slot free")).append("\n");
       UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
     }
 
     auto daemon_slot_alloc() -> std::expected<void, std::string> {
       if (header_->is_daemon_ready.load(std::memory_order_relaxed)) {
-        return std::unexpected(Io::io().s_warn("") +
-                               "Another daemon already exists\n");
+        return std::unexpected(Io::io().s_warn("").append(
+          Io::row_gs("Another daemon already exists")));
       }
 
       if (auto ret = attached_alloc(); !ret.has_value())
@@ -654,7 +680,8 @@ class Shm {
       thread_guard_ =
         std::jthread(std::bind_front(&Shm::Master::daemon_thread_guard, this));
 
-      auto es = Io::io().s_info("") + "Slot alloc\n";
+      auto es =
+        Io::io().s_info("").append(Io::row_gs("Slot alloc")).append("\n");
       UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
 
       return {};
@@ -712,13 +739,16 @@ class Shm {
           break;
         if (i == kRetryTimes - 1) {
           T_slot_free();
-          return std::unexpected(Io::io().s_info(SIRIUS_FILE_NAME, __LINE__) +
-                                 Io::row("Fail to start `thread_guard`\n") +
-                                 SHM_SUFFIX);
+          return std::unexpected(
+            Io::io()
+              .s_error(SIRIUS_FILE_NAME, __LINE__)
+              .append(Io::row_gs("\nFail to start `thread_guard`"))
+              .append(SHM_SUFFIX));
         }
       }
 
-      auto es = Io::io().s_info("") + "Slot alloc\n";
+      auto es =
+        Io::io().s_info("").append(Io::row_gs("Slot alloc")).append("\n");
       UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
 
       return {};
@@ -732,8 +762,11 @@ class Shm {
 
         while (!attached_check(index)) {
           if (index == Log::kProcessMax - 1) {
-            auto es =
-              Io::io().s_warn("") + "No valid pid was matched" + SHM_SUFFIX;
+            auto es = Io::io()
+                        .s_warn("")
+                        .append(Io::row_gs("No valid pid was matched"))
+                        .append(SHM_SUFFIX)
+                        .append("\n");
             UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
             return;
           }
@@ -761,8 +794,11 @@ class Shm {
           if (attached_check(index)) [[likely]] {
             header_->attached_maps[index].timestamp_ms = timestamp_ms;
           } else {
-            auto es = Io::io().s_warn("") +
-              "Invalid argument. `attached` thread exit" + SHM_SUFFIX;
+            auto es =
+              Io::io()
+                .s_warn("")
+                .append(Io::row_gs("Invalid argument. `attached` thread exit"))
+                .append(SHM_SUFFIX);
             UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
             return;
           }

@@ -1,5 +1,7 @@
 #include "lib/thread/internal/thread.h"
 
+#include "utils/io.hpp"
+
 #ifndef LIB_FOUNDATION_THREAD_THREAD_H_
 #  define LIB_FOUNDATION_THREAD_THREAD_H_
 #endif
@@ -113,13 +115,13 @@ static inline bool has_been_destructed() {
   if (once_print.exchange(true, std::memory_order_relaxed))
     return true;
 
-  auto es = Utils::Io::io().s_error("") +
-    Utils::Io::row("---------- Fatal Error ----------") +
-    Utils::Io::row("The thread manager has been destructed") +
-    Utils::Io::row("The `main` function may have already ended") +
-    Utils::Io::row("Or some unknown errors occurred") +
-    Utils::Io::row("There should be no further operations on the thread");
-  es.append("\n");
+  auto es = Utils::Io::io().s_error("").append(
+    Utils::Io::row_gs("\n---------- Fatal Error ----------"
+                      "\nThe thread manager has been destructed"
+                      "\nThe `main` function may have already ended"
+                      "\nOr some unknown errors occurred"
+                      "\nThere should be no further operations on the thread")
+      .append("\n"));
   UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
 
   return true;

@@ -2,7 +2,7 @@
 
 #include <unordered_map>
 
-#include "utils/io.h"
+#include "utils/io.hpp"
 
 namespace Utils {
 namespace Args {
@@ -69,7 +69,7 @@ class Parser {
       return s.size() >= 2 && s[0] == '-' && s[1] == '-';
     };
 
-#define S_ERROR (Io::io().s_error(SIRIUS_FILE_NAME, __LINE__))
+#define PARSE_ERROR (Io::io().s_error(SIRIUS_FILE_NAME, __LINE__))
 
     for (int i = 1; i < argc; ++i) {
       std::string token = argv[i];
@@ -89,7 +89,8 @@ class Parser {
 
         auto it = specs_.find(option);
         if (it == specs_.end()) {
-          return std::unexpected(S_ERROR + "Unknown option `--" + option + "`");
+          return std::unexpected(
+            PARSE_ERROR + Io::row_gs("\nUnknown option `--{0}`", option));
         }
 
         const OptionSpec &spec = it->second;
@@ -99,16 +100,17 @@ class Parser {
         } else {
           if (value.empty()) {
             if (i + 1 >= argc) {
-              return std::unexpected(S_ERROR + "Missing value for option `--" +
-                                     option + "`");
+              return std::unexpected(
+                PARSE_ERROR +
+                Io::row_gs("\nMissing value for option `--{0}`", option));
             }
             std::string next = argv[++i];
             if (is_option(next)) {
               return std::unexpected(
-                S_ERROR +
-                Io::row("Missing value for option `--{0}` (next token looks "
-                        "like an option: {1})",
-                        option, next));
+                PARSE_ERROR +
+                Io::row_gs("\nMissing value for option `--{0}` "
+                           "(next token looks like an option: {1})",
+                           option, next));
             }
             value = next;
           }
@@ -122,16 +124,17 @@ class Parser {
             }
             if (!ok) {
               return std::unexpected(
-                S_ERROR +
-                Io::row("Invalid value for option `--{0}`: {1}", option,
-                        value) +
-                Io::row("Allowed: {0}", join(spec.allowed_values, ", ")));
+                PARSE_ERROR +
+                Io::row_gs("\nInvalid value for option `--{0}`: {1}"
+                           "\nAllowed: {2}",
+                           option, value, join(spec.allowed_values, ", ")));
             }
           }
           if (!spec.multiple && parsed_.count(option) &&
               !parsed_[option].empty()) {
-            return std::unexpected(S_ERROR + "Option `--" + option +
-                                   "` may only appear once");
+            return std::unexpected(
+              PARSE_ERROR +
+              Io::row_gs("\nOption `--{0}` may only appear once", option));
           }
           parsed_[option].push_back(value);
         }
@@ -143,14 +146,14 @@ class Parser {
     for (auto const &[k, spec] : specs_) {
       if (spec.required) {
         if (!parsed_.count(k) || parsed_.at(k).empty()) {
-          return std::unexpected(S_ERROR + "Required option missing `--" + k +
-                                 "`");
+          return std::unexpected(
+            PARSE_ERROR + Io::row_gs("\nRequired option missing `--{0}`", k));
         }
       }
     }
 
     return {};
-#undef S_ERROR
+#undef PARSE_ERROR
   }
 
   bool has(const std::string &option) const {

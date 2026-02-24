@@ -38,6 +38,14 @@ static inline bool check(Utils::Utils::IntegralOrEnum auto type) {
 }
 } // namespace StdType
 
+// ------------------------------------------------------------
+/**
+ * @note
+ * ------------------------------
+ * Subsequently, this class will be moved to the `io.hpp` header file and
+ * implemented in a singleton mode.
+ * ------------------------------
+ */
 class PrivateManager {
  public:
   PrivateManager() : fd_out_(STDOUT_FILENO), fd_err_(STDERR_FILENO) {}
@@ -79,11 +87,14 @@ class PrivateManager {
 };
 
 static PrivateManager g_private_manager;
+// ------------------------------------------------------------
 
 class SharedManager {
 #define SM_SUFFIX \
-  (Utils::Io::row("PID: {0}", Utils::Process::pid()) + \
-   Utils::Io::row(utils_pretty_function))
+  ( \
+    Utils::Io::row_gs("\nPID: {0}" \
+                      "\n{1}", \
+                      Utils::Process::pid(), utils_pretty_func))
 
  public:
   SharedManager()
@@ -226,8 +237,9 @@ class SharedManager {
     std::filesystem::path daemon_exe;
     if (auto ret = Utils::Log::Daemon::Exe::instance().get_path();
         !ret.has_value()) {
-      return std::unexpected(Utils::Io::errno_error(ret.error(), "get_path") +
-                             Utils::Io::row(utils_pretty_function));
+      return std::unexpected(
+        Utils::Io::errno_error(ret.error(), "get_path (daemon exe)")
+          .append(SM_SUFFIX));
     } else {
       daemon_exe = ret.value();
     }
@@ -242,7 +254,8 @@ class SharedManager {
     si.cb = sizeof(STARTUPINFOA);
     PROCESS_INFORMATION pi {};
 
-    es = Utils::Io::io().s_info("") + "Try to start the daemon\n";
+    es = Utils::Io::io().s_info("").append(
+      Utils::Io::row_gs("Try to start the daemon").append("\n"));
     UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
 
     BOOL ret = CreateProcessA(nullptr, cmd_line.data(), nullptr, nullptr, TRUE,
@@ -253,7 +266,7 @@ class SharedManager {
     if (!ret) {
       const DWORD dw_err = GetLastError();
       return std::unexpected(
-        Utils::Io::win_last_error(dw_err, "CreateProcessA") + SM_SUFFIX);
+        Utils::Io::win_last_error(dw_err, "CreateProcessA").append(SM_SUFFIX));
     }
 
     CloseHandle(pi.hThread);
@@ -280,8 +293,8 @@ class SharedManager {
     std::filesystem::path daemon_exe;
     if (auto ret = Utils::Log::Daemon::Exe::instance().get_path();
         !ret.has_value()) {
-      return std::unexpected(Utils::Io::errno_error(ret.error(), "get_path") +
-                             Utils::Io::row(utils_pretty_function));
+      return std::unexpected(
+        Utils::Io::errno_error(ret.error(), "get_path").append(SM_SUFFIX));
     } else {
       daemon_exe = ret.value();
     }
@@ -302,8 +315,8 @@ class SharedManager {
     pid_t pid1 = fork();
     if (pid1 < 0) {
       const int errno_err = errno;
-      return std::unexpected(Utils::Io::errno_error(errno_err, "fork (pid1)") +
-                             Utils::Io::row(utils_pretty_function));
+      return std::unexpected(
+        Utils::Io::errno_error(errno_err, "fork (pid1)").append(SM_SUFFIX));
     }
 
     constexpr int kNormalExitStatus = 0;
@@ -316,15 +329,18 @@ class SharedManager {
         const int errno_err = errno;
         if (errno_err != ECHILD) {
           const int errno_err = errno;
-          return std::unexpected(Utils::Io::errno_error(errno_err, "waitpid") +
-                                 Utils::Io::row(utils_pretty_function));
+          return std::unexpected(
+            Utils::Io::errno_error(errno_err, "waitpid").append(SM_SUFFIX));
         }
       }
 
       if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus) != kNormalExitStatus) {
         return std::unexpected(
-          Utils::Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-          Utils::Io::row("Failed to initialize. wstatus: {0}\n", wstatus));
+          Utils::Io::io()
+            .s_error(SIRIUS_FILE_NAME, __LINE__)
+            .append(Utils::Io::row_gs("Failed to initialize. wstatus: {0}\n",
+                                      wstatus))
+            .append(SM_SUFFIX));
       }
 
       return {};
@@ -338,20 +354,23 @@ class SharedManager {
 
     if (setsid() < 0) {
       const int errno_err = errno;
-      es = Utils::Io::errno_error(errno_err, "setsid") +
-        Utils::Io::row(utils_pretty_function);
+      es = Utils::Io::errno_error(errno_err, "setsid")
+             .append(SM_SUFFIX)
+             .append("\n");
       UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
       std::exit(kNormalExitStatus + 1);
     }
 
-    es = Utils::Io::io().s_info("") + "Try to start the daemon\n";
+    es = Utils::Io::io().s_info("").append(
+      Utils::Io::row_gs("Try to start the daemon").append("\n"));
     UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
 
     pid_t pid2 = fork();
     if (pid2 < 0) {
       const int errno_err = errno;
-      es = Utils::Io::errno_error(errno_err, "fork (pid2)") +
-        Utils::Io::row(utils_pretty_function);
+      es = Utils::Io::errno_error(errno_err, "fork (pid2)")
+             .append(SM_SUFFIX)
+             .append("\n");
       UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
       std::exit(kNormalExitStatus + 2);
     }
@@ -362,7 +381,10 @@ class SharedManager {
     umask(0);
     if (chdir("/") < 0) {
       const int errno_err = errno;
-      errno_error(errno_err, "`chdir`");
+      es = Utils::Io::errno_error(errno_err, "chdir")
+             .append(SM_SUFFIX)
+             .append("\n");
+      UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
       _exit(errno_err);
     }
 
@@ -385,8 +407,9 @@ class SharedManager {
 #  if LOG_DAEMON_FORK_AND_EXEC
     execvp(argv[0], argv.data());
     const int errno_err = errno;
-    es = Utils::Io::errno_error(errno_err, "execvp") +
-      Utils::Io::row(utils_pretty_function);
+    es = Utils::Io::errno_error(errno_err, "execvp")
+           .append(SM_SUFFIX)
+           .append("\n");
     UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
 
     _exit(errno_err);
@@ -413,16 +436,20 @@ class SharedManager {
     while (!header->is_daemon_ready.load(std::memory_order_relaxed)) {
       if (retries++ > kRetryTimes) {
         return std::unexpected(
-          Utils::Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-          Utils::Io::row("No daemon was found") +
-          Utils::Io::row(utils_pretty_function));
+          Utils::Io::io()
+            .s_error(SIRIUS_FILE_NAME, __LINE__)
+            .append(Utils::Io::row_gs("No daemon was found"))
+            .append(SM_SUFFIX));
       }
       if (retries % 100 == 0) {
-        auto es =
-          std::format("{0}{1}\n", Utils::Io::io().s_info(""),
-                      Utils::Io::row("Trying to acquire daemon. Total "
-                                     "attempts: {0}; Attempted times: {1}",
-                                     kRetryTimes, retries));
+        auto es = Utils::Io::io()
+                    .s_info("")
+                    .append(Utils::Io::row_gs(
+                      "Trying to acquire daemon. "
+                      "Total attempts: {0}; Attempted times: {1}",
+                      kRetryTimes, retries))
+                    .append("\n");
+        UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
@@ -513,8 +540,9 @@ static inline bool shared_initialization_check() {
     auto log_manager = std::make_unique<SharedManager>();
 
     if (auto ret = log_manager->init(); !ret.has_value()) {
-      auto es = ret.error() + "\n";
-      UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+      auto es = ret.error().append("\n");
+      g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, es.c_str(),
+                                  es.size());
     } else {
       g_shared_initialization.store(true, std::memory_order_relaxed);
       g_shared_manager = std::move(log_manager);
@@ -559,8 +587,10 @@ class FsManager {
       path_size =
         utils_string_length_check(config.log_path, Utils::Log::kLogPathMax);
       if (path_size == 0 || path_size == Utils::Log::kLogPathMax) {
-        auto es = Utils::Io::io().s_warn("") + "Invalid argument. `log_path`\n";
-        UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+        auto es = Utils::Io::io().s_warn("").append(
+          Utils::Io::row_gs("Invalid argument. `log_path`").append("\n"));
+        g_private_manager.log_write(SIRIUS_LOG_LEVEL_WARN, es.c_str(),
+                                    es.size());
         return;
       }
     }
@@ -603,32 +633,30 @@ sirius_log_configure(const sirius_log_config_t *config) {
   g_fs_manager.fs_configure(config->err, StdType::Put::kErr);
 }
 
-#define ISSUE_ERROR_STANDARD_FUNCTION(function) \
-  do { \
-    const char *e = \
-      "\n" \
-      "  The LOG module issues an ERROR\n" \
-      "  " function " error\n"; \
-    g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
-  } while (0)
+static inline void error_log_lost(std::string_view func) {
+  auto es = Utils::Io::io().s_error("").append(
+    Utils::Io::row_gs("\nLog length exceeds the buffer, log will be lost"
+                      "\n{0}",
+                      func)
+      .append("\n"));
+  g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, es.c_str(), es.size());
+}
 
-#define ISSUE_ERROR_LOG_LOST() \
-  do { \
-    const char *e = \
-      "\n" \
-      "  The LOG module issues an ERROR\n" \
-      "  Log length exceeds the buffer, log will be lost\n"; \
-    g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
-  } while (0)
+static inline void error_lib_func(std::string_view func,
+                                  std::string_view lib_func) {
+  auto es = Utils::Io::io().s_error("").append(Utils::Io::row_gs("\n`{0}` error"
+                                                                 "\n{1}",
+                                                                 lib_func, func)
+                                                 .append("\n"));
+  g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, es.c_str(), es.size());
+}
 
-#define ISSUE_WARNING_LOG_TRUNCATED() \
-  do { \
-    const char *e = \
-      "\n" \
-      "  The LOG module issues a WARNING\n" \
-      "  Log length exceeds the buffer, log will be truncated\n"; \
-    g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, e, strlen(e)); \
-  } while (0)
+static inline void error_log_truncated() {
+  auto es = Utils::Io::io().s_warn("").append(
+    Utils::Io::row_gs("\nLog length exceeds the buffer, log will be truncated")
+      .append("\n"));
+  g_private_manager.log_write(SIRIUS_LOG_LEVEL_WARN, es.c_str(), es.size());
+}
 
 static inline void log_write(Utils::Log::Shm::Buffer &buffer, size_t data_len) {
   auto &fs_to_shared = buffer.level <= SIRIUS_LOG_LEVEL_WARN
@@ -648,124 +676,146 @@ static inline void log_write(Utils::Log::Shm::Buffer &buffer, size_t data_len) {
   }
 }
 
-extern "C" sirius_api void sirius_log_impl(int level, const char *color,
-                                           const char *module, const char *file,
-                                           const char *func, int line,
+static force_inline void level_prefix(int level, std::string &usr_prefix,
+                                      const char *module, const char *file,
+                                      int line) {
+  switch (level) {
+  case SIRIUS_LOG_LEVEL_ERROR:
+    usr_prefix = Utils::Io::io().s_error(file, line, module);
+    break;
+  case SIRIUS_LOG_LEVEL_WARN:
+    usr_prefix = Utils::Io::io().s_warn(file, line, module);
+    break;
+  case SIRIUS_LOG_LEVEL_INFO:
+    usr_prefix = Utils::Io::io().s_info(file, line, module);
+    break;
+  case SIRIUS_LOG_LEVEL_DEBUG:
+    usr_prefix = Utils::Io::io().s_debug(file, line, module);
+    break;
+  default:
+    break;
+  }
+}
+
+static force_inline size_t count_trailing_new_lines(std::string_view str) {
+  size_t count = 0;
+
+  for (auto it = str.rbegin(); it != str.rend(); ++it) {
+    if (*it == '\n') {
+      ++count;
+    } else {
+      break;
+    }
+  }
+
+  return count;
+}
+
+extern "C" sirius_api void sirius_log_impl(int level, const char *module,
+                                           const char *file, int line,
                                            const char *fmt, ...) {
   Utils::Log::Shm::Buffer buffer {};
   auto &data = buffer.data.log;
-  size_t len = 0;
-  size_t written;
 
   buffer.type = Utils::Log::Shm::DataType::kLog;
   buffer.level = level;
 
-  std::string prefix;
-  switch (level) {
-  case SIRIUS_LOG_LEVEL_ERROR:
-    prefix = Utils::Io::io().s_error(file, line, module);
-    break;
-  case SIRIUS_LOG_LEVEL_WARN:
-    prefix = Utils::Io::io().s_warn(file, line, module);
-    break;
-  case SIRIUS_LOG_LEVEL_INFO:
-    prefix = Utils::Io::io().s_info(file, line, module);
-    break;
-  case SIRIUS_LOG_LEVEL_DEBUG:
-    prefix = Utils::Io::io().s_debug(file, line, module);
-    break;
-  default:
-    return;
-  }
-  written = prefix.size();
-  memcpy(data.buf, prefix.c_str(), written);
+  std::string usr_prefix;
+  size_t usr_prefix_size = 0;
+  usr_prefix.reserve(Utils::Io::kPrefixLength + 16);
 
-  len += written;
-  if (len >= Utils::Log::kLogBufferSize) [[unlikely]] {
-    ISSUE_ERROR_LOG_LOST();
-    return;
+  level_prefix(level, usr_prefix, module, file, line);
+  usr_prefix_size = strlen(usr_prefix.c_str());
+
+  if (usr_prefix_size >= Utils::Log::kLogBufferSize) [[unlikely]] {
+    return error_log_lost(utils_pretty_func);
   }
+
+  char usr_vdata[Utils::Log::kLogBufferSize];
+  size_t usr_vdata_size = 0;
+  size_t usr_vdata_max = Utils::Log::kLogBufferSize - usr_prefix_size;
 
   /**
    * @ref https://linux.die.net/man/3/vsnprintf
    */
   va_list args;
   va_start(args, fmt);
-  written =
-    vsnprintf(data.buf + len, Utils::Log::kLogBufferSize - len, fmt, args);
+  usr_vdata_size = vsnprintf(usr_vdata, usr_vdata_max, fmt, args);
   va_end(args);
 
-  if (written < 0) {
-    ISSUE_ERROR_STANDARD_FUNCTION("vsnprintf");
-    return;
+  if (usr_vdata_size < 0) [[unlikely]] {
+    return error_lib_func(utils_pretty_func, "vsnprintf");
   }
 
-  len += written;
-  if (len >= Utils::Log::kLogBufferSize) [[unlikely]] {
-    len = Utils::Log::kLogBufferSize - 1;
-    ISSUE_WARNING_LOG_TRUNCATED();
+  std::string usr_data;
+  usr_data.reserve(usr_vdata_size + 32);
+  usr_data = Utils::Io::row_gs("{0}", usr_vdata)
+               .append(count_trailing_new_lines(usr_vdata), '\n');
+  size_t usr_data_size = strlen(usr_data.c_str());
+
+  if (usr_data_size >= usr_vdata_max) [[unlikely]] {
+    usr_data_size = usr_vdata_max - 1;
+    error_log_truncated();
   }
 
-  data.buf_size = len;
+  data.buf_size = usr_prefix_size + usr_data_size;
 
-  log_write(buffer, len);
+  std::memcpy(data.buf, usr_prefix.c_str(), usr_prefix_size);
+  std::memcpy(data.buf + usr_prefix_size, usr_data.c_str(), usr_data_size);
+
+  log_write(buffer, data.buf_size);
 }
 
-extern "C" sirius_api void sirius_logsp_impl(int level, const char *color,
-                                             const char *module,
+extern "C" sirius_api void sirius_logsp_impl(int level, const char *module,
                                              const char *fmt, ...) {
   Utils::Log::Shm::Buffer buffer {};
   auto &data = buffer.data.log;
-  size_t len = 0;
-  size_t written;
 
   buffer.type = Utils::Log::Shm::DataType::kLog;
   buffer.level = level;
 
-  std::string prefix;
-  switch (level) {
-  case SIRIUS_LOG_LEVEL_ERROR:
-    prefix = Utils::Io::io().s_error("", 0, module);
-    break;
-  case SIRIUS_LOG_LEVEL_WARN:
-    prefix = Utils::Io::io().s_warn("", 0, module);
-    break;
-  case SIRIUS_LOG_LEVEL_INFO:
-    prefix = Utils::Io::io().s_info("", 0, module);
-    break;
-  case SIRIUS_LOG_LEVEL_DEBUG:
-    prefix = Utils::Io::io().s_debug("", 0, module);
-    break;
-  default:
-    return;
-  }
-  written = prefix.size();
-  memcpy(data.buf, prefix.c_str(), written);
+  std::string usr_prefix;
+  size_t usr_prefix_size = 0;
+  usr_prefix.reserve(Utils::Io::kPrefixLength + 16);
 
-  len += written;
-  if (len >= Utils::Log::kLogBufferSize) [[unlikely]] {
-    ISSUE_ERROR_LOG_LOST();
-    return;
+  level_prefix(level, usr_prefix, module, "", 0);
+  usr_prefix_size = strlen(usr_prefix.c_str());
+
+  if (usr_prefix_size >= Utils::Log::kLogBufferSize) [[unlikely]] {
+    return error_log_lost(utils_pretty_func);
   }
 
+  char usr_vdata[Utils::Log::kLogBufferSize];
+  size_t usr_vdata_size = 0;
+  size_t usr_vdata_max = Utils::Log::kLogBufferSize - usr_prefix_size;
+
+  /**
+   * @ref https://linux.die.net/man/3/vsnprintf
+   */
   va_list args;
   va_start(args, fmt);
-  written =
-    vsnprintf(data.buf + len, Utils::Log::kLogBufferSize - len, fmt, args);
+  usr_vdata_size = vsnprintf(usr_vdata, usr_vdata_max, fmt, args);
   va_end(args);
 
-  if (written < 0) {
-    ISSUE_ERROR_STANDARD_FUNCTION("vsnprintf");
-    return;
+  if (usr_vdata_size < 0) [[unlikely]] {
+    return error_lib_func(utils_pretty_func, "vsnprintf");
   }
 
-  len += written;
-  if (len >= Utils::Log::kLogBufferSize) [[unlikely]] {
-    len = Utils::Log::kLogBufferSize - 1;
-    ISSUE_WARNING_LOG_TRUNCATED();
+  std::string usr_data;
+  usr_data.reserve(usr_vdata_size + 32);
+  usr_data = Utils::Io::row_gs("{0}", usr_vdata)
+               .append(count_trailing_new_lines(usr_vdata), '\n');
+  size_t usr_data_size = strlen(usr_data.c_str());
+
+  if (usr_data_size >= usr_vdata_max) [[unlikely]] {
+    usr_data_size = usr_vdata_max - 1;
+    error_log_truncated();
   }
 
-  data.buf_size = len;
+  data.buf_size = usr_prefix_size + usr_data_size;
 
-  log_write(buffer, len);
+  std::memcpy(data.buf, usr_prefix.c_str(), usr_prefix_size);
+  std::memcpy(data.buf + usr_prefix_size, usr_data.c_str(), usr_data_size);
+
+  log_write(buffer, data.buf_size);
 }

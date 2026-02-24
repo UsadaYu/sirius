@@ -167,17 +167,23 @@ class Mutex {
 #endif
         break;
       } catch (const std::filesystem::filesystem_error &e) {
-        return std::unexpected(Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-                               Io::row("filesystem_error: {0}", e.what()));
+        return std::unexpected(
+          Io::io()
+            .s_error(SIRIUS_FILE_NAME, __LINE__)
+            .append(Io::row_gs("\nfilesystem_error: {0}", e.what())));
       } catch (const std::exception &e) {
-        return std::unexpected(Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-                               Io::row("exception: {0}", e.what()));
+        return std::unexpected(
+          Io::io()
+            .s_error(SIRIUS_FILE_NAME, __LINE__)
+            .append(Io::row_gs("\nexception: {0}", e.what())));
       }
     }
 
     if (base.empty()) {
-      return std::unexpected(Io::io().s_warn(SIRIUS_FILE_NAME, __LINE__) +
-                             Io::row("Fail to get file lock path"));
+      return std::unexpected(
+        Io::io()
+          .s_warn(SIRIUS_FILE_NAME, __LINE__)
+          .append(Io::row_gs("\nFail to get file lock path")));
     }
 
     std::string prefix = generate_namespace_prefix();

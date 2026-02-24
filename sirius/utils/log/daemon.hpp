@@ -11,6 +11,9 @@
 namespace Utils {
 namespace Log {
 namespace Daemon {
+/**
+ * @implements Singleton.
+ */
 class Args {
  public:
   enum class ArgValue : int {
@@ -82,6 +85,9 @@ class Args {
   }
 };
 
+/**
+ * @implements Singleton.
+ */
 class Exe {
  private:
   Exe() : path_("") {}
@@ -157,9 +163,9 @@ class Exe {
 
     for (auto path : paths) {
       if (!path.empty() && std::filesystem::exists(path)) {
-        auto es = std::format(
-          "{0}{1}", Io::io().s_info(""),
-          Io::row("The daemon executable file: {0}\n", path.string()));
+        auto es = Io::io().s_info("").append(
+          Io::row_gs("\nThe daemon executable file: {0}", path.string())
+            .append("\n"));
         UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
         return path;
       }
@@ -195,19 +201,21 @@ class Exe {
                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                             (LPCWSTR)&current_shared_dir, &modele)) {
       const DWORD dw_err = GetLastError();
-      es = Io::win_last_error(dw_err, "GetModuleHandleExW") +
-        Io::row("{0}\n", utils_pretty_function);
+      es = Io::win_last_error(dw_err, "GetModuleHandleExW")
+             .append(Io::row_gs("\n{0}", utils_pretty_func))
+             .append("\n");
       UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
-      return "";
+      return {};
     }
 
     DWORD length = GetModuleFileNameW(modele, path, MAX_PATH);
     if (length == 0) {
       const DWORD dw_err = GetLastError();
-      es = Io::win_last_error(dw_err, "GetModuleFileNameW") +
-        Io::row("{0}\n", utils_pretty_function);
+      es = Io::win_last_error(dw_err, "GetModuleFileNameW")
+             .append(Io::row_gs("\n{0}", utils_pretty_func))
+             .append("\n");
       UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
-      return "";
+      return {};
     }
 
     auto bin_dir = std::filesystem::path(path).parent_path();
@@ -216,7 +224,7 @@ class Exe {
   }
 #else
   static std::filesystem::path current_shared_dir() {
-    return "";
+    return {};
   }
 #endif
 };
@@ -275,8 +283,8 @@ class LogManager {
     std::string es;
     auto header = log_shm_->header;
 
-    es = std::format("{0}The daemon starts (PID: {1})\n", Io::io().s_info(""),
-                     Process::pid());
+    es = Io::io().s_info("").append(
+      Io::row_gs("The daemon starts (PID: {0})", Process::pid()).append("\n"));
     UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
 
     thread_consumer_ =
@@ -314,8 +322,8 @@ class LogManager {
       thread_consumer_.join();
     }
 
-    es = std::format("{0}The daemon ended (PID: {1})\n", Io::io().s_info(""),
-                     Process::pid());
+    es = Io::io().s_info("").append(
+      Io::row_gs("The daemon ended (PID: {0})", Process::pid()).append("\n"));
     UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
 
     return {};
@@ -383,22 +391,21 @@ class LogManager {
           if (now - ts > Log::kShmSlotResetTimeoutMilliseconds) {
             std::string es;
 
-            es = std::format("{0}Recovering stuck slot: {1}\n",
-                             Io::io().s_warn(""), i);
+            es = Io::io().s_warn("").append(
+              Io::row_gs("Recovering stuck slot: {0}", i).append("\n"));
             UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
 
             /**
              * @note Construct a forged log indicating data loss.
              */
-            es = std::format("{0}Slot recovered/skipped due to timeout\n",
-                             Io::io().s_error(""));
-            const char *err_msg = es.c_str();
+            es = Io::io().s_warn("").append(
+              Io::row_gs("Slot recovered/skipped due to timeout").append("\n"));
             slots[i].buffer.type = Shm::DataType::kLog;
             slots[i].buffer.level = SIRIUS_LOG_LEVEL_ERROR;
 
             auto &log = slots[i].buffer.data.log;
-            log.buf_size = std::strlen(err_msg);
-            std::memcpy(log.buf, err_msg, log.buf_size + 1);
+            log.buf_size = es.size();
+            std::memcpy(log.buf, es.c_str(), log.buf_size + 1);
 
             /**
              * @note Let it be `kReady`, so that consumers can read it, thereby
@@ -422,8 +429,9 @@ class LogManager {
            Shm::SlotState::kReady) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (++retries > retry_times) {
-        auto es = std::format("{0}Skip corrupted slot index: {1}\n",
-                              Io::io().s_warn(""), read_index);
+        auto es = Io::io().s_warn("").append(
+          Io::row_gs("Skip corrupted slot index: {0}", read_index)
+            .append("\n"));
         UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
         return std::nullopt;
       }

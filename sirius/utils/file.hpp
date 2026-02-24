@@ -2,7 +2,7 @@
 
 #include <filesystem>
 
-#include "utils/io.h"
+#include "utils/io.hpp"
 
 namespace Utils {
 class File {
@@ -13,7 +13,6 @@ class File {
 
  public:
   File(const File &) = delete;
-  File &operator=(const File &) = delete;
 
 #if !defined(_WIN32) && !defined(_WIN64)
   static inline mode_t string_to_mode(const std::string &mode_str) {
@@ -44,8 +43,10 @@ class File {
     try {
       if (!std::filesystem::exists(path)) {
         return std::unexpected(
-          Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-          Io::row("No such file or directory: {0}", path.string()));
+          Io::io()
+            .s_error(SIRIUS_FILE_NAME, __LINE__)
+            .append(
+              Io::row_gs("\nNo such file or directory: {0}", path.string())));
       }
 
       std::filesystem::perms perm = string_to_perms(perm_str);
@@ -59,11 +60,14 @@ class File {
       std::filesystem::permissions(path, perm, options);
       return {};
     } catch (const std::exception &e) {
-      return std::unexpected(Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-                             Io::row("exception: {0}", e.what()));
+      return std::unexpected(
+        Io::io()
+          .s_error(SIRIUS_FILE_NAME, __LINE__)
+          .append(Io::row_gs("\nexception: {0}", e.what())));
     } catch (...) {
-      return std::unexpected(Io::io().s_error(SIRIUS_FILE_NAME, __LINE__) +
-                             Io::row("exception: unknow"));
+      return std::unexpected(Io::io()
+                               .s_error(SIRIUS_FILE_NAME, __LINE__)
+                               .append(Io::row_gs("exception: unknow")));
     }
   }
 

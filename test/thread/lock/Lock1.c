@@ -112,7 +112,8 @@ static void *thread_func(void *arg) {
 static inline bool test_multi_thread_contention() {
   sirius_infosp("--- Multithreaded competitive test begins ---\n");
   sirius_infosp(
-    "Start %d threads, and each thread performs %d auto-increment operations\n",
+    "Start %d threads, "
+    "and each thread performs %d auto-increment operations\n",
     NB_THREADS, ITERATIONS);
 
   int ret = 0;
@@ -205,9 +206,9 @@ static inline bool test_reentrancy() {
 
   lock_lock(lock);
 
-  sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, LOG_PURPLE, _SIRIUS_LOG_MODULE_NAME,
+  sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, _SIRIUS_LOG_MODULE_NAME,
                     "Successfully lock for the second time\n");
-  sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, LOG_PURPLE, _SIRIUS_LOG_MODULE_NAME,
+  sirius_logsp_impl(SIRIUS_LOG_LEVEL_WARN, _SIRIUS_LOG_MODULE_NAME,
                     "This should be a reentrable lock\n");
 
   lock_unlock(lock);
@@ -258,7 +259,8 @@ static void *thread_func_fairness(void *arg) {
   }
 
   sirius_infosp("The thread executed " LOG_PURPLE "%d" LOG_COLOR_NONE
-                " times. Thread index: %d; TID: %" PRIu64 "\n",
+                " times. "
+                "Thread index: %d; TID: %" PRIu64 "\n",
                 count, thread_index, SIRIUS_THREAD_ID);
   return nullptr;
 }

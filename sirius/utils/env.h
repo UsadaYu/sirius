@@ -15,7 +15,7 @@ namespace Utils {
 namespace Env {
 inline std::string get_env(const char *name) {
   if (!name)
-    return "";
+    return {};
 
 #  if defined(_MSC_VER)
   char *buf = nullptr;
@@ -31,7 +31,7 @@ inline std::string get_env(const char *name) {
     return std::string(var);
 #  endif
 
-  return "";
+  return {};
 }
 } // namespace Env
 } // namespace Utils

@@ -40,12 +40,11 @@ static void print_sched(sirius_thread_t thread) {
                   ret);
     throw std::runtime_error(es);
   }
-  sirius_infosp("--------------------------------\n");
   sirius_infosp(
-    "- Main-Detach. Successfully get the sub thread scheduling policy\n");
-  sirius_infosp("- Scheduling policy: %d; Priority: %d\n",
-                sched_param.sched_policy, sched_param.priority);
-  sirius_infosp("--------------------------------\n");
+    "\n"
+    "Main-Detach. Successfully get the sub thread scheduling policy\n"
+    "Scheduling policy: %d; Priority: %d\n",
+    sched_param.sched_policy, sched_param.priority);
 }
 
 int main() {
@@ -103,12 +102,11 @@ int main() {
                   ret);
     throw std::runtime_error(es);
   } else {
-    sirius_infosp("--------------------------------\n");
     sirius_infosp(
-      "- Main-Detach. Successfully set the sub thread scheduling policy\n");
-    sirius_infosp("- Scheduling policy: %d; Priority: %d\n",
-                  sched_param.sched_policy, sched_param.priority);
-    sirius_infosp("--------------------------------\n");
+      "\n"
+      "Main-Detach. Successfully set the sub thread scheduling policy\n"
+      "Scheduling policy: %d; Priority: %d\n",
+      sched_param.sched_policy, sched_param.priority);
   }
 #endif
 
