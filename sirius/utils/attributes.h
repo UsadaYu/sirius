@@ -14,21 +14,23 @@
 
 // clang-format on
 
-#ifdef __cplusplus
 // --- utils_pretty_func ---
-#  undef utils_pretty_func
+#undef utils_pretty_func
 
+#ifdef __cplusplus
 #  if defined(_MSC_VER)
 /**
- * @note In MSVC, this can be treated as a macro string.
+ * @note For MSVC, this can be treated as a macro string.
  */
 #    define utils_pretty_func __FUNCSIG__
 #  elif defined(__GNUC__) || defined(__clang__)
 /**
- * @note In gcc/clang, this cannot be treated as a macro string.
+ * @note For gcc/clang, this cannot be treated as a macro string.
  */
 #    define utils_pretty_func __PRETTY_FUNCTION__
 #  else
 #    define utils_pretty_func __func__
 #  endif
+#else
+#  define utils_pretty_func __func__
 #endif

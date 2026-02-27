@@ -51,7 +51,7 @@ enum SiriusOFlags {
  * (For example: kSIRIUS_O_WRONLY | kSIRIUS_O_CREAT | kSIRIUS_O_TRUNC).
  * @param[in] mode Permissions, works when `kSIRIUS_O_CREAT` is specified).
  *
- * @return 0 on success, -1 on failure.
+ * @return 0 cess, -1 on failure.
  */
 sirius_api int sirius_open(const char *path, int flags, int mode);
 

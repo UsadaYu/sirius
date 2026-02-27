@@ -115,14 +115,14 @@ static inline bool has_been_destructed() {
   if (once_print.exchange(true, std::memory_order_relaxed))
     return true;
 
-  auto es = Utils::Io::io().s_error("").append(
-    Utils::Io::row_gs("\n---------- Fatal Error ----------"
-                      "\nThe thread manager has been destructed"
-                      "\nThe `main` function may have already ended"
-                      "\nOr some unknown errors occurred"
-                      "\nThere should be no further operations on the thread")
-      .append("\n"));
-  UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+  auto es = IO_ERROR(
+              "\n---------- Fatal Error ----------"
+              "\nThe thread manager has been destructed"
+              "\nThe `main` function may have already ended"
+              "\nOr some unknown errors occurred"
+              "\nThere should be no further operations on the thread")
+              .append("\n");
+  utils_write(STDERR_FILENO, es.c_str(), es.size());
 
   return true;
 }

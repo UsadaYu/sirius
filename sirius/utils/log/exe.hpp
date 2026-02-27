@@ -1,6 +1,8 @@
 #pragma once
 
+#include <array>
 #include <functional>
+#include <span>
 #include <vector>
 
 #include "utils/args.hpp"
@@ -10,18 +12,19 @@
 
 namespace Utils {
 namespace Log {
-namespace Daemon {
+namespace Exe {
 /**
- * @implements Singleton.
+ * @implements Singleton pattern.
  */
 class Args {
  public:
-  enum class ArgValue : int {
-    kNone = 0,
-    kSpawn = 10,
-  };
+  static constexpr const char *kArgHelp = "help";
+  static constexpr const char *kArgVersion = "version";
 
-  static inline const std::string kArgSpawn = "spawn";
+  static constexpr const char *kArgDaemon = "daemon";
+  static constexpr const char *kArgDaemonSpawn = "spawn";
+
+  static inline ::Utils::Args::Parser parser;
 
  private:
   Args() = default;
@@ -32,6 +35,9 @@ class Args {
   Args(const Args &) = delete;
   Args &operator=(const Args &) = delete;
 
+  /**
+   * @throw `std::runtime_error`.
+   */
   static Args &instance(int argc, char **argv) {
     static Args instance;
     static std::once_flag once_flag;
@@ -48,45 +54,38 @@ class Args {
     return instance;
   }
 
-  ArgValue get_type() const {
-    if (parser_.has(kArgSpawn) && !parser_.get(kArgSpawn).empty()) {
-      return ArgValue::kSpawn;
-    } else {
-      return ArgValue::kNone;
-    }
-  }
-
-  static std::string &arg_spawn_value() {
-    static std::string value = std::string(_SIRIUS_NAMESPACE) + "_" +
-      Ns::generate_namespace_prefix(Log::kDaemonArgExeSpawn);
-
-    return value;
-  }
-
-  static std::vector<std::string> &arg_spawn_cmds() {
-    static std::vector<std::string> cmd = {"--" + kArgSpawn, arg_spawn_value()};
+  static std::vector<std::string> &cmds_daemon() {
+    static std::vector<std::string> cmd = {std::string("--").append(kArgDaemon),
+                                           kArgDaemonSpawn};
 
     return cmd;
   }
 
  private:
-  ::Utils::Args::Parser parser_;
-  std::unordered_multimap<std::string, std::string> list_;
-
+  /**
+   * @throw `std::runtime_error`.
+   */
   void init(int argc, char **argv) {
-    parser_.add_option(kArgSpawn, {arg_spawn_value()}, true, false,
-                       "Run the executable");
-    list_.emplace(kArgSpawn, arg_spawn_value());
+    auto check = [](const std::expected<void, std::string> &ret) {
+      if (!ret.has_value())
+        throw std::runtime_error(ret.error());
+    };
 
-    auto parse_ret = parser_.parse(argc, argv);
-    if (!parse_ret.has_value()) {
-      throw std::runtime_error(parse_ret.error());
-    }
+    // clang-format off
+    check(parser.add_option(kArgHelp, false, {}, false, false,
+                            "Helper"));
+    check(parser.add_option(kArgVersion, false, {}, false, false,
+                            "Print version"));
+    check(parser.add_option(kArgDaemon, true, {kArgDaemonSpawn}, false, false,
+                            "Spawn the daemon"));
+    // clang-format on
+
+    check(parser.parse(argc, argv));
   }
 };
 
 /**
- * @implements Singleton.
+ * @implements Singleton pattern.
  */
 class Exe {
  private:
@@ -133,12 +132,13 @@ class Exe {
    *
    * - (3) Search from shared library (dll only).
    *
-   * - (4) Dafault.
+   * - (4) Install.
    */
   auto get_path() -> std::expected<std::filesystem::path, int /* errno */> {
     std::filesystem::path exe_set;
+    std::filesystem::path exe_env = path_env();
     std::filesystem::path exe_dll;
-    std::filesystem::path exe_default;
+    std::filesystem::path exe_install = path_install();
 
     {
       std::lock_guard lock(mutex_);
@@ -146,27 +146,23 @@ class Exe {
       exe_set = path_;
     }
 
-    std::string const kExeDaemonName = std::string(_SIRIUS_EXE_DAEMON_NAME);
-    auto exe_dll_ret =
-      File::get_exe_path_matrix(kExeDaemonName, current_shared_dir());
-    exe_dll = exe_dll_ret.has_value() ? exe_dll_ret.value() : "";
-
-    auto exe_default_ret = default_path();
-    exe_default = exe_default_ret.has_value() ? exe_default_ret.value() : "";
+    if (auto ret = File::get_exe_path_matrix(std::string(_SIRIUS_EXE_LOG_NAME),
+                                             current_shared_dir())) {
+      exe_dll = ret.has_value() ? ret.value() : "";
+    }
 
     std::vector paths = {
       exe_set,
-      env_path(),
+      exe_env,
       exe_dll,
-      exe_default,
+      exe_install,
     };
 
     for (auto path : paths) {
       if (!path.empty() && std::filesystem::exists(path)) {
-        auto es = Io::io().s_info("").append(
-          Io::row_gs("\nThe daemon executable file: {0}", path.string())
-            .append("\n"));
-        UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
+        auto es = IO_INFOSP("\nThe daemon executable file: {0}", path.string())
+                    .append("\n");
+        utils_write(STDOUT_FILENO, es.c_str(), es.size());
         return path;
       }
     }
@@ -178,17 +174,28 @@ class Exe {
   std::filesystem::path path_;
   std::mutex mutex_;
 
-  static std::filesystem::path env_path() {
-    std::string env = Env::get_env(SIRIUS_ENV_EXE_DAEMON_PATH);
+  std::filesystem::path path_env() {
+    std::string env = Env::get_env(SIRIUS_ENV_LOG_EXE_PATH);
 
     auto path = std::filesystem::path(env);
 
-    return (!path.empty() && std::filesystem::exists(path)) ? path : "";
+    return (!path.empty() && std::filesystem::exists(path))
+      ? path
+      : std::filesystem::path {};
   }
 
-  auto default_path() -> std::expected<std::filesystem::path, int /* errno */> {
-    return File::get_exe_path_matrix(std::string(_SIRIUS_EXE_DAEMON_NAME),
-                                     std::filesystem::path(_SIRIUS_EXE_DIR));
+  std::filesystem::path path_install() {
+    auto ret =
+      File::get_exe_path_matrix(std::string(_SIRIUS_EXE_LOG_NAME),
+                                std::filesystem::path(_SIRIUS_EXE_DIR));
+    if (!ret.has_value())
+      return std::filesystem::path {};
+
+    auto path = ret.value();
+
+    return (!path.empty() && std::filesystem::exists(path))
+      ? path
+      : std::filesystem::path {};
   }
 
 #ifdef _SIRIUS_WIN_DLL
@@ -204,7 +211,7 @@ class Exe {
       es = Io::win_last_error(dw_err, "GetModuleHandleExW")
              .append(Io::row_gs("\n{0}", utils_pretty_func))
              .append("\n");
-      UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+      utils_write(STDERR_FILENO, es.c_str(), es.size());
       return {};
     }
 
@@ -214,7 +221,7 @@ class Exe {
       es = Io::win_last_error(dw_err, "GetModuleFileNameW")
              .append(Io::row_gs("\n{0}", utils_pretty_func))
              .append("\n");
-      UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+      utils_write(STDERR_FILENO, es.c_str(), es.size());
       return {};
     }
 
@@ -229,14 +236,14 @@ class Exe {
 #endif
 };
 
-class LogManager {
+class Daemon {
  public:
-  LogManager()
+  Daemon()
       : log_shm_(std::make_unique<Shm::Shm>(Shm::MasterType::kDaemon)),
         fd_out_(STDOUT_FILENO),
         fd_err_(STDERR_FILENO) {}
 
-  ~LogManager() = default;
+  ~Daemon() = default;
 
   auto main() -> std::expected<void, std::string> {
     std::expected<void, std::string> ret;
@@ -264,7 +271,7 @@ class LogManager {
   void log_write(int level, const void *buffer, size_t size) {
     int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
 
-    UTILS_WRITE(fd, buffer, size);
+    utils_write(fd, buffer, size);
   }
 
  private:
@@ -283,14 +290,13 @@ class LogManager {
     std::string es;
     auto header = log_shm_->header;
 
-    es = Io::io().s_info("").append(
-      Io::row_gs("The daemon starts (PID: {0})", Process::pid()).append("\n"));
-    UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
+    es = IO_INFOSP("The daemon starts (PID: {0})", Process::pid()).append("\n");
+    utils_write(STDOUT_FILENO, es.c_str(), es.size());
 
     thread_consumer_ =
-      std::jthread(std::bind_front(&LogManager::thread_consumer, this));
+      std::jthread(std::bind_front(&Daemon::thread_consumer, this));
     thread_monitor_ =
-      std::jthread(std::bind_front(&LogManager::thread_monitor, this));
+      std::jthread(std::bind_front(&Daemon::thread_monitor, this));
 
     header->is_daemon_ready.store(true, std::memory_order_relaxed);
 
@@ -322,9 +328,8 @@ class LogManager {
       thread_consumer_.join();
     }
 
-    es = Io::io().s_info("").append(
-      Io::row_gs("The daemon ended (PID: {0})", Process::pid()).append("\n"));
-    UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
+    es = IO_INFOSP("The daemon ended (PID: {0})", Process::pid()).append("\n");
+    utils_write(STDOUT_FILENO, es.c_str(), es.size());
 
     return {};
   }
@@ -391,15 +396,14 @@ class LogManager {
           if (now - ts > Log::kShmSlotResetTimeoutMilliseconds) {
             std::string es;
 
-            es = Io::io().s_warn("").append(
-              Io::row_gs("Recovering stuck slot: {0}", i).append("\n"));
-            UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+            es = IO_WARNSP("Recovering stuck slot: {0}", i).append("\n");
+            utils_write(STDERR_FILENO, es.c_str(), es.size());
 
             /**
              * @note Construct a forged log indicating data loss.
              */
-            es = Io::io().s_warn("").append(
-              Io::row_gs("Slot recovered/skipped due to timeout").append("\n"));
+            es =
+              IO_WARNSP("Slot recovered/skipped due to timeout").append("\n");
             slots[i].buffer.type = Shm::DataType::kLog;
             slots[i].buffer.level = SIRIUS_LOG_LEVEL_ERROR;
 
@@ -429,10 +433,9 @@ class LogManager {
            Shm::SlotState::kReady) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (++retries > retry_times) {
-        auto es = Io::io().s_warn("").append(
-          Io::row_gs("Skip corrupted slot index: {0}", read_index)
-            .append("\n"));
-        UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+        auto es =
+          IO_WARNSP("Skip corrupted slot index: {0}", read_index).append("\n");
+        utils_write(STDERR_FILENO, es.c_str(), es.size());
         return std::nullopt;
       }
     }
@@ -440,6 +443,6 @@ class LogManager {
     return slot;
   }
 };
-} // namespace Daemon
+} // namespace Exe
 } // namespace Log
 } // namespace Utils

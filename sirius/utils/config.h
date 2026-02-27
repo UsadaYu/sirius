@@ -80,11 +80,11 @@
 #endif
 
 /**
- * @brief The name of the daemon executable file.
+ * @brief The name of the log executable file.
  *
  * @example
- * CFLAGS += -D_SIRIUS_EXE_DAEMON_NAME='"$(_SIRIUS_EXE_DAEMON_NAME)"'
+ * CFLAGS += -D_SIRIUS_EXE_LOG_NAME='"$(_SIRIUS_EXE_LOG_NAME)"'
  */
-#ifndef _SIRIUS_EXE_DAEMON_NAME
-#  define _SIRIUS_EXE_DAEMON_NAME _SIRIUS_NAMESPACE "_daemon"
+#ifndef _SIRIUS_EXE_LOG_NAME
+#  define _SIRIUS_EXE_LOG_NAME _SIRIUS_NAMESPACE "_log"
 #endif

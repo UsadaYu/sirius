@@ -11,7 +11,7 @@
 
 #include "lib/foundation/initializer.h"
 #include "sirius/foundation/thread.h"
-#include "utils/log/daemon.hpp"
+#include "utils/log/exe.hpp"
 #include "utils/time.hpp"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -43,7 +43,7 @@ static inline bool check(Utils::Utils::IntegralOrEnum auto type) {
  * @note
  * ------------------------------
  * Subsequently, this class will be moved to the `io.hpp` header file and
- * implemented in a singleton mode.
+ * implemented in a singleton pattern.
  * ------------------------------
  */
 class PrivateManager {
@@ -57,7 +57,7 @@ class PrivateManager {
 
     int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
 
-    UTILS_WRITE(fd, buffer, size);
+    utils_write(fd, buffer, size);
   }
 
   bool fs_configure(const char *log_path, size_t path_size,
@@ -235,10 +235,10 @@ class SharedManager {
     std::string es;
 
     std::filesystem::path daemon_exe;
-    if (auto ret = Utils::Log::Daemon::Exe::instance().get_path();
+    if (auto ret = Utils::Log::Exe::Exe::instance().get_path();
         !ret.has_value()) {
       return std::unexpected(
-        Utils::Io::errno_error(ret.error(), "get_path (daemon exe)")
+        Utils::Io::errno_error(ret.error(), "get_path (log exe)")
           .append(SM_SUFFIX));
     } else {
       daemon_exe = ret.value();
@@ -246,7 +246,7 @@ class SharedManager {
 
     std::string cmd_line = "\"" + daemon_exe.string() + "\" ";
 
-    for (const auto &cmd : Utils::Log::Daemon::Args::arg_spawn_cmds()) {
+    for (const auto &cmd : Utils::Log::Exe::Args::cmds_daemon()) {
       cmd_line += "\"" + cmd + "\" ";
     }
 
@@ -254,9 +254,8 @@ class SharedManager {
     si.cb = sizeof(STARTUPINFOA);
     PROCESS_INFORMATION pi {};
 
-    es = Utils::Io::io().s_info("").append(
-      Utils::Io::row_gs("Try to start the daemon").append("\n"));
-    UTILS_WRITE(STDOUT_FILENO, es.c_str(), es.size());
+    es = IO_INFOSP("Try to start the daemon").append("\n");
+    utils_write(STDOUT_FILENO, es.c_str(), es.size());
 
     BOOL ret = CreateProcessA(nullptr, cmd_line.data(), nullptr, nullptr, TRUE,
                               //
@@ -291,16 +290,16 @@ class SharedManager {
 
 #  if LOG_DAEMON_FORK_AND_EXEC
     std::filesystem::path daemon_exe;
-    if (auto ret = Utils::Log::Daemon::Exe::instance().get_path();
+    if (auto ret = Utils::Log::Exe::Exe::instance().get_path();
         !ret.has_value()) {
       return std::unexpected(
-        Utils::Io::errno_error(ret.error(), "get_path").append(SM_SUFFIX));
+        Utils::Io::errno_error(ret.error(), "get_path (log exe)")
+          .append(SM_SUFFIX));
     } else {
       daemon_exe = ret.value();
     }
 
-    std::vector<std::string> arg_cmds =
-      Utils::Log::Daemon::Args::arg_spawn_cmds();
+    std::vector<std::string> arg_cmds = Utils::Log::Exe::Args::cmds_daemon();
     std::vector<char *> argv;
 
     std::string exe_path = daemon_exe.string();
@@ -336,10 +335,7 @@ class SharedManager {
 
       if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus) != kNormalExitStatus) {
         return std::unexpected(
-          Utils::Io::io()
-            .s_error(SIRIUS_FILE_NAME, __LINE__)
-            .append(Utils::Io::row_gs("Failed to initialize. wstatus: {0}\n",
-                                      wstatus))
+          IO_ERROR("\nFailed to initialize. wstatus: {0}", wstatus)
             .append(SM_SUFFIX));
       }
 
@@ -357,13 +353,12 @@ class SharedManager {
       es = Utils::Io::errno_error(errno_err, "setsid")
              .append(SM_SUFFIX)
              .append("\n");
-      UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+      utils_write(STDERR_FILENO, es.c_str(), es.size());
       std::exit(kNormalExitStatus + 1);
     }
 
-    es = Utils::Io::io().s_info("").append(
-      Utils::Io::row_gs("Try to start the daemon").append("\n"));
-    UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+    es = IO_INFOSP("Try to start the daemon").append("\n");
+    utils_write(STDERR_FILENO, es.c_str(), es.size());
 
     pid_t pid2 = fork();
     if (pid2 < 0) {
@@ -371,7 +366,7 @@ class SharedManager {
       es = Utils::Io::errno_error(errno_err, "fork (pid2)")
              .append(SM_SUFFIX)
              .append("\n");
-      UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+      utils_write(STDERR_FILENO, es.c_str(), es.size());
       std::exit(kNormalExitStatus + 2);
     }
     if (pid2 > 0) {
@@ -384,7 +379,7 @@ class SharedManager {
       es = Utils::Io::errno_error(errno_err, "chdir")
              .append(SM_SUFFIX)
              .append("\n");
-      UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+      utils_write(STDERR_FILENO, es.c_str(), es.size());
       _exit(errno_err);
     }
 
@@ -410,13 +405,12 @@ class SharedManager {
     es = Utils::Io::errno_error(errno_err, "execvp")
            .append(SM_SUFFIX)
            .append("\n");
-    UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+    utils_write(STDERR_FILENO, es.c_str(), es.size());
 
     _exit(errno_err);
 #  else
     {
-      auto log_manager =
-        std::make_unique<Utils::Log::Daemon::Daemon::LogManager>();
+      auto log_manager = std::make_unique<Utils::Log::Exe::Daemon>();
       log_manager->main();
     }
 
@@ -436,20 +430,15 @@ class SharedManager {
     while (!header->is_daemon_ready.load(std::memory_order_relaxed)) {
       if (retries++ > kRetryTimes) {
         return std::unexpected(
-          Utils::Io::io()
-            .s_error(SIRIUS_FILE_NAME, __LINE__)
-            .append(Utils::Io::row_gs("No daemon was found"))
-            .append(SM_SUFFIX));
+          IO_ERROR("No daemon was found").append(SM_SUFFIX));
       }
       if (retries % 100 == 0) {
-        auto es = Utils::Io::io()
-                    .s_info("")
-                    .append(Utils::Io::row_gs(
-                      "Trying to acquire daemon. "
-                      "Total attempts: {0}; Attempted times: {1}",
-                      kRetryTimes, retries))
+        auto es = IO_INFOSP(
+                    "\nTrying to acquire daemon. "
+                    "Total attempts: {0}; Attempted times: {1}",
+                    kRetryTimes, retries)
                     .append("\n");
-        UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+        utils_write(STDERR_FILENO, es.c_str(), es.size());
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
@@ -553,13 +542,13 @@ static inline bool shared_initialization_check() {
   return g_shared_initialization.load(std::memory_order_relaxed);
 }
 
-extern "C" sirius_api int sirius_log_set_daemon_path(const char *path) {
+extern "C" sirius_api int sirius_log_set_exe_path(const char *path) {
   if (g_shared_initialization.load(std::memory_order_relaxed)) {
     sirius_error("The Daemon has started, it is too late to configure\n");
     return EBUSY;
   }
 
-  return Utils::Log::Daemon::Exe::instance().set_path(path);
+  return Utils::Log::Exe::Exe::instance().set_path(path);
 }
 
 class FsManager {
@@ -582,13 +571,10 @@ class FsManager {
       return;
 
     size_t path_size = 0;
-
-    if (config.log_path) {
-      path_size =
-        utils_string_length_check(config.log_path, Utils::Log::kLogPathMax);
-      if (path_size == 0 || path_size == Utils::Log::kLogPathMax) {
-        auto es = Utils::Io::io().s_warn("").append(
-          Utils::Io::row_gs("Invalid argument. `log_path`").append("\n"));
+    if (!config.log_path) {
+      path_size = utils_strnlen_s(config.log_path, Utils::Log::kLogPathMax);
+      if (path_size <= 0 || path_size >= Utils::Log::kLogPathMax) {
+        auto es = IO_WARNSP("\nInvalid argument. `log_path`").append("\n");
         g_private_manager.log_write(SIRIUS_LOG_LEVEL_WARN, es.c_str(),
                                     es.size());
         return;
@@ -634,27 +620,29 @@ sirius_log_configure(const sirius_log_config_t *config) {
 }
 
 static inline void error_log_lost(std::string_view func) {
-  auto es = Utils::Io::io().s_error("").append(
-    Utils::Io::row_gs("\nLog length exceeds the buffer, log will be lost"
-                      "\n{0}",
-                      func)
-      .append("\n"));
+  auto es = IO_ERROR(
+              "\nLog length exceeds the buffer, log will be lost"
+              "\n{0}",
+              func)
+              .append("\n");
+
   g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, es.c_str(), es.size());
 }
 
 static inline void error_lib_func(std::string_view func,
                                   std::string_view lib_func) {
-  auto es = Utils::Io::io().s_error("").append(Utils::Io::row_gs("\n`{0}` error"
-                                                                 "\n{1}",
-                                                                 lib_func, func)
-                                                 .append("\n"));
+  auto es = IO_ERROR(
+              "\n`{0}` error"
+              "\n{1}",
+              lib_func, func)
+              .append("\n");
+
   g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, es.c_str(), es.size());
 }
 
 static inline void error_log_truncated() {
-  auto es = Utils::Io::io().s_warn("").append(
-    Utils::Io::row_gs("\nLog length exceeds the buffer, log will be truncated")
-      .append("\n"));
+  auto es = IO_WARNSP("\nLog length exceeds the buffer, log will be truncated")
+              .append("\n");
   g_private_manager.log_write(SIRIUS_LOG_LEVEL_WARN, es.c_str(), es.size());
 }
 

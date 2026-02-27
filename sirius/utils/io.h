@@ -15,14 +15,20 @@
 #  define STDERR_FILENO (2)
 #endif
 
-// --- UTILS_WRITE ---
-#undef UTILS_WRITE
-
+// --- utils_write ---
+static force_inline
 #if defined(_WIN32) || defined(_WIN64)
-#  define UTILS_WRITE(fd, buffer, size) _write(fd, buffer, (unsigned int)(size))
+  signed long long
 #else
-#  define UTILS_WRITE(fd, buffer, size) write(fd, buffer, size);
+  ssize_t
 #endif
+  utils_write(int fd, const void *buffer, size_t size) {
+#if defined(_WIN32) || defined(_WIN64)
+  return (signed long long)_write(fd, buffer, (unsigned int)(size));
+#else
+  return write(fd, buffer, size);
+#endif
+}
 
 // --- utils_dprintf ---
 static inline int utils_dprintf(int fd, const char *__restrict format, ...) {
@@ -34,7 +40,7 @@ static inline int utils_dprintf(int fd, const char *__restrict format, ...) {
   va_end(args);
 
   if (likely(written > 0 && (size_t)written < sizeof(msg))) {
-    UTILS_WRITE(fd, msg, written);
+    utils_write(fd, msg, written);
   }
 
   return written;

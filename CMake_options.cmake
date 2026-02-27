@@ -33,9 +33,9 @@ set(SIRIUS_LOG_BUF_SIZE
       "The maximum number of bytes written to the file descriptor at a single time"
 )
 
-set(SIRIUS_EXE_DAEMON_NAME
-    "${SIRIUS_NAMESPACE}_daemon"
-    CACHE STRING "The name of the daemon executable file")
+set(SIRIUS_EXE_LOG_NAME
+    "${SIRIUS_NAMESPACE}_log"
+    CACHE STRING "The name of the log executable file")
 
 # --- sirius ---
 option(SIRIUS_WARNING_ALL "Enable all compile warnings" ON)

@@ -1,22 +1,9 @@
 #pragma once
 
 #include "sirius/attributes.h"
+#include "sirius/config.h"
 #include "sirius/file.h"
 #include "sirius/thread/macro.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/**
- * @brief Custom log module name.
- *
- * @example
- * - (1) CFLAGS += -D_SIRIUS_LOG_MODULE_NAME='"$(_SIRIUS_LOG_MODULE_NAME)"'
- */
-#ifndef _SIRIUS_LOG_MODULE_NAME
-#  define _SIRIUS_LOG_MODULE_NAME "unknown"
-#endif
 
 #ifndef SIRIUS_LOG_LEVEL_NONE
 #  define SIRIUS_LOG_LEVEL_NONE (0)
@@ -32,17 +19,6 @@ extern "C" {
 #endif
 #ifndef SIRIUS_LOG_LEVEL_DEBUG
 #  define SIRIUS_LOG_LEVEL_DEBUG (4)
-#endif
-
-/**
- * @brief Compile macro, level: 0, 1, 2, 3, 4.
- * The default log printing level.
- *
- * @example
- * - (1) CFLAGS += -D_SIRIUS_LOG_LEVEL=2
- */
-#ifndef _SIRIUS_LOG_LEVEL
-#  define _SIRIUS_LOG_LEVEL SIRIUS_LOG_LEVEL_INFO
 #endif
 
 /**
@@ -101,10 +77,14 @@ typedef struct {
   sirius_log_fs_t err;
 } sirius_log_config_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
- * @brief Set the path of the daemon executable file.
+ * @brief Set the path of the log executable file.
  */
-sirius_api int sirius_log_set_daemon_path(const char *path);
+sirius_api int sirius_log_set_exe_path(const char *path);
 
 sirius_api void sirius_log_configure(const sirius_log_config_t *cfg);
 
@@ -113,6 +93,10 @@ sirius_api void sirius_log_impl(int level, const char *module, const char *file,
 
 sirius_api void sirius_logsp_impl(int level, const char *module,
                                   const char *fmt, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #define _sirius_log_void(level, fmt, ...) \
   do { \
@@ -193,7 +177,3 @@ sirius_api void sirius_logsp_impl(int level, const char *module,
 #define sirius_warnsp(fmt, ...) _sirius_warnsp(fmt, ##__VA_ARGS__)
 #define sirius_infosp(fmt, ...) _sirius_infosp(fmt, ##__VA_ARGS__)
 #define sirius_debugsp(fmt, ...) _sirius_debugsp(fmt, ##__VA_ARGS__)
-
-#ifdef __cplusplus
-}
-#endif

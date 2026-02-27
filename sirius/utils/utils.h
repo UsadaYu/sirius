@@ -12,28 +12,33 @@
 #  define UTILS_MAX(x, y) ((x) > (y) ? (x) : (y))
 #endif
 
-// --- UTILS_LOCALTIME_R ---
-#undef UTILS_LOCALTIME_R
-
+// --- utils_localtime_r ---
+static force_inline void utils_localtime_r(const time_t *__restrict timer,
+                                           struct tm *__restrict result) {
 #if defined(_WIN32) || defined(_WIN64)
-#  define UTILS_LOCALTIME_R(timer, result) localtime_s(result, timer)
+  localtime_s(result, timer);
 #else
-#  define UTILS_LOCALTIME_R(timer, result) localtime_r(timer, result)
+  localtime_r(timer, result);
 #endif
+}
 
-static inline size_t utils_string_length_check(const char *string,
-                                               size_t max_len) {
-  if (!string)
-    return 0;
-
+// --- utils_strnlen_s ---
+static inline size_t utils_strnlen_s(const char *string, size_t max_len) {
+#if defined(__STDC_LIB_EXT1__)
+  return strnlen_s(string, max_len);
+#elif defined(_GNU_SOURCE) || \
+  (defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 200809L))
+  return string ? strnlen(string, max_len) : 0;
+#else
   size_t len = 0;
-  while (len < max_len) {
-    if (string[len] == '\0')
-      break;
-    ++len;
+  if (string) {
+    while (len < max_len && string[len]) {
+      ++len;
+    }
   }
 
-  return likely(len < max_len) ? len : max_len;
+  return len;
+#endif
 }
 
 #ifdef __cplusplus

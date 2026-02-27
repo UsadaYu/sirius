@@ -55,7 +55,6 @@
 #if (defined(_WIN32) || defined(_WIN64)) && defined(_MSC_VER)
 #else
 #  include <pthread.h>
-#  include <semaphore.h>
 #  include <sys/time.h>
 #  include <unistd.h>
 #endif

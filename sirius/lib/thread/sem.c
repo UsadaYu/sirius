@@ -5,6 +5,11 @@
 #include "utils/errno.h"
 
 #if defined(_WIN32) || defined(_WIN64)
+#else
+#  include <semaphore.h>
+#endif
+
+#if defined(_WIN32) || defined(_WIN64)
 utils_check_sizeof(sirius_sem_t, HANDLE);
 utils_check_alignof(sirius_sem_t, HANDLE);
 #else

@@ -62,6 +62,6 @@ api_install(subdir api_files)
 
 # .
 set(subdir ".")
-set(api_files "${subdir}/attributes.h" "${subdir}/file.h" "${subdir}/macro.h"
-              ${gen})
+set(api_files "${subdir}/attributes.h" "${subdir}/config.h" "${subdir}/file.h"
+              "${subdir}/macro.h" ${gen})
 api_install(subdir api_files)

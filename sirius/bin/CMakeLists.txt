@@ -30,8 +30,8 @@ function(bin_set_exe_args)
   utils_set_output_directory_to_mirror(TARGET ${ARG_TARGET} DIRECTORY
                                        ${ARG_DIRECTORY})
 
-  target_compile_definitions(${ARG_TARGET}
-                             PRIVATE "_SIRIUS_LOG_MODULE_NAME=\"${ARG_TARGET}\"")
+  target_compile_definitions(
+    ${ARG_TARGET} PRIVATE "_SIRIUS_LOG_MODULE_NAME=\"${ARG_TARGET}\"")
 
   target_compile_definitions(${ARG_TARGET} PRIVATE ${BIN_COMPILE_DEFINITIONS})
   target_compile_options(${ARG_TARGET} PRIVATE ${BIN_COMPILE_OPTIONS})
@@ -51,4 +51,4 @@ function(bin_set_exe_args)
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endfunction()
 
-add_subdirectory(daemon)
+add_subdirectory(log)

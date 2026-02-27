@@ -9,12 +9,8 @@ include(CheckCompilerFlag)
 set(TEST_ENV "")
 set(TEST_ENV_MODIFICATION "")
 
-set(var "")
-
-set(var "${SIRIUS_EXE_DAEMON_NAME}")
-list(APPEND TEST_ENV "SIRIUS_ENV_EXE_DAEMON_PATH=$<TARGET_FILE:${var}>")
-
-unset(var)
+list(APPEND TEST_ENV
+     "SIRIUS_ENV_LOG_EXE_PATH=$<TARGET_FILE:${SIRIUS_EXE_LOG_NAME}>")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   set(var "")
@@ -63,6 +59,7 @@ endforeach()
 
 # --- Compile Definitions ---
 list(APPEND TEST_COMPILE_DEFINITIONS
+     "_TEST_LOG_EXE_PATH=\"$<TARGET_FILE:${SIRIUS_EXE_LOG_NAME}>\""
      "_SIRIUS_LOG_LEVEL=${SIRIUS_TEST_LOG_LEVEL}")
 
 # --- Compile Options ---
@@ -126,8 +123,8 @@ function(test_add_single_test)
   utils_set_output_directory_to_mirror(TARGET ${ARG_TARGET} DIRECTORY
                                        ${ARG_DIRECTORY})
 
-  target_compile_definitions(${ARG_TARGET}
-                             PRIVATE "_SIRIUS_LOG_MODULE_NAME=\"${ARG_TARGET}\"")
+  target_compile_definitions(
+    ${ARG_TARGET} PRIVATE "_SIRIUS_LOG_MODULE_NAME=\"${ARG_TARGET}\"")
 
   target_compile_definitions(${ARG_TARGET} PRIVATE ${TEST_COMPILE_DEFINITIONS})
   target_compile_options(${ARG_TARGET} PRIVATE ${TEST_COMPILE_OPTIONS})

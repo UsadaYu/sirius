@@ -5,25 +5,33 @@
 #include "utils/io.h"
 
 namespace Utils {
+// --- utils_strerror ---
 #if defined(_WIN32) || defined(_WIN64)
-inline int strerror_unify(int error_code, char *buffer, size_t buffer_size) {
+inline int utils_strerror(int error_code, char *buffer, size_t buffer_size) {
   return strerror_s(buffer, buffer_size, error_code);
 }
 #else
-inline int T_strerror_unify(int ret, [[maybe_unused]] char *buffer) {
+inline int T_utils_strerror(int ret, [[maybe_unused]] char *buffer) {
   return ret;
 }
 
-inline int T_strerror_unify(char *ret, char *buffer) {
+inline int T_utils_strerror(char *ret, char *buffer) {
   if (ret != buffer) {
-    strncpy(buffer, ret, utils_string_length_check(ret, _SIRIUS_LOG_BUF_SIZE));
+    size_t buffer_size = utils_strnlen_s(ret, _SIRIUS_LOG_BUF_SIZE);
+
+    if (buffer_size <= 0 || buffer_size >= _SIRIUS_LOG_BUF_SIZE) [[unlikely]] {
+      return EINVAL;
+    }
+
+    std::memcpy(buffer, ret, buffer_size);
+    buffer[buffer_size] = '\0';
   }
 
   return 0;
 }
 
-inline int strerror_unify(int error_code, char *buffer, size_t buffer_size) {
-  return T_strerror_unify(strerror_r(error_code, buffer, buffer_size), buffer);
+inline int utils_strerror(int error_code, char *buffer, size_t buffer_size) {
+  return T_utils_strerror(strerror_r(error_code, buffer, buffer_size), buffer);
 }
 #endif
 
@@ -39,6 +47,8 @@ class Io {
  public:
   Io(const Io &) = delete;
   Io &operator=(const Io &) = delete;
+  Io(Io &&) = delete;
+  Io &operator=(Io &&) = delete;
 
   static Io &io() {
     static Io instance;
@@ -99,22 +109,23 @@ class Io {
     return row(" > ", fmt, std::forward<Args>(args)...);
   }
 
-  static std::string s_pre(const char *prefix, const char *module,
+  static std::string s_pre(std::string_view prefix, std::string_view module,
                            std::string_view file, int line = 0) {
     time_t raw_time;
     struct tm tm_info;
     time(&raw_time);
-    UTILS_LOCALTIME_R(&raw_time, &tm_info);
+    utils_localtime_r(&raw_time, &tm_info);
 
     std::string f_str = back_strip(file);
-    std::string f_l = f_str.empty() ? "" : std::format("{0}:{1} ", f_str, line);
+    std::string f_pos =
+      f_str.empty() ? "" : std::format("{0}:{1} ", f_str, line);
 
     std::string result;
     result.reserve(kPrefixLength + 16);
 
     result = std::format("{0:5} [{1:02d}:{2:02d}:{3:02d} {4} {5}] {6}", prefix,
                          tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec,
-                         module, sirius_thread_id(), f_l);
+                         module, sirius_thread_id(), f_pos);
 
     int64_t result_size = static_cast<int64_t>(result.size());
     if (result_size >= 0 && result_size < kPrefixLength) {
@@ -125,28 +136,28 @@ class Io {
   }
 
   std::string s_error(std::string_view f, int l = 0,
-                      const char *m = _SIRIUS_LOG_MODULE_NAME) {
+                      std::string_view m = _SIRIUS_LOG_MODULE_NAME) {
     return s_gen("Error", f, l, LOG_RED, ansi_enable_err_, m);
   }
 
   std::string s_warn(std::string_view f, int l = 0,
-                     const char *m = _SIRIUS_LOG_MODULE_NAME) {
+                     std::string_view m = _SIRIUS_LOG_MODULE_NAME) {
     return s_gen("Warn", f, l, LOG_YELLOW, ansi_enable_err_, m);
   }
 
   std::string s_info(std::string_view f, int l = 0,
-                     const char *m = _SIRIUS_LOG_MODULE_NAME) {
+                     std::string_view m = _SIRIUS_LOG_MODULE_NAME) {
     return s_gen("Info", f, l, LOG_GREEN, ansi_enable_out_, m);
   }
 
   std::string s_debug(std::string_view f, int l = 0,
-                      const char *m = _SIRIUS_LOG_MODULE_NAME) {
+                      std::string_view m = _SIRIUS_LOG_MODULE_NAME) {
     return s_gen("Debug", f, l, LOG_COLOR_NONE, ansi_enable_out_, m);
   }
 
 #if defined(_WIN32) || defined(_WIN64)
   static std::string win_last_error(const DWORD error_code,
-                                    const std::string &func) {
+                                    std::string_view func) {
     std::string line1 = io().s_error("").append(
       row_gs("`{0}` (error code: {1})", func, error_code));
 
@@ -170,20 +181,19 @@ class Io {
 
       LocalFree(wbuffer);
 
-      line2 = row_gs("\n{0}", back_strip(line2));
+      line2 = row_gs("\n{0}", line2);
       return line1 + line2;
     }
   }
 #endif
 
-  static std::string errno_error(const int error_code,
-                                 const std::string &func) {
+  static std::string errno_error(const int error_code, std::string_view func) {
     std::string line1 = io().s_error("").append(
       row_gs("`{0}` (error code: {1})", func, error_code));
 
     char buffer[_SIRIUS_LOG_BUF_SIZE];
-    if (0 == strerror_unify(error_code, buffer, sizeof(buffer))) [[likely]] {
-      std::string line2 = row_gs("\n{0}", back_strip(buffer));
+    if (0 == utils_strerror(error_code, buffer, sizeof(buffer))) [[likely]] {
+      std::string line2 = row_gs("\n{0}", buffer);
       return line1 + line2;
     } else {
       return line1;
@@ -208,15 +218,30 @@ class Io {
     return std::string(string.substr(0, pos + 1));
   }
 
-  static std::string s_gen(const char *prefix, std::string_view file, int line,
-                           const std::string &color,
+  static std::string s_gen(std::string_view prefix, std::string_view file,
+                           int line, std::string_view color,
                            const std::atomic<bool> &ansi_enable,
-                           const char *module) {
+                           std::string_view module) {
     if (ansi_enable.load(std::memory_order_relaxed)) {
-      return color + s_pre(prefix, module, file, line) + LOG_COLOR_NONE;
+      return std::string(color)
+        .append(s_pre(prefix, module, file, line))
+        .append(LOG_COLOR_NONE);
     }
 
     return s_pre(prefix, module, file, line);
   }
 };
 } // namespace Utils
+
+#define IO_ERROR(fmt, ...) \
+  (::Utils::Io::io() \
+     .s_error(SIRIUS_FILE_NAME, __LINE__) \
+     .append((::Utils::Io::row_gs(fmt, ##__VA_ARGS__))))
+
+#define IO_WARNSP(fmt, ...) \
+  (::Utils::Io::io().s_warn("").append( \
+    (::Utils::Io::row_gs(fmt, ##__VA_ARGS__))))
+
+#define IO_INFOSP(fmt, ...) \
+  (::Utils::Io::io().s_info("").append( \
+    (::Utils::Io::row_gs(fmt, ##__VA_ARGS__))))

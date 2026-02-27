@@ -1,6 +1,6 @@
 set(sources "main.cpp")
 
-set(target ${SIRIUS_EXE_DAEMON_NAME})
+set(target ${SIRIUS_EXE_LOG_NAME})
 
 add_executable(${target} ${sources})
 

@@ -129,6 +129,23 @@ static inline void utils_init() {
 #endif
 
   _utils_xinit("test begins");
+
+#ifdef _TEST_LOG_EXE_PATH
+#  if defined(_WIN32) || defined(_WIN64)
+  char *env_buf = nullptr;
+  size_t env_buf_size = 0;
+  if (_dupenv_s(&env_buf, &env_buf_size, _TEST_LOG_EXE_PATH) == 0 &&
+      env_buf != nullptr) {
+    free(env_buf);
+  } else {
+    _putenv_s(SIRIUS_ENV_LOG_EXE_PATH, _TEST_LOG_EXE_PATH);
+  }
+#  else
+  if (getenv(SIRIUS_ENV_LOG_EXE_PATH) == nullptr) {
+    sirius_log_set_exe_path(_TEST_LOG_EXE_PATH);
+  }
+#  endif
+#endif
 }
 
 #ifdef __cplusplus

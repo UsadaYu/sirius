@@ -8,10 +8,14 @@
 #include <sstream>
 #include <system_error>
 
+#include "utils/env.h"
 #include "utils/file.hpp"
 
 namespace Utils {
 namespace Ns {
+inline constexpr const char *kSuffixShm = "_shm";
+inline constexpr const char *kSuffixMutex = "_mutex";
+
 /**
  * @brief 64-bit FNV-1a hash.
  */
@@ -57,8 +61,9 @@ inline std::string
 generate_namespace_prefix(const std::string &runtime_salt = "") {
   std::string base = std::string(_SIRIUS_NAMESPACE) + "|" +
     std::string(_SIRIUS_POSIX_FILE_MODE) + "|" + std::string(_SIRIUS_USER_KEY);
-  if (!runtime_salt.empty())
+  if (!runtime_salt.empty()) {
     base += "|" + runtime_salt;
+  }
 
   std::transform(base.begin(), base.end(), base.begin(),
                  [](unsigned char c) -> char {
@@ -74,28 +79,28 @@ generate_namespace_prefix(const std::string &runtime_salt = "") {
 }
 
 namespace Shm {
-inline std::string generate_name(const std::string &name) {
+inline std::string generate_name(std::string_view name,
+                                 bool is_global = false) {
 #if defined(_WIN32) || defined(_WIN64)
-  /**
-   * @note Windows uses `Local\\` or `Global\\` for some prefixes of named
-   * objects, which cannot be included as a partition.
-   */
-
-  std::string prefix = std::string("Local\\") + std::string(_SIRIUS_NAMESPACE) +
-    "_" + generate_namespace_prefix();
-  std::string nm = prefix + "_" + sanitize_name(name);
+  std::string scope = is_global ? "Global\\" : "Local\\";
+  std::string prefix =
+    scope + std::string(_SIRIUS_NAMESPACE) + "_" + generate_namespace_prefix();
+  std::string nm = prefix + "_" + sanitize_name(name) + kSuffixShm;
 
   return nm;
 #else
   std::string prefix =
     std::string(_SIRIUS_NAMESPACE) + "_" + generate_namespace_prefix();
-  std::string nm = prefix + "_" + sanitize_name(name);
+  std::string nm = prefix + "_" + sanitize_name(name) + kSuffixShm;
 
   return nm;
 #endif
 }
 } // namespace Shm
 
+/**
+ * @implements Singleton pattern.
+ */
 class Mutex {
  private:
   Mutex() = default;
@@ -105,6 +110,8 @@ class Mutex {
  public:
   Mutex(const Mutex &) = delete;
   Mutex &operator=(const Mutex &) = delete;
+  Mutex(Mutex &&) = delete;
+  Mutex &operator=(Mutex &&) = delete;
 
   static Mutex &instance() {
     static Mutex instance;
@@ -113,10 +120,11 @@ class Mutex {
   }
 
 #if defined(_WIN32) || defined(_WIN64)
-  std::string win_generate_name(const std::string &name) {
-    std::string prefix = std::string("Local\\") +
-      std::string(_SIRIUS_NAMESPACE) + "_" + generate_namespace_prefix();
-    std::string nm = prefix + "_" + sanitize_name(name) + "_lock";
+  std::string win_generate_name(std::string_view name, bool is_global = false) {
+    std::string scope = is_global ? "Global\\" : "Local\\";
+    std::string prefix = scope + std::string(_SIRIUS_NAMESPACE) + "_" +
+      generate_namespace_prefix();
+    std::string nm = prefix + "_" + sanitize_name(name) + kSuffixMutex;
 
     return nm;
   }
@@ -127,10 +135,9 @@ class Mutex {
     std::filesystem::path lock_path = "";
 
     {
-      std::lock_guard lock(mutex_map_lock_name_);
+      std::lock_guard lock(mutex_m_map_);
 
-      auto it = map_lock_name_.find(name);
-      if (it != map_lock_name_.end())
+      if (auto it = m_map_.find(name); it != m_map_.end())
         return it->second;
     }
 
@@ -146,8 +153,7 @@ class Mutex {
 #else
     prefixes.push_back(_SIRIUS_POSIX_TMP_DIR);
 
-    const char *xdg = std::getenv("XDG_RUNTIME_DIR");
-    if (xdg) {
+    if (auto xdg = Env::get_env("XDG_RUNTIME_DIR"); !xdg.empty()) {
       prefixes.push_back(xdg);
     }
 
@@ -167,42 +173,35 @@ class Mutex {
 #endif
         break;
       } catch (const std::filesystem::filesystem_error &e) {
-        return std::unexpected(
-          Io::io()
-            .s_error(SIRIUS_FILE_NAME, __LINE__)
-            .append(Io::row_gs("\nfilesystem_error: {0}", e.what())));
+        return std::unexpected(IO_ERROR("\nfilesystem_error: {0}", e.what()));
       } catch (const std::exception &e) {
-        return std::unexpected(
-          Io::io()
-            .s_error(SIRIUS_FILE_NAME, __LINE__)
-            .append(Io::row_gs("\nexception: {0}", e.what())));
+        return std::unexpected(IO_ERROR("\nexception: {0}", e.what()));
+      } catch (...) {
+        return std::unexpected(IO_ERROR("exception: unknow"));
       }
     }
 
     if (base.empty()) {
-      return std::unexpected(
-        Io::io()
-          .s_warn(SIRIUS_FILE_NAME, __LINE__)
-          .append(Io::row_gs("\nFail to get file lock path")));
+      return std::unexpected(IO_WARNSP("\nFail to get file lock path"));
     }
 
     std::string prefix = generate_namespace_prefix();
-    std::string fname = prefix + "_" + sanitize_name(name) + ".lock";
+    std::string fname =
+      prefix + "_" + sanitize_name(name) + kSuffixMutex + ".lock";
     lock_path = base / fname;
 
     {
-      std::lock_guard lock(mutex_map_lock_name_);
+      std::lock_guard lock(mutex_m_map_);
 
-      map_lock_name_.insert(
-        std::pair<std::string, std::filesystem::path>(name, lock_path));
+      m_map_.insert(std::pair(name, lock_path));
     }
 
     return lock_path;
   }
 
  private:
-  std::mutex mutex_map_lock_name_;
-  std::map<std::string, std::filesystem::path> map_lock_name_;
+  std::mutex mutex_m_map_;
+  std::map<std::string, std::filesystem::path> m_map_;
 };
 } // namespace Ns
 } // namespace Utils

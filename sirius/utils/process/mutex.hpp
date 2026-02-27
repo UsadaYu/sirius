@@ -58,10 +58,7 @@ class FMutex {
     -> std::expected<FMutex, std::string> {
     if (!file_name) {
       return std::unexpected(
-        Io::io()
-          .s_error(SIRIUS_FILE_NAME, __LINE__)
-          .append(Io::row_gs("\nInvalid argument. Null `file_name`"))
-          .append(FMUTEX_SUFFIX));
+        IO_ERROR("\nInvalid argument. Null `file_name`").append(FMUTEX_SUFFIX));
     }
 
     auto lock_path = Ns::Mutex::instance().file_lock_path(file_name);
@@ -154,13 +151,13 @@ class FMutex {
     } else {
       if (header.is_dirty == 1) {
         lock_state = LockState::kOwnerDead;
-        std::string es = Io::io().s_warn("").append(
-          Io::row_gs("\nPID: {0}"
-                     "\nThe process (PID: {1}) that previously held the lock "
-                     "may have crashed",
-                     pid(), header.owner_pid)
-            .append("\n"));
-        UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+        auto es = IO_WARNSP(
+                    "\nPID: {0}"
+                    "\nThe process (PID: {1}) that previously held the lock "
+                    "may have crashed",
+                    pid(), header.owner_pid)
+                    .append("\n");
+        utils_write(STDERR_FILENO, es.c_str(), es.size());
       }
     }
 
@@ -270,11 +267,8 @@ class GMutex {
   static auto create(const char *mutex_name)
     -> std::expected<GMutex, std::string> {
     if (!mutex_name) {
-      return std::unexpected(
-        Io::io()
-          .s_error(SIRIUS_FILE_NAME, __LINE__)
-          .append(Io::row_gs("\nInvalid argument. Null `mutex_name`"))
-          .append(GMUTEX_SUFFIX));
+      return std::unexpected(IO_ERROR("\nInvalid argument. Null `mutex_name`")
+                               .append(GMUTEX_SUFFIX));
     }
 
     HANDLE mutex =
@@ -293,10 +287,7 @@ class GMutex {
     -> std::expected<GMutex, std::string> {
     if (!mutex) {
       return std::unexpected(
-        Io::io()
-          .s_error(SIRIUS_FILE_NAME, __LINE__)
-          .append(Io::row_gs("\nInvalid argument. Null `mutex`"))
-          .append(GMUTEX_SUFFIX));
+        IO_ERROR("\nInvalid argument. Null `mutex`").append(GMUTEX_SUFFIX));
     }
 
     if (!is_creator)
@@ -417,8 +408,7 @@ class GMutex {
       return std::unexpected(
         Io::win_last_error(dw_err, kFunc).append(GMUTEX_SUFFIX));
     default:
-      return std::unexpected(
-        Io::io().s_error(SIRIUS_FILE_NAME, __LINE__).append(GMUTEX_SUFFIX));
+      return std::unexpected(IO_ERROR("").append(GMUTEX_SUFFIX));
     }
 #else
     int (*lock_ptr)(pthread_mutex_t *) =
@@ -445,12 +435,12 @@ class GMutex {
 #endif
 
   label_owner_dead:
-    es = Io::io().s_warn("").append(
-      Io::row_gs("\nPID: {0}"
-                 "\nThe process that previously held the lock may have crashed",
-                 pid())
-        .append("\n"));
-    UTILS_WRITE(STDERR_FILENO, es.c_str(), es.size());
+    es = IO_WARNSP(
+           "\nPID: {0}"
+           "\nThe process that previously held the lock may have crashed",
+           pid())
+           .append("\n");
+    utils_write(STDERR_FILENO, es.c_str(), es.size());
 
     return LockState::kOwnerDead;
   }

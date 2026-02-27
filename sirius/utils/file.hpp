@@ -15,7 +15,7 @@ class File {
   File(const File &) = delete;
 
 #if !defined(_WIN32) && !defined(_WIN64)
-  static inline mode_t string_to_mode(const std::string &mode_str) {
+  static mode_t string_to_mode(const std::string &mode_str) {
     return static_cast<mode_t>(std::stoul(mode_str, nullptr, 8));
   }
 #endif
@@ -43,10 +43,7 @@ class File {
     try {
       if (!std::filesystem::exists(path)) {
         return std::unexpected(
-          Io::io()
-            .s_error(SIRIUS_FILE_NAME, __LINE__)
-            .append(
-              Io::row_gs("\nNo such file or directory: {0}", path.string())));
+          IO_ERROR("\nNo such file or directory: {0}", path.string()));
       }
 
       std::filesystem::perms perm = string_to_perms(perm_str);
@@ -60,18 +57,13 @@ class File {
       std::filesystem::permissions(path, perm, options);
       return {};
     } catch (const std::exception &e) {
-      return std::unexpected(
-        Io::io()
-          .s_error(SIRIUS_FILE_NAME, __LINE__)
-          .append(Io::row_gs("\nexception: {0}", e.what())));
+      return std::unexpected(IO_ERROR("\nexception: {0}", e.what()));
     } catch (...) {
-      return std::unexpected(Io::io()
-                               .s_error(SIRIUS_FILE_NAME, __LINE__)
-                               .append(Io::row_gs("exception: unknow")));
+      return std::unexpected(IO_ERROR("exception: unknow"));
     }
   }
 
-  static auto get_exe_path_matrix(const std::string &exe_name,
+  static auto get_exe_path_matrix(std::string_view exe_name,
                                   const std::filesystem::path &base_dir)
     -> std::expected<std::filesystem::path, int /* errno */> {
     if (exe_name.empty() || base_dir.empty())
@@ -83,12 +75,12 @@ class File {
       return exe_path;
 
 #if defined(_WIN32) || defined(_WIN64)
-    const std::string suffix = ".exe";
-    if (exe_name.ends_with(suffix)) {
+    const std::string kSuffix = ".exe";
+    if (exe_name.ends_with(kSuffix)) {
       exe_path =
-        base_dir / exe_name.substr(0, exe_name.length() - suffix.length());
+        base_dir / exe_name.substr(0, exe_name.length() - kSuffix.length());
     } else {
-      exe_path = base_dir / (exe_name + suffix);
+      exe_path = base_dir / (std::string(exe_name).append(kSuffix));
     }
 
     if (std::filesystem::exists(exe_path))
