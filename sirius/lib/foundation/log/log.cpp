@@ -19,6 +19,8 @@
 #  include <sys/wait.h>
 #endif
 
+using UIo = Utils::Io;
+
 namespace StdType {
 enum class Put : int {
   kIn = 0,
@@ -90,12 +92,6 @@ static PrivateManager g_private_manager;
 // ------------------------------------------------------------
 
 class SharedManager {
-#define SM_SUFFIX \
-  ( \
-    Utils::Io::row_gs("\nPID: {0}" \
-                      "\n{1}", \
-                      Utils::Process::pid(), utils_pretty_func))
-
  public:
   SharedManager()
       : is_initialization_(false),
@@ -238,8 +234,7 @@ class SharedManager {
     if (auto ret = Utils::Log::Exe::Exe::instance().get_path();
         !ret.has_value()) {
       return std::unexpected(
-        Utils::Io::errno_error(ret.error(), "get_path (log exe)")
-          .append(SM_SUFFIX));
+        IO_E("{0}", UIo::errno_err(ret.error(), "get_path (log exe)")));
     } else {
       daemon_exe = ret.value();
     }
@@ -254,7 +249,7 @@ class SharedManager {
     si.cb = sizeof(STARTUPINFOA);
     PROCESS_INFORMATION pi {};
 
-    es = IO_INFOSP("Try to start the daemon").append("\n");
+    es = IO_ISP("Try to start the daemon").append("\n");
     utils_write(STDOUT_FILENO, es.c_str(), es.size());
 
     BOOL ret = CreateProcessA(nullptr, cmd_line.data(), nullptr, nullptr, TRUE,
@@ -265,7 +260,7 @@ class SharedManager {
     if (!ret) {
       const DWORD dw_err = GetLastError();
       return std::unexpected(
-        Utils::Io::win_last_error(dw_err, "CreateProcessA").append(SM_SUFFIX));
+        IO_E("{0}", UIo::win_err(dw_err, "CreateProcessA")));
     }
 
     CloseHandle(pi.hThread);
@@ -293,8 +288,7 @@ class SharedManager {
     if (auto ret = Utils::Log::Exe::Exe::instance().get_path();
         !ret.has_value()) {
       return std::unexpected(
-        Utils::Io::errno_error(ret.error(), "get_path (log exe)")
-          .append(SM_SUFFIX));
+        IO_E("{0}", UIo::errno_err(ret.error(), "get_path (log exe)")));
     } else {
       daemon_exe = ret.value();
     }
@@ -315,7 +309,7 @@ class SharedManager {
     if (pid1 < 0) {
       const int errno_err = errno;
       return std::unexpected(
-        Utils::Io::errno_error(errno_err, "fork (pid1)").append(SM_SUFFIX));
+        IO_E("{0}", UIo::errno_err(errno_err, "get_path (log exe)")));
     }
 
     constexpr int kNormalExitStatus = 0;
@@ -329,14 +323,13 @@ class SharedManager {
         if (errno_err != ECHILD) {
           const int errno_err = errno;
           return std::unexpected(
-            Utils::Io::errno_error(errno_err, "waitpid").append(SM_SUFFIX));
+            IO_E("{0}", UIo::errno_err(errno_err, "waitpid")));
         }
       }
 
       if (!WIFEXITED(wstatus) || WEXITSTATUS(wstatus) != kNormalExitStatus) {
         return std::unexpected(
-          IO_ERROR("\nFailed to initialize. wstatus: {0}", wstatus)
-            .append(SM_SUFFIX));
+          IO_E("Failed to initialize. wstatus: {0}", wstatus));
       }
 
       return {};
@@ -345,40 +338,35 @@ class SharedManager {
     // --- Subprocess ---
     /**
      * @note Here, the `_exit` function is used instead of `exit` to prevent
-     * tools like ASAN from flooding the memory leak log.
+     * tools like ASAN from flooding the memory leak log and return an
+     * unexpected value.
      */
 
     if (setsid() < 0) {
       const int errno_err = errno;
-      es = Utils::Io::errno_error(errno_err, "setsid")
-             .append(SM_SUFFIX)
-             .append("\n");
+      es = IO_E("{0}", UIo::errno_err(errno_err, "setsid")).append("\n");
       utils_write(STDERR_FILENO, es.c_str(), es.size());
-      std::exit(kNormalExitStatus + 1);
+      _exit(kNormalExitStatus + 1);
     }
 
-    es = IO_INFOSP("Try to start the daemon").append("\n");
+    es = IO_ISP("Try to start the daemon").append("\n");
     utils_write(STDERR_FILENO, es.c_str(), es.size());
 
     pid_t pid2 = fork();
     if (pid2 < 0) {
       const int errno_err = errno;
-      es = Utils::Io::errno_error(errno_err, "fork (pid2)")
-             .append(SM_SUFFIX)
-             .append("\n");
+      es = IO_E("{0}", UIo::errno_err(errno_err, "fork (pid2)")).append("\n");
       utils_write(STDERR_FILENO, es.c_str(), es.size());
-      std::exit(kNormalExitStatus + 2);
+      _exit(kNormalExitStatus + 2);
     }
     if (pid2 > 0) {
-      std::exit(kNormalExitStatus);
+      _exit(kNormalExitStatus);
     }
 
     umask(0);
     if (chdir("/") < 0) {
       const int errno_err = errno;
-      es = Utils::Io::errno_error(errno_err, "chdir")
-             .append(SM_SUFFIX)
-             .append("\n");
+      es = IO_E("{0}", UIo::errno_err(errno_err, "chdir")).append("\n");
       utils_write(STDERR_FILENO, es.c_str(), es.size());
       _exit(errno_err);
     }
@@ -402,9 +390,7 @@ class SharedManager {
 #  if LOG_DAEMON_FORK_AND_EXEC
     execvp(argv[0], argv.data());
     const int errno_err = errno;
-    es = Utils::Io::errno_error(errno_err, "execvp")
-           .append(SM_SUFFIX)
-           .append("\n");
+    es = IO_E("{0}", UIo::errno_err(errno_err, "execvp")).append("\n");
     utils_write(STDERR_FILENO, es.c_str(), es.size());
 
     _exit(errno_err);
@@ -429,11 +415,10 @@ class SharedManager {
     constexpr int kRetryTimes = 500;
     while (!header->is_daemon_ready.load(std::memory_order_relaxed)) {
       if (retries++ > kRetryTimes) {
-        return std::unexpected(
-          IO_ERROR("No daemon was found").append(SM_SUFFIX));
+        return std::unexpected(IO_E("No daemon was found"));
       }
       if (retries % 100 == 0) {
-        auto es = IO_INFOSP(
+        auto es = IO_ISP(
                     "\nTrying to acquire daemon. "
                     "Total attempts: {0}; Attempted times: {1}",
                     kRetryTimes, retries)
@@ -574,7 +559,7 @@ class FsManager {
     if (!config.log_path) {
       path_size = utils_strnlen_s(config.log_path, Utils::Log::kLogPathMax);
       if (path_size <= 0 || path_size >= Utils::Log::kLogPathMax) {
-        auto es = IO_WARNSP("\nInvalid argument. `log_path`").append("\n");
+        auto es = IO_WSP("Invalid argument. `log_path`").append("\n");
         g_private_manager.log_write(SIRIUS_LOG_LEVEL_WARN, es.c_str(),
                                     es.size());
         return;
@@ -619,29 +604,19 @@ sirius_log_configure(const sirius_log_config_t *config) {
   g_fs_manager.fs_configure(config->err, StdType::Put::kErr);
 }
 
-static inline void error_log_lost(std::string_view func) {
-  auto es = IO_ERROR(
-              "\nLog length exceeds the buffer, log will be lost"
-              "\n{0}",
-              func)
-              .append("\n");
-
+static inline void error_log_lost() {
+  auto es =
+    IO_E("\nLog length exceeds the buffer, log will be lost").append("\n");
   g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, es.c_str(), es.size());
 }
 
-static inline void error_lib_func(std::string_view func,
-                                  std::string_view lib_func) {
-  auto es = IO_ERROR(
-              "\n`{0}` error"
-              "\n{1}",
-              lib_func, func)
-              .append("\n");
-
+static inline void error_lib_func(std::string_view func) {
+  auto es = IO_E("\n`{0}` error", func).append("\n");
   g_private_manager.log_write(SIRIUS_LOG_LEVEL_ERROR, es.c_str(), es.size());
 }
 
 static inline void error_log_truncated() {
-  auto es = IO_WARNSP("\nLog length exceeds the buffer, log will be truncated")
+  auto es = IO_WSP("\nLog length exceeds the buffer, log will be truncated")
               .append("\n");
   g_private_manager.log_write(SIRIUS_LOG_LEVEL_WARN, es.c_str(), es.size());
 }
@@ -669,16 +644,16 @@ static force_inline void level_prefix(int level, std::string &usr_prefix,
                                       int line) {
   switch (level) {
   case SIRIUS_LOG_LEVEL_ERROR:
-    usr_prefix = Utils::Io::io().s_error(file, line, module);
+    usr_prefix = UIo::instance().s_error(file, line, module);
     break;
   case SIRIUS_LOG_LEVEL_WARN:
-    usr_prefix = Utils::Io::io().s_warn(file, line, module);
+    usr_prefix = UIo::instance().s_warn(file, line, module);
     break;
   case SIRIUS_LOG_LEVEL_INFO:
-    usr_prefix = Utils::Io::io().s_info(file, line, module);
+    usr_prefix = UIo::instance().s_info(file, line, module);
     break;
   case SIRIUS_LOG_LEVEL_DEBUG:
-    usr_prefix = Utils::Io::io().s_debug(file, line, module);
+    usr_prefix = UIo::instance().s_debug(file, line, module);
     break;
   default:
     break;
@@ -710,13 +685,13 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *module,
 
   std::string usr_prefix;
   size_t usr_prefix_size = 0;
-  usr_prefix.reserve(Utils::Io::kPrefixLength + 16);
+  usr_prefix.reserve(UIo::kPrefixLength + 16);
 
   level_prefix(level, usr_prefix, module, file, line);
   usr_prefix_size = strlen(usr_prefix.c_str());
 
   if (usr_prefix_size >= Utils::Log::kLogBufferSize) [[unlikely]] {
-    return error_log_lost(utils_pretty_func);
+    return error_log_lost();
   }
 
   char usr_vdata[Utils::Log::kLogBufferSize];
@@ -732,12 +707,12 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *module,
   va_end(args);
 
   if (usr_vdata_size < 0) [[unlikely]] {
-    return error_lib_func(utils_pretty_func, "vsnprintf");
+    return error_lib_func("vsnprintf");
   }
 
   std::string usr_data;
   usr_data.reserve(usr_vdata_size + 32);
-  usr_data = Utils::Io::row_gs("{0}", usr_vdata)
+  usr_data = UIo::row_gs("{0}", usr_vdata)
                .append(count_trailing_new_lines(usr_vdata), '\n');
   size_t usr_data_size = strlen(usr_data.c_str());
 
@@ -764,13 +739,13 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *module,
 
   std::string usr_prefix;
   size_t usr_prefix_size = 0;
-  usr_prefix.reserve(Utils::Io::kPrefixLength + 16);
+  usr_prefix.reserve(UIo::kPrefixLength + 16);
 
   level_prefix(level, usr_prefix, module, "", 0);
   usr_prefix_size = strlen(usr_prefix.c_str());
 
   if (usr_prefix_size >= Utils::Log::kLogBufferSize) [[unlikely]] {
-    return error_log_lost(utils_pretty_func);
+    return error_log_lost();
   }
 
   char usr_vdata[Utils::Log::kLogBufferSize];
@@ -786,12 +761,12 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *module,
   va_end(args);
 
   if (usr_vdata_size < 0) [[unlikely]] {
-    return error_lib_func(utils_pretty_func, "vsnprintf");
+    return error_lib_func("vsnprintf");
   }
 
   std::string usr_data;
   usr_data.reserve(usr_vdata_size + 32);
-  usr_data = Utils::Io::row_gs("{0}", usr_vdata)
+  usr_data = UIo::row_gs("{0}", usr_vdata)
                .append(count_trailing_new_lines(usr_vdata), '\n');
   size_t usr_data_size = strlen(usr_data.c_str());
 

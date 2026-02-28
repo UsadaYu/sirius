@@ -142,7 +142,7 @@ inline auto create() -> std::expected<void, std::string> {
   }
 
   if (!ret.value().valid()) {
-    return std::unexpected(IO_ERROR("The mutex address is empty"));
+    return std::unexpected(IO_E("The mutex address is empty"));
   }
 
   mutex_.emplace(std::move(ret.value()));
@@ -160,7 +160,7 @@ inline void destroy() {
 
 inline auto lock() -> std::expected<void, std::string> {
   if (!mutex_.has_value()) {
-    return std::unexpected(IO_ERROR("Invalid argument. `mutex`"));
+    return std::unexpected(IO_E("Invalid argument. `mutex`"));
   }
 
   auto ret = mutex_->lock();
@@ -176,11 +176,11 @@ inline auto unlock() -> std::expected<void, std::string> {
 } // namespace GMutex
 
 class Shm {
-#define SHM_SUFFIX \
+#define SUFFIX_ \
   ( \
-    Io::row_gs("\nPID: {0}" \
-               "\n{1}", \
-               Process::pid(), utils_pretty_func))
+    std::format("\nPID: {0}" \
+                "\n{1}", \
+                Process::pid(), utils_pretty_func))
 
  public:
   Header *header = nullptr;
@@ -262,9 +262,7 @@ class Shm {
       if (auto ret = mutex_.lock(); ret.has_value()) {
         lock_ret_ = true;
       } else {
-        auto es = ret.error()
-                    .append(Io::row_gs("\n{0}", utils_pretty_func))
-                    .append("\n");
+        auto es = ret.error().append("\n");
         utils_write(STDERR_FILENO, es.c_str(), es.size());
       }
     }
@@ -305,6 +303,7 @@ class Shm {
 // --- Shared Memory ---
 #if defined(_WIN32) || defined(_WIN64)
   auto open_shm() -> std::expected<void, std::string> {
+    std::string es;
     size_t size_needed = get_shm_size();
     DWORD dw_err;
 
@@ -318,8 +317,8 @@ class Shm {
     if (shm_handle_) {
       is_shm_creator_ = dw_err == ERROR_ALREADY_EXISTS ? false : true;
     } else {
-      return std::unexpected(
-        Io::win_last_error(dw_err, "CreateFileMappingA").append(SHM_SUFFIX));
+      es = IO_E("{}", Io::win_err(dw_err, "CreateFileMappingA", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 
     mapped_size_ = size_needed;
@@ -335,12 +334,13 @@ class Shm {
   }
 
   auto memory_map() -> std::expected<void, std::string> {
+    std::string es;
     void *ptr =
       MapViewOfFile(shm_handle_, FILE_MAP_ALL_ACCESS, 0, 0, mapped_size_);
     if (!ptr) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(
-        Io::win_last_error(dw_err, "MapViewOfFile").append(SHM_SUFFIX));
+      es = IO_E("{}", Io::win_err(dw_err, "MapViewOfFile", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
     header = static_cast<Header *>(ptr);
 
@@ -376,20 +376,22 @@ class Shm {
         errno_err = errno;
         shm_unlink(shm_name_.c_str());
         close(shm_fd_);
-        return std::unexpected(
-          Io::errno_error(errno_err, "ftruncate").append(SHM_SUFFIX));
+        es = IO_E("{}", Io::errno_err(errno_err, "ftruncate", "{}", SUFFIX_));
+        return std::unexpected(es);
       }
     } else if (errno_err == EEXIST) {
       is_shm_creator_ = false;
       shm_fd_ = shm_open(shm_name_.c_str(), O_RDWR, 0);
       if (shm_fd_ < 0) {
         errno_err = errno;
-        return std::unexpected(
-          Io::errno_error(errno_err, "shm_open (attach)").append(SHM_SUFFIX));
+        es = IO_E("{}",
+                  Io::errno_err(errno_err, "shm_open (attach)", "{}", SUFFIX_));
+        return std::unexpected(es);
       }
     } else {
-      return std::unexpected(
-        Io::errno_error(errno_err, "shm_open (open)").append(SHM_SUFFIX));
+      es =
+        IO_E("{}", Io::errno_err(errno_err, "shm_open (open)", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 
     mapped_size_ = size_needed;
@@ -398,13 +400,15 @@ class Shm {
   }
 
   void close_shm() {
+    std::string es;
+
     if (shm_fd_ != -1) {
       close(shm_fd_);
       shm_fd_ = -1;
     }
 
     if (destructor_counter_ == 0) {
-      auto es = IO_INFOSP("Unlink the share memory").append("\n");
+      es = IO_ISP("Unlink the share memory").append("\n");
       utils_write(STDOUT_FILENO, es.c_str(), es.size());
       shm_unlink(shm_name_.c_str());
     }
@@ -417,8 +421,8 @@ class Shm {
                      shm_fd_, 0);
     if (ptr == MAP_FAILED) {
       const int errno_err = errno;
-      return std::unexpected(
-        Io::errno_error(errno_err, "mmap").append(SHM_SUFFIX));
+      es = IO_E("{}", Io::errno_err(errno_err, "mmap", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
     header = static_cast<Header *>(ptr);
 
@@ -464,8 +468,6 @@ class Shm {
   }
 
   auto shm_mutex_create() -> std::expected<void, std::string> {
-    std::string es;
-
     auto create_ret =
 #if defined(_WIN32) || defined(_WIN64)
       Process::GMutex::create(Log::kMutexShmKey);
@@ -473,11 +475,12 @@ class Shm {
       Process::GMutex::create(&header->shm_mutex, is_shm_creator_);
 #endif
     if (!create_ret.has_value()) {
-      return std::unexpected(create_ret.error().append(SHM_SUFFIX));
+      return std::unexpected(
+        create_ret.error().append(Io::row_gs("{0}", SUFFIX_)));
     }
 
     if (!create_ret.value().valid()) {
-      return std::unexpected(IO_ERROR("").append(SHM_SUFFIX));
+      return std::unexpected(IO_E("{}", SUFFIX_));
     }
 
     shm_mutex_.emplace(std::move(create_ret.value()));
@@ -490,8 +493,7 @@ class Shm {
       master_->slot_free();
       slots = nullptr;
 
-      delete master_;
-      master_ = nullptr;
+      master_.reset();
     }
   }
 
@@ -500,7 +502,7 @@ class Shm {
 
     slots = reinterpret_cast<Slot *>(base_ptr + get_shm_header_offset());
 
-    master_ = new Master(*this);
+    auto master = std::make_unique<Master>(*this);
 
     if (!is_shm_creator_) {
       if (header->magic != Header::Header::kMagic) {
@@ -508,11 +510,13 @@ class Shm {
         shm_unlink(shm_name_.c_str());
 #endif
         return std::unexpected(
-          IO_ERROR("Invalid argument. `magic`: {0}", header->magic)
-            .append(SHM_SUFFIX));
+          IO_E("Invalid argument. `magic`: {0}{1}", header->magic, SUFFIX_));
       }
 
-      return master_->slot_alloc();
+      if (auto ret = master->slot_alloc(); !ret.has_value())
+        return std::unexpected(ret.error());
+
+      goto label_ok;
     }
 
     header->is_daemon_ready.store(false);
@@ -525,11 +529,13 @@ class Shm {
     header->capacity = Log::kShmCapacity;
     header->item_size = sizeof(Slot);
 
-    if (auto ret = master_->slot_alloc(); !ret.has_value()) {
+    if (auto ret = master->slot_alloc(); !ret.has_value())
       return std::unexpected(ret.error());
-    }
 
     header->magic = Header::kMagic;
+
+  label_ok:
+    master_ = std::move(master);
 
     return {};
   }
@@ -558,7 +564,7 @@ class Shm {
       switch (parent_.master_type_) {
       case MasterType::kDaemon:
       case MasterType::kNative:
-        return T_slot_free();
+        return slot_free_impl();
       default:
         return;
       }
@@ -571,9 +577,9 @@ class Shm {
       case MasterType::kNative:
         return native_slot_alloc();
       default:
-        return std::unexpected(IO_ERROR("Invalid argument. `master_type_`: {0}",
-                                        static_cast<int>(parent_.master_type_))
-                                 .append(SHM_SUFFIX));
+        return std::unexpected(IO_E("Invalid argument. `master_type_`: {0}{1}",
+                                    static_cast<int>(parent_.master_type_),
+                                    SUFFIX_));
       }
     }
 
@@ -608,9 +614,7 @@ class Shm {
           break;
         }
         if (i == Log::kProcessMax - 1) {
-          auto es = IO_WARNSP("No valid pid was matched")
-                      .append(SHM_SUFFIX)
-                      .append("\n");
+          auto es = IO_WSP("No valid pid was matched{0}", SUFFIX_).append("\n");
           utils_write(STDERR_FILENO, es.c_str(), es.size());
         }
       }
@@ -630,14 +634,14 @@ class Shm {
         }
         if (i == Log::kProcessMax - 1) {
           return std::unexpected(
-            IO_ERROR("\nCache full. Too many processes").append(SHM_SUFFIX));
+            IO_E("\nCache full. Too many processes{0}", SUFFIX_));
         }
       }
 
       return {};
     }
 
-    void T_slot_free() {
+    void slot_free_impl() {
       thread_guard_.request_stop();
       if (thread_guard_.joinable()) {
         thread_guard_.join();
@@ -645,13 +649,13 @@ class Shm {
 
       attached_free();
 
-      auto es = IO_INFOSP("Slot free").append("\n");
+      auto es = IO_ISP("Slot free").append("\n");
       utils_write(STDOUT_FILENO, es.c_str(), es.size());
     }
 
     auto daemon_slot_alloc() -> std::expected<void, std::string> {
       if (header_->is_daemon_ready.load(std::memory_order_relaxed)) {
-        return std::unexpected(IO_WARNSP("Another daemon already exists"));
+        return std::unexpected(IO_WSP("Another daemon already exists"));
       }
 
       if (auto ret = attached_alloc(); !ret.has_value())
@@ -660,7 +664,7 @@ class Shm {
       thread_guard_ =
         std::jthread(std::bind_front(&Shm::Master::daemon_thread_guard, this));
 
-      auto es = IO_INFOSP("Slot alloc").append("\n");
+      auto es = IO_ISP("Slot alloc").append("\n");
       utils_write(STDOUT_FILENO, es.c_str(), es.size());
 
       return {};
@@ -717,13 +721,13 @@ class Shm {
         if (thread_guard_ready_.load(std::memory_order_relaxed))
           break;
         if (i == kRetryTimes - 1) {
-          T_slot_free();
+          slot_free_impl();
           return std::unexpected(
-            IO_ERROR("\nFail to start `thread_guard`").append(SHM_SUFFIX));
+            IO_E("\nFail to start `thread_guard`{0}", SUFFIX_));
         }
       }
 
-      auto es = IO_INFOSP("Slot alloc").append("\n");
+      auto es = IO_ISP("Slot alloc").append("\n");
       utils_write(STDOUT_FILENO, es.c_str(), es.size());
 
       return {};
@@ -737,9 +741,8 @@ class Shm {
 
         while (!attached_check(index)) {
           if (index == Log::kProcessMax - 1) {
-            auto es = IO_WARNSP("No valid pid was matched")
-                        .append(SHM_SUFFIX)
-                        .append("\n");
+            auto es =
+              IO_WSP("No valid pid was matched{0}", SUFFIX_).append("\n");
             utils_write(STDERR_FILENO, es.c_str(), es.size());
             return;
           }
@@ -767,8 +770,9 @@ class Shm {
           if (attached_check(index)) [[likely]] {
             header_->attached_maps[index].timestamp_ms = timestamp_ms;
           } else {
-            auto es = IO_WARNSP("Invalid argument. `attached` thread exit")
-                        .append(SHM_SUFFIX);
+            auto es =
+              IO_WSP("Invalid argument. `attached` thread exit{0}", SUFFIX_)
+                .append("\n");
             utils_write(STDERR_FILENO, es.c_str(), es.size());
             return;
           }
@@ -784,9 +788,9 @@ class Shm {
   };
 
  private:
-  Master *master_;
+  std::unique_ptr<Master> master_;
 
-#undef SHM_SUFFIX
+#undef SUFFIX_
 };
 } // namespace Shm
 } // namespace Log

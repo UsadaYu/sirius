@@ -30,8 +30,14 @@ class Parser {
   }
 
   auto arg_version() -> std::expected<void, std::string> {
+#if (defined(_WIN32) || defined(_WIN64)) && defined(__GNUC__)
+    std::cout << std::format("`{0}` version: {1}", _SIRIUS_LOG_MODULE_NAME,
+                             SIRIUS_VERSION)
+              << std::endl;
+#else
     std::println(std::cout, "`{0}` version: {1}", _SIRIUS_LOG_MODULE_NAME,
                  SIRIUS_VERSION);
+#endif
 
     return {};
   }
@@ -70,12 +76,12 @@ class Main {
     for (size_t i = 1; i < static_cast<size_t>(argc); ++i) {
       std::string option, value;
 
+      if (!exe_args_.parser.is_option_token(argv[i]))
+        continue;
+
       if (auto ret = exe_args_.parser.extract(argv[i], option, value);
           !ret.has_value()) {
-        if (i == 1)
-          return std::unexpected(ret.error());
-
-        continue;
+        return std::unexpected(ret.error());
       }
 
       auto fn_arg = [&]() -> std::expected<void, std::string> (Parser::*)() {
@@ -111,7 +117,7 @@ int main(int argc, char **argv) {
     es = e.what();
     goto label_error;
   } catch (...) {
-    es = IO_ERROR("exception: unknow");
+    es = IO_E("exception: unknow");
     goto label_error;
   }
 
@@ -131,7 +137,11 @@ int main(int argc, char **argv) {
   return 0;
 
 label_error:
+#if (defined(_WIN32) || defined(_WIN64)) && defined(__GNUC__)
+  std::cerr << es << std::endl;
+#else
   std::println(std::cerr, "{0}", es);
+#endif
 
   return -1;
 }

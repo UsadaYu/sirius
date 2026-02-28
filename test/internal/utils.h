@@ -110,7 +110,7 @@ static inline void _utils_xinit(const char *content) {
 
   len = snprintf(buf, sizeof(buf), "--- " _SIRIUS_LOG_MODULE_NAME " %s ---",
                  content);
-  for (int i = 0; i < len && i < kMaxLength - 1; i++) {
+  for (int i = 0; i < len && i < kMaxLength - 1; ++i) {
     bar_buf[i] = '-';
   }
 
@@ -131,7 +131,7 @@ static inline void utils_init() {
   _utils_xinit("test begins");
 
 #ifdef _TEST_LOG_EXE_PATH
-#  if defined(_WIN32) || defined(_WIN64)
+#  if defined(_MSC_VER)
   char *env_buf = nullptr;
   size_t env_buf_size = 0;
   if (_dupenv_s(&env_buf, &env_buf_size, _TEST_LOG_EXE_PATH) == 0 &&

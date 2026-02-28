@@ -1,7 +1,7 @@
 #pragma once
 
 #include "utils/io.hpp"
-#include "utils/namespace.hpp"
+#include "utils/ns.hpp"
 #include "utils/process/process.hpp"
 
 namespace Utils {
@@ -15,11 +15,11 @@ enum class LockState : int {
 };
 
 class FMutex {
-#define FMUTEX_SUFFIX \
+#define SUFFIX_ \
   ( \
-    Io::row_gs("\nPID: {0}" \
-               "\n{1}", \
-               pid(), utils_pretty_func))
+    std::format("\nPID: {0}" \
+                "\n{1}", \
+                pid(), utils_pretty_func))
 
  private:
   struct FHeader {
@@ -56,14 +56,17 @@ class FMutex {
 
   static auto create(const char *file_name)
     -> std::expected<FMutex, std::string> {
+    std::string es;
+
     if (!file_name) {
-      return std::unexpected(
-        IO_ERROR("\nInvalid argument. Null `file_name`").append(FMUTEX_SUFFIX));
+      es = IO_E("\nInvalid argument. Null `file_name`{0}", SUFFIX_);
+      return std::unexpected(es);
     }
 
     auto lock_path = Ns::Mutex::instance().file_lock_path(file_name);
     if (!lock_path.has_value()) {
-      return std::unexpected(lock_path.error().append(FMUTEX_SUFFIX));
+      es = lock_path.error().append(Io::row_gs("{}", SUFFIX_));
+      return std::unexpected(es);
     }
 
     MutexHandle fd;
@@ -74,16 +77,16 @@ class FMutex {
                      FILE_ATTRIBUTE_NORMAL, nullptr);
     if (fd == INVALID_HANDLE_VALUE) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(
-        Io::win_last_error(dw_err, "CreateFileW").append(FMUTEX_SUFFIX));
+      es = IO_E("{}", Io::win_err(dw_err, "CreateFileW", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 #else
     fd = open(lock_path.value().c_str(), O_RDWR | O_CREAT,
               File::string_to_mode(_SIRIUS_POSIX_FILE_MODE));
     if (fd == -1) {
       const int errno_err = errno;
-      return std::unexpected(
-        Io::errno_error(errno_err, "open").append(FMUTEX_SUFFIX));
+      es = IO_E("{}", Io::errno_err(errno_err, "open", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 #endif
 
@@ -106,12 +109,14 @@ class FMutex {
   }
 
   auto lock() -> std::expected<LockState, std::string> {
+    std::string es;
+
 #if defined(_WIN32) || defined(_WIN64)
     OVERLAPPED overlapped {};
     if (!LockFileEx(fd_, LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &overlapped)) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(
-        Io::win_last_error(dw_err, "LockFileEx").append(FMUTEX_SUFFIX));
+      es = IO_E("{}", Io::win_err(dw_err, "LockFileEx", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 #else
     struct flock lock_ptr;
@@ -122,8 +127,8 @@ class FMutex {
 
     if (fcntl(fd_, F_SETLKW, &lock_ptr) == -1) {
       const int errno_err = errno;
-      return std::unexpected(
-        Io::errno_error(errno_err, "fcntl").append(FMUTEX_SUFFIX));
+      es = IO_E("{}", Io::errno_err(errno_err, "fcntl", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 #endif
 
@@ -151,12 +156,12 @@ class FMutex {
     } else {
       if (header.is_dirty == 1) {
         lock_state = LockState::kOwnerDead;
-        auto es = IO_WARNSP(
-                    "\nPID: {0}"
-                    "\nThe process (PID: {1}) that previously held the lock "
-                    "may have crashed",
-                    pid(), header.owner_pid)
-                    .append("\n");
+        es = IO_WSP(
+               "\nPID: {0}"
+               "\nThe process (PID: {1}) that previously held the lock may "
+               "have crashed",
+               pid(), header.owner_pid)
+               .append("\n");
         utils_write(STDERR_FILENO, es.c_str(), es.size());
       }
     }
@@ -182,6 +187,7 @@ class FMutex {
   }
 
   auto unlock() -> std::expected<void, std::string> {
+    std::string es;
     FHeader header;
     header.is_dirty = 0;
     header.owner_pid = 0;
@@ -196,8 +202,8 @@ class FMutex {
     OVERLAPPED ov_lock {};
     if (!UnlockFileEx(fd_, 0, 1, 0, &ov_lock)) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(
-        Io::win_last_error(dw_err, "UnlockFileEx").append(FMUTEX_SUFFIX));
+      es = IO_E("{}", Io::win_err(dw_err, "UnlockFileEx", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 #else
     if (pwrite(fd_, &header, sizeof(FHeader), 0) != -1) {
@@ -212,8 +218,8 @@ class FMutex {
 
     if (fcntl(fd_, F_SETLK, &lock_ptr) == -1) {
       const int errno_err = errno;
-      return std::unexpected(
-        Io::errno_error(errno_err, "fcntl").append(FMUTEX_SUFFIX));
+      es = IO_E("{}", Io::errno_err(errno_err, "fcntl", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 #endif
 
@@ -227,18 +233,18 @@ class FMutex {
  private:
   MutexHandle fd_;
 
-#undef FMUTEX_SUFFIX
+#undef SUFFIX_
 };
 
 /**
  * @note On POSIX, only one construction and one destruction are required.
  */
 class GMutex {
-#define GMUTEX_SUFFIX \
+#define SUFFIX_ \
   ( \
-    Io::row_gs("\nPID: {0}" \
-               "\n{1}", \
-               pid(), utils_pretty_func))
+    std::format("\nPID: {0}" \
+                "\n{1}", \
+                pid(), utils_pretty_func))
 
  private:
 #if defined(_WIN32) || defined(_WIN64)
@@ -266,9 +272,11 @@ class GMutex {
 #if defined(_WIN32) || defined(_WIN64)
   static auto create(const char *mutex_name)
     -> std::expected<GMutex, std::string> {
+    std::string es;
+
     if (!mutex_name) {
-      return std::unexpected(IO_ERROR("\nInvalid argument. Null `mutex_name`")
-                               .append(GMUTEX_SUFFIX));
+      es = IO_E("\nInvalid argument. Null `mutex_name`{0}", SUFFIX_);
+      return std::unexpected(es);
     }
 
     HANDLE mutex =
@@ -276,8 +284,8 @@ class GMutex {
                    Ns::Mutex::instance().win_generate_name(mutex_name).c_str());
     if (!mutex) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(
-        Io::win_last_error(dw_err, "CreateMutexA").append(GMUTEX_SUFFIX));
+      es = IO_E("{}", Io::win_err(dw_err, "CreateMutexA", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 
     return GMutex(mutex);
@@ -285,42 +293,44 @@ class GMutex {
 #else
   static auto create(pthread_mutex_t *mutex, bool is_creator)
     -> std::expected<GMutex, std::string> {
+    int ret;
+    std::string es;
+
     if (!mutex) {
-      return std::unexpected(
-        IO_ERROR("\nInvalid argument. Null `mutex`").append(GMUTEX_SUFFIX));
+      es = IO_E("\nInvalid argument. Null `mutex`{0}", SUFFIX_);
+      return std::unexpected(es);
     }
 
     if (!is_creator)
       return GMutex(mutex);
 
-    int ret;
-    std::string es;
     pthread_mutexattr_t attr;
-
     ret = pthread_mutexattr_init(&attr);
     if (ret) {
-      return std::unexpected(
-        Io::errno_error(ret, "pthread_mutexattr_init").append(GMUTEX_SUFFIX));
+      es =
+        IO_E("{}", Io::errno_err(ret, "pthread_mutexattr_init", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 
     ret = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
     if (ret) {
-      es = Io::errno_error(ret, "pthread_mutexattr_setpshared")
-             .append(GMUTEX_SUFFIX);
+      es =
+        IO_E("{}",
+             Io::errno_err(ret, "pthread_mutexattr_setpshared", "{}", SUFFIX_));
       goto label_free;
     }
 
     ret = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
     if (ret) {
-      es = Io::errno_error(ret, "pthread_mutexattr_setrobust")
-             .append(GMUTEX_SUFFIX);
+      es = IO_E(
+        "{}", Io::errno_err(ret, "pthread_mutexattr_setrobust", "{}", SUFFIX_));
       goto label_free;
     }
 
     ret = pthread_mutex_init(mutex, &attr);
     pthread_mutexattr_destroy(&attr);
     if (ret) {
-      es = Io::errno_error(ret, "pthread_mutex_init").append(GMUTEX_SUFFIX);
+      es = IO_E("{}", Io::errno_err(ret, "pthread_mutex_init", "{}", SUFFIX_));
       return std::unexpected(es);
     }
 
@@ -345,11 +355,11 @@ class GMutex {
   }
 
   auto lock() -> std::expected<LockState, std::string> {
-    return T_lock(false);
+    return lock_impl(false);
   }
 
   auto trylock() -> std::expected<LockState, std::string> {
-    return T_lock(true);
+    return lock_impl(true);
   }
 
   auto unlock() -> std::expected<void, std::string> {
@@ -358,14 +368,14 @@ class GMutex {
 #if defined(_WIN32) || defined(_WIN64)
     if (!ReleaseMutex(mutex_)) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(
-        Io::win_last_error(dw_err, "ReleaseMutex").append(GMUTEX_SUFFIX));
+      es = IO_E("{}", Io::win_err(dw_err, "ReleaseMutex", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 #else
     int ret = pthread_mutex_unlock(mutex_);
     if (ret) {
-      return std::unexpected(
-        Io::errno_error(ret, "pthread_mutex_unlock").append(GMUTEX_SUFFIX));
+      es = IO_E("{}", Io::errno_err(ret, "ReleaseMutex", "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 #endif
 
@@ -383,7 +393,7 @@ class GMutex {
   pthread_mutex_t *mutex_ = nullptr;
 #endif
 
-  auto T_lock(bool is_trylock = false)
+  auto lock_impl(bool is_trylock = false)
     -> std::expected<LockState, std::string> {
     std::string es;
 
@@ -392,7 +402,7 @@ class GMutex {
 
     DWORD wait_ms = is_trylock ? 0 : INFINITE;
 
-    const std::string kFunc =
+    const std::string fun_str =
       std::format("WaitForSingleObject (trylock: {0})", is_trylock);
 
     DWORD wait_ret = WaitForSingleObject(mutex_, wait_ms);
@@ -405,16 +415,16 @@ class GMutex {
       return LockState::kBusy;
     case WAIT_FAILED:
       dw_err = GetLastError();
-      return std::unexpected(
-        Io::win_last_error(dw_err, kFunc).append(GMUTEX_SUFFIX));
+      es = IO_E("{}", Io::win_err(dw_err, fun_str, "{}", SUFFIX_));
+      return std::unexpected(es);
     default:
-      return std::unexpected(IO_ERROR("").append(GMUTEX_SUFFIX));
+      return std::unexpected(IO_E("{0}", SUFFIX_));
     }
 #else
     int (*lock_ptr)(pthread_mutex_t *) =
       is_trylock ? pthread_mutex_trylock : pthread_mutex_lock;
 
-    const std::string kFunc =
+    const std::string fun_str =
       std::format("mutex_lock (trylock: {0})", is_trylock);
 
     int ret = lock_ptr(mutex_);
@@ -428,14 +438,15 @@ class GMutex {
       return LockState::kBusy;
     case ENOTRECOVERABLE:
     default:
-      return std::unexpected(Io::errno_error(ret, kFunc).append(GMUTEX_SUFFIX));
+      es = IO_E("{}", Io::errno_err(ret, fun_str, "{}", SUFFIX_));
+      return std::unexpected(es);
     }
 
     return LockState::kSuccess;
 #endif
 
   label_owner_dead:
-    es = IO_WARNSP(
+    es = IO_WSP(
            "\nPID: {0}"
            "\nThe process that previously held the lock may have crashed",
            pid())
@@ -445,7 +456,7 @@ class GMutex {
     return LockState::kOwnerDead;
   }
 
-#undef GMUTEX_SUFFIX
+#undef SUFFIX_
 };
 } // namespace Process
 } // namespace Utils

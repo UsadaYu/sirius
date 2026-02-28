@@ -7,15 +7,15 @@
 namespace Utils {
 // --- utils_strerror ---
 #if defined(_WIN32) || defined(_WIN64)
-inline int utils_strerror(int error_code, char *buffer, size_t buffer_size) {
-  return strerror_s(buffer, buffer_size, error_code);
+inline int utils_strerror(int err_code, char *buffer, size_t buffer_size) {
+  return strerror_s(buffer, buffer_size, err_code);
 }
 #else
-inline int T_utils_strerror(int ret, [[maybe_unused]] char *buffer) {
+inline int utils_strerror_impl(int ret, [[maybe_unused]] char *buffer) {
   return ret;
 }
 
-inline int T_utils_strerror(char *ret, char *buffer) {
+inline int utils_strerror_impl(char *ret, char *buffer) {
   if (ret != buffer) {
     size_t buffer_size = utils_strnlen_s(ret, _SIRIUS_LOG_BUF_SIZE);
 
@@ -30,14 +30,14 @@ inline int T_utils_strerror(char *ret, char *buffer) {
   return 0;
 }
 
-inline int utils_strerror(int error_code, char *buffer, size_t buffer_size) {
-  return T_utils_strerror(strerror_r(error_code, buffer, buffer_size), buffer);
+inline int utils_strerror(int err_code, char *buffer, size_t buffer_size) {
+  return utils_strerror_impl(strerror_r(err_code, buffer, buffer_size), buffer);
 }
 #endif
 
 class Io {
  public:
-  static inline constexpr int64_t kPrefixLength = 55;
+  static inline constexpr size_t kPrefixLength = 55;
 
  private:
   Io() : ansi_enable_out_(true), ansi_enable_err_(true) {}
@@ -50,7 +50,7 @@ class Io {
   Io(Io &&) = delete;
   Io &operator=(Io &&) = delete;
 
-  static Io &io() {
+  static Io &instance() {
     static Io instance;
 
     return instance;
@@ -120,17 +120,17 @@ class Io {
     std::string f_pos =
       f_str.empty() ? "" : std::format("{0}:{1} ", f_str, line);
 
+    std::string inner;
     std::string result;
-    result.reserve(kPrefixLength + 16);
+    inner.reserve(kPrefixLength + 16);
+    result.reserve(kPrefixLength + 2);
 
-    result = std::format("{0:5} [{1:02d}:{2:02d}:{3:02d} {4} {5}] {6}", prefix,
-                         tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec,
-                         module, sirius_thread_id(), f_pos);
+    inner = std::format("{0:5} [{1:02d}:{2:02d}:{3:02d} {4} {5}] {6}", prefix,
+                        tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, module,
+                        sirius_thread_id(), f_pos);
 
-    int64_t result_size = static_cast<int64_t>(result.size());
-    if (result_size >= 0 && result_size < kPrefixLength) {
-      result.append(kPrefixLength - result_size, '-');
-    }
+    result =
+      std::vformat("{0:-<{1}}", std::make_format_args(inner, kPrefixLength));
 
     return result;
   }
@@ -156,48 +156,66 @@ class Io {
   }
 
 #if defined(_WIN32) || defined(_WIN64)
-  static std::string win_last_error(const DWORD error_code,
-                                    std::string_view func) {
-    std::string line1 = io().s_error("").append(
-      row_gs("`{0}` (error code: {1})", func, error_code));
-
+  static std::string win_err_str(const DWORD err_code) {
     wchar_t *wbuffer = nullptr;
+
     DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
       FORMAT_MESSAGE_IGNORE_INSERTS;
     DWORD ret = FormatMessageW(
-      flags, nullptr, error_code, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
+      flags, nullptr, err_code, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
       reinterpret_cast<wchar_t *>(&wbuffer), 0, nullptr);
-    if (ret == 0 || !wbuffer) [[unlikely]] {
-      return line1;
-    } else {
-      std::string line2;
-      int size_needed = WideCharToMultiByte(CP_UTF8, 0, wbuffer, (int)ret,
-                                            nullptr, 0, nullptr, nullptr);
-      if (size_needed > 0) {
-        line2.reserve(size_needed + 16);
-        WideCharToMultiByte(CP_UTF8, 0, wbuffer, (int)ret, &line2[0],
-                            size_needed, nullptr, nullptr);
-      }
+    if (ret == 0 || !wbuffer)
+      return {};
 
-      LocalFree(wbuffer);
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, wbuffer, (int)ret,
+                                          nullptr, 0, nullptr, nullptr);
+    if (size_needed <= 0)
+      return {};
 
-      line2 = row_gs("\n{0}", line2);
-      return line1 + line2;
-    }
+    std::string err_msg;
+    err_msg.reserve(size_needed + 2);
+    int byte_count =
+      WideCharToMultiByte(CP_UTF8, 0, wbuffer, static_cast<int>(ret),
+                          &err_msg[0], size_needed, nullptr, nullptr);
+    LocalFree(wbuffer);
+    if (byte_count == 0)
+      return {};
+
+    return err_msg;
   }
 #endif
 
-  static std::string errno_error(const int error_code, std::string_view func) {
-    std::string line1 = io().s_error("").append(
-      row_gs("`{0}` (error code: {1})", func, error_code));
-
+  static std::string errno_err_str(const int err_code) {
     char buffer[_SIRIUS_LOG_BUF_SIZE];
-    if (0 == utils_strerror(error_code, buffer, sizeof(buffer))) [[likely]] {
-      std::string line2 = row_gs("\n{0}", buffer);
-      return line1 + line2;
-    } else {
-      return line1;
-    }
+    if (0 == utils_strerror(err_code, buffer, sizeof(buffer)))
+      return back_strip(std::format("{0}", buffer));
+
+    return {};
+  }
+
+#if defined(_WIN32) || defined(_WIN64)
+  static std::string win_err(const DWORD err_code, std::string_view func) {
+    return err_impl(err_code, func, win_err_str);
+  }
+
+  template<typename... Args>
+  static std::string win_err(const DWORD err_code, std::string_view func,
+                             std::format_string<Args...> fmt, Args &&...args) {
+    return err_impl(err_code, func, win_err_str, fmt,
+                    std::forward<Args>(args)...);
+  }
+#endif
+
+  static std::string errno_err(const int err_code, std::string_view func) {
+    return err_impl(err_code, func, errno_err_str);
+  }
+
+  template<typename... Args>
+  static std::string errno_err(const int err_code, std::string_view func,
+                               std::format_string<Args...> fmt,
+                               Args &&...args) {
+    return err_impl(err_code, func, errno_err_str, fmt,
+                    std::forward<Args>(args)...);
   }
 
   void ansi_enable(bool enable_out, bool enable_err) {
@@ -209,13 +227,44 @@ class Io {
   std::atomic<bool> ansi_enable_out_;
   std::atomic<bool> ansi_enable_err_;
 
-  static std::string back_strip(std::string_view string) {
-    auto pos = string.find_last_not_of("\r\n\t .");
-    if (pos == std::string_view::npos) {
-      return std::string {};
+  static std::string back_strip(std::string_view sv) {
+    auto it = std::find_if(sv.rbegin(), sv.rend(), [](unsigned char ch) {
+      return !std::isspace(ch) && ch != '\0';
+    });
+
+    return it == sv.rend() ? std::string {}
+                           : std::string(sv.begin(), it.base());
+  }
+
+  template<typename T, typename FnErr>
+  static std::string err_impl(T err_code, std::string_view func, FnErr fn_err) {
+    std::string prefix = std::format("`{0}` (error code: {1})", func, err_code);
+
+    std::string err_str = fn_err(err_code);
+    if (!err_str.empty()) {
+      err_str.insert(err_str.begin(), '\n');
     }
 
-    return std::string(string.substr(0, pos + 1));
+    return prefix.append(err_str);
+  }
+
+  template<typename T, typename FnErr, typename... Args>
+  static std::string err_impl(T err_code, std::string_view func, FnErr fn_err,
+                              std::format_string<Args...> fmt, Args &&...args) {
+    std::string usr_msg =
+      back_strip(std::format(fmt, std::forward<Args>(args)...));
+    if (!usr_msg.empty()) {
+      usr_msg.insert(usr_msg.begin(), '\n');
+    }
+
+    std::string prefix = std::format("`{0}` (error code: {1})", func, err_code);
+
+    std::string err_str = fn_err(err_code);
+    if (!err_str.empty()) {
+      err_str.insert(err_str.begin(), '\n');
+    }
+
+    return prefix.append(err_str).append(usr_msg);
   }
 
   static std::string s_gen(std::string_view prefix, std::string_view file,
@@ -233,15 +282,15 @@ class Io {
 };
 } // namespace Utils
 
-#define IO_ERROR(fmt, ...) \
-  (::Utils::Io::io() \
+#define IO_E(fmt, ...) \
+  (::Utils::Io::instance() \
      .s_error(SIRIUS_FILE_NAME, __LINE__) \
      .append((::Utils::Io::row_gs(fmt, ##__VA_ARGS__))))
 
-#define IO_WARNSP(fmt, ...) \
-  (::Utils::Io::io().s_warn("").append( \
+#define IO_WSP(fmt, ...) \
+  (::Utils::Io::instance().s_warn("").append( \
     (::Utils::Io::row_gs(fmt, ##__VA_ARGS__))))
 
-#define IO_INFOSP(fmt, ...) \
-  (::Utils::Io::io().s_info("").append( \
+#define IO_ISP(fmt, ...) \
+  (::Utils::Io::instance().s_info("").append( \
     (::Utils::Io::row_gs(fmt, ##__VA_ARGS__))))

@@ -115,7 +115,7 @@ static inline bool has_been_destructed() {
   if (once_print.exchange(true, std::memory_order_relaxed))
     return true;
 
-  auto es = IO_ERROR(
+  auto es = IO_E(
               "\n---------- Fatal Error ----------"
               "\nThe thread manager has been destructed"
               "\nThe `main` function may have already ended"
@@ -221,7 +221,7 @@ extern "C" sirius_api int sirius_thread_detach(sirius_thread_t thread) {
      * `finished=true` basically means it has exited, it is waiting for the
      * kernel object for safety).
      */
-    WaitForSingleObject(thread->handle, INFINITE);
+    WaitForSingleObject(thread->handle, 0);
 
     g_manager.resource_free(thread);
   }

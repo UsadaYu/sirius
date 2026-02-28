@@ -77,7 +77,7 @@ class Args {
     check(parser.add_option(kArgVersion, false, {}, false, false,
                             "Print version"));
     check(parser.add_option(kArgDaemon, true, {kArgDaemonSpawn}, false, false,
-                            "Spawn the daemon"));
+                            "Daemon"));
     // clang-format on
 
     check(parser.parse(argc, argv));
@@ -160,7 +160,7 @@ class Exe {
 
     for (auto path : paths) {
       if (!path.empty() && std::filesystem::exists(path)) {
-        auto es = IO_INFOSP("\nThe daemon executable file: {0}", path.string())
+        auto es = IO_ISP("\nThe daemon executable file: {0}", path.string())
                     .append("\n");
         utils_write(STDOUT_FILENO, es.c_str(), es.size());
         return path;
@@ -208,9 +208,9 @@ class Exe {
                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                             (LPCWSTR)&current_shared_dir, &modele)) {
       const DWORD dw_err = GetLastError();
-      es = Io::win_last_error(dw_err, "GetModuleHandleExW")
-             .append(Io::row_gs("\n{0}", utils_pretty_func))
-             .append("\n");
+      es =
+        IO_E("{}", Io::win_err(dw_err, "GetModuleHandleExW", utils_pretty_func))
+          .append("\n");
       utils_write(STDERR_FILENO, es.c_str(), es.size());
       return {};
     }
@@ -218,9 +218,9 @@ class Exe {
     DWORD length = GetModuleFileNameW(modele, path, MAX_PATH);
     if (length == 0) {
       const DWORD dw_err = GetLastError();
-      es = Io::win_last_error(dw_err, "GetModuleFileNameW")
-             .append(Io::row_gs("\n{0}", utils_pretty_func))
-             .append("\n");
+      es =
+        IO_E("{}", Io::win_err(dw_err, "GetModuleFileNameW", utils_pretty_func))
+          .append("\n");
       utils_write(STDERR_FILENO, es.c_str(), es.size());
       return {};
     }
@@ -290,7 +290,7 @@ class Daemon {
     std::string es;
     auto header = log_shm_->header;
 
-    es = IO_INFOSP("The daemon starts (PID: {0})", Process::pid()).append("\n");
+    es = IO_ISP("The daemon starts (PID: {0})", Process::pid()).append("\n");
     utils_write(STDOUT_FILENO, es.c_str(), es.size());
 
     thread_consumer_ =
@@ -328,7 +328,7 @@ class Daemon {
       thread_consumer_.join();
     }
 
-    es = IO_INFOSP("The daemon ended (PID: {0})", Process::pid()).append("\n");
+    es = IO_ISP("The daemon ended (PID: {0})", Process::pid()).append("\n");
     utils_write(STDOUT_FILENO, es.c_str(), es.size());
 
     return {};
@@ -396,14 +396,13 @@ class Daemon {
           if (now - ts > Log::kShmSlotResetTimeoutMilliseconds) {
             std::string es;
 
-            es = IO_WARNSP("Recovering stuck slot: {0}", i).append("\n");
+            es = IO_WSP("Recovering stuck slot: {0}", i).append("\n");
             utils_write(STDERR_FILENO, es.c_str(), es.size());
 
             /**
              * @note Construct a forged log indicating data loss.
              */
-            es =
-              IO_WARNSP("Slot recovered/skipped due to timeout").append("\n");
+            es = IO_WSP("Slot recovered/skipped due to timeout").append("\n");
             slots[i].buffer.type = Shm::DataType::kLog;
             slots[i].buffer.level = SIRIUS_LOG_LEVEL_ERROR;
 
@@ -434,7 +433,7 @@ class Daemon {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (++retries > retry_times) {
         auto es =
-          IO_WARNSP("Skip corrupted slot index: {0}", read_index).append("\n");
+          IO_WSP("Skip corrupted slot index: {0}", read_index).append("\n");
         utils_write(STDERR_FILENO, es.c_str(), es.size());
         return std::nullopt;
       }

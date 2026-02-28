@@ -35,10 +35,8 @@ int main() {
 
   // clang-format off
   sirius_warnsp(
-    LOG_PURPLE
     "\nSince the process is terminated before the detached threads,"
-    "\nthis test case will cause a large amount of memory leaks\n"
-    LOG_COLOR_NONE);
+    "\nthis test case will cause a large amount of memory leaks\n");
   // clang-format on
 
   sirius_thread_t threads[kNbThreads];

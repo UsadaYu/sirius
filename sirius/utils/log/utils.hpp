@@ -1,7 +1,7 @@
 #pragma once
 
 #include "sirius/foundation/log.h"
-#include "utils/namespace.hpp"
+#include "utils/ns.hpp"
 
 #define UTILS_LOG_KEY "utils_log"
 

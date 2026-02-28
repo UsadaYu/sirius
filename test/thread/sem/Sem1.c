@@ -57,7 +57,7 @@ int main() {
   sirius_thread_t thread;
   UTILS_ASSERT(!sirius_thread_create(&thread, nullptr, foo, nullptr));
 
-  for (int i = kIndexStart; i < kIndexStart + 200; i++) {
+  for (int i = kIndexStart; i < kIndexStart + 200; ++i) {
     memset(g_string, 0, sizeof(g_string));
     snprintf(g_string, sizeof(g_string), "main(%d)%s", i, get_nspace(i));
 
