@@ -9,10 +9,10 @@
 #  define GEN_FILE_NAME "./_gen_log.txt"
 #endif
 
-static bool g_exit_flag = false;
+static std::atomic<bool> g_exit_flag = false;
 
 static void thread_foo() {
-  while (!g_exit_flag) {
+  while (!g_exit_flag.load(std::memory_order_relaxed)) {
     sirius_error("--------------------------------\n");
     sirius_debug("[TID: %llu]\n", sirius_thread_id());
     sirius_info("[TID: %llu]\n", sirius_thread_id());
@@ -59,7 +59,7 @@ int main() {
   sirius_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
-  g_exit_flag = true;
+  g_exit_flag.store(true, std::memory_order_relaxed);
 
   for (int i = 0; i < NB_THREADS; ++i) {
     threads[i].join();

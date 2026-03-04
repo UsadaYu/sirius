@@ -9,45 +9,53 @@
 
 #ifdef __cplusplus
 #  include <cerrno>
-#  include <chrono>
+#  include <cfloat>
+#  include <cinttypes>
+#  include <climits>
+#  include <cmath>
+#  include <cstdarg>
 #  include <cstddef>
 #  include <cstdint>
 #  include <cstdio>
+#  include <cstdlib>
 #  include <cstring>
+#  include <ctime>
 #  include <iostream>
 #else
 #  include <errno.h>
 #  include <float.h>
+#  include <inttypes.h>
 #  include <limits.h>
 #  include <math.h>
+#  include <stdarg.h>
 #  include <stddef.h>
 #  include <stdint.h>
 #  include <stdio.h>
 #  include <stdlib.h>
 #  include <string.h>
+#  include <time.h>
 #endif
-
-#include <inttypes.h>
-#include <stdarg.h>
-#include <time.h>
 
 #ifdef __cplusplus
 #  if __cplusplus >= 201103L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201103L)
 #    include <atomic>
 #  endif
+#  if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+#    include <format>
+#  endif
 #  if __cplusplus >= 202302L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
 #    include <expected>
 #  endif
-#else
-#  ifdef __STDC_VERSION__
-#    if (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
-#      include <stdatomic.h>
-#    endif
-#    if (__STDC_VERSION__ < 202311L)
-#      include <stdbool.h>
-#      ifndef nullptr
-#        define nullptr NULL
-#      endif
+#elif defined(__STDC_VERSION__)
+#  if (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
+#    include <stdatomic.h>
+#  endif
+#  if (__STDC_VERSION__ >= 202311L)
+#    include <stdckdint.h>
+#  else
+#    include <stdbool.h>
+#    ifndef nullptr
+#      define nullptr NULL
 #    endif
 #  endif
 #endif
@@ -83,7 +91,6 @@
 #  endif
 
 #elif defined(_WIN32) || defined(_WIN64)
-#  include <io.h>
 #  include <synchapi.h>
 #else
 #  error "Unsupported operating system"

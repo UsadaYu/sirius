@@ -7,19 +7,32 @@
 
 namespace Utils {
 namespace Log {
-inline constexpr const char *kKey = UTILS_LOG_KEY;
-inline constexpr const char *kMutexProcessKey = UTILS_LOG_KEY "_process";
-inline constexpr const char *kMutexShmKey = UTILS_LOG_KEY "_shm";
+inline constexpr const char *kShmKey = UTILS_LOG_KEY "_shm";
+inline constexpr const char *kMutexProcessKey = UTILS_LOG_KEY "_mutex_process";
+inline constexpr const char *kMutexShmKey = UTILS_LOG_KEY "_mutex_shm";
+inline constexpr const char *kMutexCrashKey = UTILS_LOG_KEY "_mutex_crash";
+sirius_static_assert(kMutexProcessKey != kMutexShmKey &&
+                       kMutexProcessKey != kMutexCrashKey &&
+                       kMutexShmKey != kMutexCrashKey,
+                     "The mutex name must be unique");
 
 inline constexpr size_t kLogBufferSize = 4096;
 inline constexpr size_t kLogPathMax = 4096;
 inline constexpr size_t kProcessMax = 128;
 inline constexpr size_t kProcessNbDaemon = 1;
 inline constexpr uint64_t kProcessFeedGuardMilliseconds = 2000;
-inline constexpr uint64_t kProcessGuardTimeoutMilliseconds = 10000;
-inline constexpr uint64_t kShmSlotResetTimeoutMilliseconds = 10000;
+inline constexpr uint64_t kProcessGuardTimeoutMilliseconds = 8000;
+sirius_static_assert(kProcessFeedGuardMilliseconds <=
+                     kProcessGuardTimeoutMilliseconds);
+inline constexpr uint64_t kShmSlotResetTimeoutMilliseconds = 5000;
 inline constexpr size_t kShmCapacity =
   Utils::next_power_of_2(_SIRIUS_LOG_SHM_CAPACITY);
+
+enum class MasterType : int {
+  kNone = 0,
+  kDaemon = 1,
+  kNative = 2,
+};
 } // namespace Log
 } // namespace Utils
 

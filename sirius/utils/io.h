@@ -4,6 +4,12 @@
 #include "sirius/foundation/thread.h"
 #include "utils/utils.h"
 
+#if defined(_WIN32) || defined(_WIN64)
+#  include <io.h>
+#else
+#  include <sys/uio.h>
+#endif
+
 // --- stdin / stdout / stderr ---
 #ifndef STDIN_FILENO
 #  define STDIN_FILENO (0)

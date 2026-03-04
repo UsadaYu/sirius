@@ -120,7 +120,8 @@ class Mutex {
   }
 
 #if defined(_WIN32) || defined(_WIN64)
-  std::string win_generate_name(std::string_view name, bool is_global = false) {
+  static std::string win_generate_name(std::string_view name,
+                                       bool is_global = false) {
     std::string scope = is_global ? "Global\\" : "Local\\";
     std::string prefix = scope + std::string(_SIRIUS_NAMESPACE) + "_" +
       generate_namespace_prefix();
@@ -181,9 +182,8 @@ class Mutex {
       }
     }
 
-    if (base.empty()) {
+    if (base.empty())
       return std::unexpected(IO_WSP("Fail to get file lock path"));
-    }
 
     std::string prefix = generate_namespace_prefix();
     std::string fname =

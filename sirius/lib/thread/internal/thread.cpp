@@ -116,13 +116,12 @@ static inline bool has_been_destructed() {
     return true;
 
   auto es = IO_E(
-              "\n---------- Fatal Error ----------"
-              "\nThe thread manager has been destructed"
-              "\nThe `main` function may have already ended"
-              "\nOr some unknown errors occurred"
-              "\nThere should be no further operations on the thread")
-              .append("\n");
-  utils_write(STDERR_FILENO, es.c_str(), es.size());
+    "\n---------- Fatal Error ----------"
+    "\nThe thread manager has been destructed"
+    "\nThe `main` function may have already ended"
+    "\nOr some unknown errors occurred"
+    "\nThere should be no further operations on the thread");
+  Utils::io_ln_fd(STDERR_FILENO, es);
 
   return true;
 }

@@ -5,6 +5,27 @@
 #include "utils/io.h"
 
 namespace Utils {
+static void inline io_ln_fd(int fd, std::string_view msg) {
+#if defined(_WIN32) || defined(_WIN64)
+  auto imsg = std::format("{0}\n", msg);
+  utils_write(fd, imsg.data(), imsg.size());
+#else
+  struct iovec iov[2];
+  iov[0].iov_base = const_cast<char *>(msg.data());
+  iov[0].iov_len = msg.size();
+  iov[1].iov_base = const_cast<char *>("\n");
+  iov[1].iov_len = 1;
+  writev(fd, iov, 2);
+#endif
+}
+
+// clang-format off
+static void inline io_outln(std::string_view msg) { io_ln_fd(STDOUT_FILENO, msg); }
+static void inline io_errln(std::string_view msg) { io_ln_fd(STDERR_FILENO, msg); }
+static void inline io_out(std::string_view msg) { utils_write(STDOUT_FILENO, msg.data(), msg.size()); }
+static void inline io_err(std::string_view msg) { utils_write(STDERR_FILENO, msg.data(), msg.size()); }
+// clang-format on
+
 // --- utils_strerror ---
 #if defined(_WIN32) || defined(_WIN64)
 inline int utils_strerror(int err_code, char *buffer, size_t buffer_size) {
@@ -135,25 +156,12 @@ class Io {
     return result;
   }
 
-  std::string s_error(std::string_view f, int l = 0,
-                      std::string_view m = _SIRIUS_LOG_MODULE_NAME) {
-    return s_gen("Error", f, l, LOG_RED, ansi_enable_err_, m);
-  }
-
-  std::string s_warn(std::string_view f, int l = 0,
-                     std::string_view m = _SIRIUS_LOG_MODULE_NAME) {
-    return s_gen("Warn", f, l, LOG_YELLOW, ansi_enable_err_, m);
-  }
-
-  std::string s_info(std::string_view f, int l = 0,
-                     std::string_view m = _SIRIUS_LOG_MODULE_NAME) {
-    return s_gen("Info", f, l, LOG_GREEN, ansi_enable_out_, m);
-  }
-
-  std::string s_debug(std::string_view f, int l = 0,
-                      std::string_view m = _SIRIUS_LOG_MODULE_NAME) {
-    return s_gen("Debug", f, l, LOG_COLOR_NONE, ansi_enable_out_, m);
-  }
+  // clang-format off
+  std::string s_error(std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Error", f, l, LOG_RED, ansi_enable_err_, m); }
+  std::string s_warn (std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Warn", f, l, LOG_YELLOW, ansi_enable_err_, m); }
+  std::string s_info (std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Info", f, l, LOG_GREEN, ansi_enable_out_, m); }
+  std::string s_debug(std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Debug", f, l, LOG_COLOR_NONE, ansi_enable_out_, m); }
+  // clang-format on
 
 #if defined(_WIN32) || defined(_WIN64)
   static std::string win_err_str(const DWORD err_code) {
@@ -194,27 +202,27 @@ class Io {
   }
 
 #if defined(_WIN32) || defined(_WIN64)
-  static std::string win_err(const DWORD err_code, std::string_view func) {
-    return err_impl(err_code, func, win_err_str);
+  static std::string win_err(const DWORD err_code, std::string_view fn_str) {
+    return err_impl(err_code, fn_str, win_err_str);
   }
 
   template<typename... Args>
-  static std::string win_err(const DWORD err_code, std::string_view func,
+  static std::string win_err(const DWORD err_code, std::string_view fn_str,
                              std::format_string<Args...> fmt, Args &&...args) {
-    return err_impl(err_code, func, win_err_str, fmt,
+    return err_impl(err_code, fn_str, win_err_str, fmt,
                     std::forward<Args>(args)...);
   }
 #endif
 
-  static std::string errno_err(const int err_code, std::string_view func) {
-    return err_impl(err_code, func, errno_err_str);
+  static std::string errno_err(const int err_code, std::string_view fn_str) {
+    return err_impl(err_code, fn_str, errno_err_str);
   }
 
   template<typename... Args>
-  static std::string errno_err(const int err_code, std::string_view func,
+  static std::string errno_err(const int err_code, std::string_view fn_str,
                                std::format_string<Args...> fmt,
                                Args &&...args) {
-    return err_impl(err_code, func, errno_err_str, fmt,
+    return err_impl(err_code, fn_str, errno_err_str, fmt,
                     std::forward<Args>(args)...);
   }
 
@@ -237,8 +245,10 @@ class Io {
   }
 
   template<typename T, typename FnErr>
-  static std::string err_impl(T err_code, std::string_view func, FnErr fn_err) {
-    std::string prefix = std::format("`{0}` (error code: {1})", func, err_code);
+  static std::string err_impl(T err_code, std::string_view fn_str,
+                              FnErr fn_err) {
+    std::string prefix =
+      std::format("`{0}` (error code: {1})", fn_str, err_code);
 
     std::string err_str = fn_err(err_code);
     if (!err_str.empty()) {
@@ -249,15 +259,16 @@ class Io {
   }
 
   template<typename T, typename FnErr, typename... Args>
-  static std::string err_impl(T err_code, std::string_view func, FnErr fn_err,
+  static std::string err_impl(T err_code, std::string_view fn_str, FnErr fn_err,
                               std::format_string<Args...> fmt, Args &&...args) {
     std::string usr_msg =
       back_strip(std::format(fmt, std::forward<Args>(args)...));
-    if (!usr_msg.empty()) {
+    if (!usr_msg.empty() && usr_msg.at(0) != '\n') {
       usr_msg.insert(usr_msg.begin(), '\n');
     }
 
-    std::string prefix = std::format("`{0}` (error code: {1})", func, err_code);
+    std::string prefix =
+      std::format("`{0}` (error code: {1})", fn_str, err_code);
 
     std::string err_str = fn_err(err_code);
     if (!err_str.empty()) {

@@ -16,7 +16,6 @@ class Parser {
   ~Parser() = default;
 
   auto arg_daemon() -> std::expected<void, std::string> {
-    std::string es;
     auto values = exe_args_.parser.get_all(ExeArgs::kArgDaemon);
 
     for (auto value : values) {
