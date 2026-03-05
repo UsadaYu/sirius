@@ -12,9 +12,10 @@
 #include <functional>
 #include <thread>
 
-namespace Utils {
-namespace Log {
-namespace Shm {
+namespace sirius {
+namespace utils {
+namespace log {
+namespace shm {
 /**
  * @note The use of `std::hardware_destructive_interference_size` is waived
  * here.
@@ -70,7 +71,7 @@ struct alignas(kShmCacheLineSize) Slot {
   std::atomic<SlotState> state;
   std::atomic<uint64_t> timestamp_ms;
 
-  Process::Pid pid;
+  process::t_pid pid;
   Buffer buffer;
 };
 #if defined(_MSC_VER)
@@ -78,13 +79,12 @@ struct alignas(kShmCacheLineSize) Slot {
 #endif
 
 struct AttachedMap {
-  Process::Pid pid;
+  process::t_pid pid;
   uint64_t timestamp_ms;
 };
 
 struct Header {
   static constexpr uint32_t kMagicHeader = 0xDEADBEEF;
-  static constexpr uint32_t kMagicDaemonCipher = 0xC0FFEE;
 
   /**
    * @note
@@ -94,7 +94,6 @@ struct Header {
    */
   uint32_t magic;
 
-  std::atomic<uint32_t> daemon_cipher;
   std::atomic<bool> is_daemon_ready;
 
   /**
@@ -117,17 +116,17 @@ struct Header {
   uint64_t reserved[8];
 };
 
-namespace GMutex {
+namespace gmutex {
 #if defined(_WIN32) || defined(_WIN64)
-using MHandle = Process::GMutex;
+using hmutex = process::mutex::GM;
 #else
-using MHandle = Process::FMutex;
+using hmutex = process::mutex::FM;
 #endif
 
-inline std::optional<MHandle> mutex_;
+inline std::optional<hmutex> mutex_;
 
 inline auto create() -> std::expected<void, std::string> {
-  auto ret = MHandle::create(kMutexProcessKey);
+  auto ret = hmutex::create(kMutexProcessKey);
 
   if (!ret.has_value()) {
     return std::unexpected(
@@ -162,22 +161,22 @@ inline auto lock() -> std::expected<void, std::string> {
 inline auto unlock() -> std::expected<void, std::string> {
   return mutex_->unlock();
 }
-} // namespace GMutex
+} // namespace gmutex
 
-class SharedMem {
+class Shm {
 #define SUFFIX_ \
   ( \
     std::format("\nPID: {0}" \
                 "\n{1}", \
-                Process::pid(), utils_pretty_func))
+                static_cast<uint64_t>(process::pid()), utils_pretty_func))
 
  private:
   class LockGuard {
    public:
-    explicit LockGuard(Process::GMutex &mutex)
+    explicit LockGuard(process::mutex::GM &mutex)
         : mutex_(mutex), lock_ret_(false) {
       if (auto ret = mutex_.lock(); ret.has_value()) {
-        lock_ret_ = true;
+        lock_ret_ = ret.value() != process::mutex::LockState::kBusy;
       } else {
         io_errln(ret.error());
       }
@@ -193,13 +192,9 @@ class SharedMem {
     LockGuard &operator=(const LockGuard &) = delete;
 
    private:
-    Process::GMutex &mutex_;
+    process::mutex::GM &mutex_;
     bool lock_ret_;
   };
-
-  LockGuard lock_guard() {
-    return LockGuard(mutex_shm_.value());
-  }
 
  private:
   struct MasterToken {
@@ -209,10 +204,16 @@ class SharedMem {
  public:
   class Master {
    public:
-    Master(MasterToken, SharedMem &parent, enum MasterType master_type)
+    enum class DaemonState {
+      kAlive,
+      kPerfectDead,
+      kOwnerDead,
+    };
+
+   public:
+    Master(MasterToken, Shm &parent, enum MasterType master_type)
         : parent_(parent),
           header_(parent.header_),
-          slots_(nullptr),
           master_type_(master_type),
           thread_guard_ready_(false) {}
 
@@ -223,49 +224,31 @@ class SharedMem {
       return parent_.is_shm_creator_;
     }
 
-    /**
-     * @brief Check if the daemon is still alive.
-     * If the daemon has died, reset the related resources and return `false`.
-     *
-     * @note This function takes a long time to call once.
-     */
-    bool daemon_alive_or_reset() {
-      header_->daemon_cipher.store(0, std::memory_order_relaxed);
+    // clang-format off
+    LockGuard lock_guard() { return LockGuard(parent_.mutex_shm_.value()); }
+    auto mutex_crash_lock() { return parent_.mutex_crash_->lock(); }
+    auto mutex_crash_trylock() { return parent_.mutex_crash_->trylock(); }
+    auto mutex_crash_unlock() { return parent_.mutex_crash_->unlock(); }
+    // clang-format on
 
-      std::this_thread::sleep_for(
-        std::chrono::milliseconds(kProcessFeedGuardMilliseconds + 300));
-
-      if (Header::kMagicDaemonCipher !=
-          header_->daemon_cipher.load(std::memory_order_relaxed)) {
-        for (size_t i = 0; i < kProcessMax; ++i) {
-          if (header_->attached_master_type[i] == MasterType::kDaemon) {
-            slot_reset(i);
-            break;
-          }
-        }
-        header_->is_daemon_ready.store(false);
-        return false;
-      }
-
-      return true;
-    }
-
-    LockGuard lock_guard() {
-      return parent_.lock_guard();
-    }
-
-    Header *get_shm_header() const {
+    Header *&get_shm_header() const {
       return header_;
     }
 
+    Slot *get_shm_slots() const {
+      uint8_t *base_ptr = reinterpret_cast<uint8_t *>(header_);
+
+      return reinterpret_cast<Slot *>(base_ptr +
+                                      parent_.get_shm_header_offset());
+    }
+
     void slots_free() {
-      if (header_ && slots_) {
+      if (header_) {
         master_free();
-        slots_ = nullptr;
       }
     }
 
-    auto slots_alloc() -> std::expected<Slot *, std::string> {
+    auto slots_alloc() -> std::expected<void, std::string> {
       if (is_shm_creator()) {
         header_->is_daemon_ready.store(false);
         header_->attached_count = 0;
@@ -290,46 +273,87 @@ class SharedMem {
           return std::unexpected(ret.error());
       }
 
-      uint8_t *base_ptr = reinterpret_cast<uint8_t *>(header_);
-      slots_ =
-        reinterpret_cast<Slot *>(base_ptr + parent_.get_shm_header_offset());
+      return {};
+    }
 
-      return slots_;
+    /**
+     * @note This function incurs some overhead, so try to avoid calling it too
+     * frequently.
+     */
+    DaemonState daemon_state() {
+      if (!header_->is_daemon_ready.load(std::memory_order_relaxed))
+        return DaemonState::kPerfectDead;
+
+      DaemonState state = DaemonState::kPerfectDead;
+
+      if (auto ret = mutex_crash_trylock(); ret.has_value()) {
+        switch (ret.value()) {
+        case process::mutex::LockState::kBusy:
+          return DaemonState::kAlive;
+        case process::mutex::LockState::kOwnerDead:
+          state = DaemonState::kOwnerDead;
+          break;
+        default:
+          state = DaemonState::kPerfectDead;
+          break;
+        }
+        (void)mutex_crash_unlock();
+        header_->is_daemon_ready.store(false, std::memory_order_relaxed);
+      } else {
+        io_errln(ret.error().append(Io::row_gs(utils_pretty_func)));
+      }
+
+      {
+        lock_guard();
+
+        for (size_t i = 0; i < kProcessMax; ++i) {
+          if (header_->attached_master_type[i] == MasterType::kDaemon) {
+            io_outln(IO_ISP("Reset the old daemon slot"));
+            slot_reset(i);
+            break;
+          }
+        }
+      }
+
+      return state;
     }
 
    private:
-    SharedMem &parent_;
+    Shm &parent_;
     Header *&header_;
-    Slot *slots_;
     MasterType master_type_;
     std::jthread thread_guard_;
     std::atomic<bool> thread_guard_ready_;
 
-    void master_free() {
-      switch (master_type_) {
-      case MasterType::kDaemon:
-      case MasterType::kNative:
-        return master_free_impl();
-      default:
-        return;
-      }
-    }
-
     auto master_alloc() -> std::expected<void, std::string> {
+      io_outln(IO_ISP("Master: {0}. Alloc", static_cast<int>(master_type_)));
+
       switch (master_type_) {
       case MasterType::kDaemon:
         return daemon_master_alloc();
       case MasterType::kNative:
         return native_master_alloc();
       default:
-        return std::unexpected(IO_E("Invalid argument. `master_type_`: {0}{1}",
-                                    static_cast<int>(master_type_), SUFFIX_));
+        return std::unexpected(IO_E("Invalid argument.{0}", SUFFIX_));
       }
+    }
+
+    void master_free() {
+      switch (master_type_) {
+      case MasterType::kDaemon:
+      case MasterType::kNative:
+        master_free_impl();
+        break;
+      default:
+        break;
+      }
+
+      io_outln(IO_ISP("Master: {0}. Free", static_cast<int>(master_type_)));
     }
 
     bool slot_check(size_t index) const {
       return (header_->attached_master_type[index] == master_type_ &&
-              header_->attached_maps[index].pid == Process::pid());
+              header_->attached_maps[index].pid == process::pid());
     }
 
     /**
@@ -344,16 +368,22 @@ class SharedMem {
     }
 
     void slot_free() {
-      lock_guard();
+      bool found = false;
 
-      for (size_t i = 0; i < kProcessMax; ++i) {
-        if (slot_check(i)) {
-          slot_reset(i);
-          break;
+      {
+        lock_guard();
+
+        for (size_t i = 0; i < kProcessMax; ++i) {
+          if (slot_check(i)) {
+            slot_reset(i);
+            found = true;
+            break;
+          }
         }
-        if (i == kProcessMax - 1) {
-          io_errln(IO_WSP("No valid pid was matched{0}", SUFFIX_));
-        }
+      }
+
+      if (!found) {
+        io_errln(IO_WSP("No valid pid was matched{0}", SUFFIX_));
       }
     }
 
@@ -364,9 +394,9 @@ class SharedMem {
         if (header_->attached_master_type[i] == MasterType::kNone) {
           ++header_->attached_count;
           header_->attached_master_type[i] = master_type_;
-          header_->attached_maps[i].pid = Process::pid();
+          header_->attached_maps[i].pid = process::pid();
           header_->attached_maps[i].timestamp_ms =
-            Time::get_monotonic_steady_ms();
+            time::get_monotonic_steady_ms();
           break;
         }
         if (i == kProcessMax - 1) {
@@ -385,12 +415,10 @@ class SharedMem {
       }
 
       slot_free();
-
-      io_outln(IO_ISP("Slot free"));
     }
 
     auto daemon_master_alloc() -> std::expected<void, std::string> {
-      if (header_->is_daemon_ready.load(std::memory_order_relaxed)) {
+      if (daemon_state() == DaemonState::kAlive) {
         return std::unexpected(IO_WSP("Another daemon already exists"));
       }
 
@@ -400,29 +428,23 @@ class SharedMem {
       thread_guard_ =
         std::jthread(std::bind_front(&Master::daemon_thread_guard, this));
 
-      io_outln(IO_ISP("Slot alloc"));
-
       return {};
     }
 
     void daemon_thread_guard(std::stop_token stop_token) {
-      int splits =
-        kProcessGuardTimeoutMilliseconds / kProcessFeedGuardMilliseconds;
+      constexpr uint64_t kOnceSleepMs = 2000;
+      int splits = kProcessGuardTimeoutMilliseconds / kOnceSleepMs;
       splits = UTILS_MAX(1, splits);
 
       while (!stop_token.stop_requested()) {
         for (int i = 0; i < splits; ++i) {
-          std::this_thread::sleep_for(
-            std::chrono::milliseconds(kProcessFeedGuardMilliseconds));
-          if (stop_token.stop_requested()) [[unlikely]]
+          std::this_thread::sleep_for(std::chrono::milliseconds(kOnceSleepMs));
+          if (stop_token.stop_requested())
             return;
-          header_->daemon_cipher.store(Header::kMagicDaemonCipher,
-                                       std::memory_order_relaxed);
         }
 
         {
-          uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
-
+          uint64_t timestamp_ms = time::get_monotonic_steady_ms();
           lock_guard();
 
           for (size_t i = 0; i < kProcessMax; ++i) {
@@ -461,8 +483,6 @@ class SharedMem {
         }
       }
 
-      io_outln(IO_ISP("Slot alloc"));
-
       return {};
     }
 
@@ -481,6 +501,8 @@ class SharedMem {
         }
       }
 
+      thread_guard_ready_.store(true, std::memory_order_relaxed);
+
       /**
        * @note Although the probability of occurrence is not high, the
        * initialization function may be called repeatedly. Slightly shortening
@@ -490,12 +512,9 @@ class SharedMem {
       int splits = kProcessFeedGuardMilliseconds / kOnceSleepMs;
       splits = UTILS_MAX(1, splits);
 
-      thread_guard_ready_.store(true, std::memory_order_relaxed);
-
       while (!stop_token.stop_requested()) {
-        uint64_t timestamp_ms = Time::get_monotonic_steady_ms();
-
         {
+          uint64_t timestamp_ms = time::get_monotonic_steady_ms();
           lock_guard();
 
           if (slot_check(index)) [[likely]] {
@@ -517,7 +536,7 @@ class SharedMem {
   };
 
  private:
-  SharedMem()
+  Shm()
       :
 #if defined(_WIN32) || defined(_WIN64)
         shm_handle_(nullptr),
@@ -527,21 +546,21 @@ class SharedMem {
 #endif
         initialized_(false),
         is_shm_creator_(false),
-        shm_name_(Ns::Shm::generate_name(kShmKey)),
+        shm_name_(ns::shm::generate_name(kShmKey)),
         mapped_size_(0),
         header_(nullptr) {
   }
 
-  ~SharedMem() {
+  ~Shm() {
     shm_free();
   }
 
  public:
-  SharedMem(const SharedMem &) = delete;
-  SharedMem &operator=(const SharedMem &) = delete;
+  Shm(const Shm &) = delete;
+  Shm &operator=(const Shm &) = delete;
 
-  static SharedMem &instance() {
-    static SharedMem instance;
+  static Shm &instance() {
+    static Shm instance;
 
     return instance;
   }
@@ -552,12 +571,16 @@ class SharedMem {
       return std::unexpected(IO_E("Repeated initialization{0}", SUFFIX_));
     }
 
-    std::expected<void, std::string> ret;
+    std::string ret_msg;
 
-    if (ret = open_shm(); !ret.has_value())
+    if (auto ret = open_shm(); !ret.has_value()) {
+      ret_msg = ret.error();
       goto label_free1;
-    if (ret = memory_map(); !ret.has_value())
+    }
+    if (auto ret = memory_map(); !ret.has_value()) {
+      ret_msg = ret.error();
       goto label_free2;
+    }
 
     return std::make_unique<Master>(MasterToken {}, *this, master_type);
 
@@ -566,7 +589,7 @@ class SharedMem {
   label_free1:
     initialized_.store(false, std::memory_order_seq_cst);
 
-    return std::unexpected(ret.error());
+    return std::unexpected(ret_msg);
   }
 
   void shm_free() {
@@ -589,9 +612,8 @@ class SharedMem {
   std::string shm_name_;
   size_t mapped_size_;
   Header *header_;
-  std::optional<Process::GMutex> mutex_shm_;
-#warning "Remember to add process crash handling"
-  std::optional<Process::GMutex> mutex_crash_;
+
+  std::optional<process::mutex::GM> mutex_shm_, mutex_crash_;
 
   constexpr size_t get_shm_header_offset() const {
     size_t header_size = sizeof(Header);
@@ -733,7 +755,7 @@ class SharedMem {
       return;
 
     {
-      lock_guard();
+      LockGuard(mutex_shm_.value());
 
       destructor_counter_ = header_->attached_count;
     }
@@ -746,35 +768,52 @@ class SharedMem {
 #endif
 
   auto mutex_create() -> std::expected<void, std::string> {
-    auto fn_create = [&]() {
 #if defined(_WIN32) || defined(_WIN64)
-      return Process::GMutex::create(kMutexShmKey);
+#  define fn_create() process::mutex::GM::create(T)
 #else
-      return Process::GMutex::create(&header_->mutex_shm, is_shm_creator_);
+#  define fn_create() process::mutex::GM::create(T, is_shm_creator_)
 #endif
+
+    auto fn_destroy = [&](std::optional<process::mutex::GM> &mutex) {
+      if (is_shm_creator_) {
+        mutex->destroy();
+        mutex.reset();
+      }
     };
 
+#if defined(_WIN32) || defined(_WIN64)
+#  define T (kMutexShmKey)
+#else
+#  define T (&header_->mutex_shm)
+#endif
     if (auto ret = fn_create(); !ret.has_value()) {
       return std::unexpected(ret.error().append(Io::row_gs("{0}", SUFFIX_)));
     } else {
       mutex_shm_.emplace(std::move(ret.value()));
     }
+#undef T
 
+#if defined(_WIN32) || defined(_WIN64)
+#  define T (kMutexCrashKey)
+#else
+#  define T (&header_->mutex_crash)
+#endif
     if (auto ret = fn_create(); !ret.has_value()) {
       if (is_shm_creator_) {
-        mutex_shm_->destroy();
-        mutex_shm_.reset();
+        fn_destroy(mutex_shm_);
       }
       return std::unexpected(ret.error().append(Io::row_gs("{0}", SUFFIX_)));
     } else {
       mutex_crash_.emplace(std::move(ret.value()));
     }
+#undef T
 
     return {};
+#undef fn_create
   }
 
   void mutex_destroy() {
-    auto fn_destory = [&](std::optional<Process::GMutex> &mutex) {
+    auto fn_destory = [&](std::optional<process::mutex::GM> &mutex) {
       if (mutex.has_value()) {
 #if defined(_WIN32) || defined(_WIN64)
         mutex->destroy();
@@ -794,6 +833,7 @@ class SharedMem {
 
 #undef SUFFIX_
 };
-} // namespace Shm
-} // namespace Log
-} // namespace Utils
+} // namespace shm
+} // namespace log
+} // namespace utils
+} // namespace sirius

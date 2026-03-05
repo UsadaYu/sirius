@@ -11,8 +11,9 @@
 #include "utils/env.h"
 #include "utils/file.hpp"
 
-namespace Utils {
-namespace Ns {
+namespace sirius {
+namespace utils {
+namespace ns {
 inline constexpr const char *kSuffixShm = "_shm";
 inline constexpr const char *kSuffixMutex = "_mutex";
 
@@ -78,7 +79,7 @@ generate_namespace_prefix(const std::string &runtime_salt = "") {
   return sanitize_name(prefix);
 }
 
-namespace Shm {
+namespace shm {
 inline std::string generate_name(std::string_view name,
                                  bool is_global = false) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -96,7 +97,7 @@ inline std::string generate_name(std::string_view name,
   return nm;
 #endif
 }
-} // namespace Shm
+} // namespace shm
 
 /**
  * @implements Singleton pattern.
@@ -154,7 +155,7 @@ class Mutex {
 #else
     prefixes.push_back(_SIRIUS_POSIX_TMP_DIR);
 
-    if (auto xdg = Env::get_env("XDG_RUNTIME_DIR"); !xdg.empty()) {
+    if (auto xdg = env::get_env("XDG_RUNTIME_DIR"); !xdg.empty()) {
       prefixes.push_back(xdg);
     }
 
@@ -203,5 +204,6 @@ class Mutex {
   std::mutex mutex_m_map_;
   std::map<std::string, std::filesystem::path> m_map_;
 };
-} // namespace Ns
-} // namespace Utils
+} // namespace ns
+} // namespace utils
+} // namespace sirius

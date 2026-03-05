@@ -31,7 +31,7 @@ static void *foo(void *arg) {
 }
 
 int main() {
-  auto init = Utils::Init();
+  auto init = utils::Init();
 
   // clang-format off
   sirius_warnsp(

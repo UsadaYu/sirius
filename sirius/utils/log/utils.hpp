@@ -5,8 +5,9 @@
 
 #define UTILS_LOG_KEY "utils_log"
 
-namespace Utils {
-namespace Log {
+namespace sirius {
+namespace utils {
+namespace log {
 inline constexpr const char *kShmKey = UTILS_LOG_KEY "_shm";
 inline constexpr const char *kMutexProcessKey = UTILS_LOG_KEY "_mutex_process";
 inline constexpr const char *kMutexShmKey = UTILS_LOG_KEY "_mutex_shm";
@@ -26,14 +27,15 @@ sirius_static_assert(kProcessFeedGuardMilliseconds <=
                      kProcessGuardTimeoutMilliseconds);
 inline constexpr uint64_t kShmSlotResetTimeoutMilliseconds = 5000;
 inline constexpr size_t kShmCapacity =
-  Utils::next_power_of_2(_SIRIUS_LOG_SHM_CAPACITY);
+  utils::next_power_of_2(_SIRIUS_LOG_SHM_CAPACITY);
 
 enum class MasterType : int {
   kNone = 0,
   kDaemon = 1,
   kNative = 2,
 };
-} // namespace Log
-} // namespace Utils
+} // namespace log
+} // namespace utils
+} // namespace sirius
 
 #undef UTILS_LOG_KEY

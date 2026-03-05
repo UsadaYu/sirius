@@ -48,7 +48,7 @@ static void print_sched(sirius_thread_t thread) {
 }
 
 int main() {
-  auto init = Utils::Init();
+  auto init = utils::Init();
 
   int ret;
   std::string es;

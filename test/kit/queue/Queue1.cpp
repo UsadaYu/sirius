@@ -115,7 +115,7 @@ void *consumer_routine(void *arg) {
 }
 
 int main() {
-  auto init = Utils::Init();
+  auto init = utils::Init();
 
   sirius_infosp("Producers: %d. Msgs/Thread: %d. Total Expected: %d\n",
                 kNbProducers, kNbMsgsPerThread,

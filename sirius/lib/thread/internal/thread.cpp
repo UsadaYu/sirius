@@ -10,7 +10,10 @@
 #if defined(_WIN32) || defined(_WIN64)
 #  include <mutex>
 #  include <set>
+#endif
 
+namespace sirius {
+#if defined(_WIN32) || defined(_WIN64)
 struct SiriusThreadExitException {
   void *retval;
 };
@@ -121,7 +124,7 @@ static inline bool has_been_destructed() {
     "\nThe `main` function may have already ended"
     "\nOr some unknown errors occurred"
     "\nThere should be no further operations on the thread");
-  Utils::io_ln_fd(STDERR_FILENO, es);
+  utils::io_ln_fd(STDERR_FILENO, es);
 
   return true;
 }
@@ -228,3 +231,4 @@ extern "C" sirius_api int sirius_thread_detach(sirius_thread_t thread) {
   return 0;
 }
 #endif
+} // namespace sirius

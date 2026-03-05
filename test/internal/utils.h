@@ -15,82 +15,88 @@
 #  include <string.h>
 #endif
 
-#if defined(__cplusplus)
-#  include <atomic>
-#  include <cassert>
-#  include <chrono>
+#ifdef __cplusplus
+#  include <cerrno>
+#  include <cfloat>
 #  include <cinttypes>
+#  include <climits>
+#  include <cmath>
+#  include <cstdarg>
+#  include <cstddef>
+#  include <cstdint>
 #  include <cstdio>
 #  include <cstdlib>
 #  include <cstring>
+#  include <ctime>
 #  include <iostream>
-#  include <string>
-#  include <vector>
-
-#  if UTILS_CXX_STD < 201703L
-#    error "The test module requires a standard of `c++17` or higher"
-#  else
-#    include <filesystem>
-#  endif
-
-#  if UTILS_CXX_STD < 202002L
-#    error "The test module requires a standard of `c++20` or higher"
-#  else
-#    include <format>
-#  endif
-
+#else
+#  include <errno.h>
+#  include <float.h>
+#  include <inttypes.h>
+#  include <limits.h>
+#  include <math.h>
+#  include <stdarg.h>
+#  include <stddef.h>
+#  include <stdint.h>
+#  include <stdio.h>
+#  include <stdlib.h>
+#  include <string.h>
+#  include <time.h>
 #endif
 
-#ifdef __cplusplus
-
-#else
-
-#  ifdef __STDC_VERSION__
-#    if __STDC_VERSION__ < 202311L
-#      include <stdbool.h>
-#      ifndef nullptr
-#        define nullptr NULL
-#      endif
+#if defined(__cplusplus)
+#  if __cplusplus >= 201103L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201103L)
+#    include <atomic>
+#  endif
+#  if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+#    include <filesystem>
+#  endif
+#  if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+#    include <format>
+#  endif
+#elif defined(__STDC_VERSION__)
+#  if (__STDC_VERSION__ >= 202311L)
+#  else
+#    include <stdbool.h>
+#    ifndef nullptr
+#      define nullptr NULL
 #    endif
 #  endif
-
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <inttypes.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+// --- utils_dprintf ---
+#if defined(_WIN32) || defined(_WIN64)
+#  include <io.h>
+#else
+#  include <unistd.h>
+#endif
+
+static inline int utils_dprintf(int fd, const char *__restrict format, ...) {
+  char msg[4096] = {0};
+
+  va_list args;
+  va_start(args, format);
+  int written = vsnprintf(msg, sizeof(msg), format, args);
+  va_end(args);
+
+  if (written > 0 && written < sizeof(msg)) {
+#if defined(_WIN32) || defined(_WIN64)
+    _write(fd, msg, (unsigned int)(written));
+#else
+    write(fd, msg, (size_t)written);
+#endif
+  }
+
+  return written;
+}
 
 // --- sirius ---
 #include <sirius/foundation/log.h>
 #include <sirius/thread/cpu.h>
-
-#if (defined(_WIN32) || defined(_WIN64)) && defined(_MSC_VER)
-#  include <io.h>
-
-#  define utils_dprintf(fd, ...) \
-    do { \
-      char msg[4096] = {0}; \
-      snprintf(msg, sizeof(msg), ##__VA_ARGS__); \
-      _write(fd, msg, (unsigned int)strlen(msg)); \
-    } while (0)
-
-#else
-
-#  include <unistd.h>
-
-#  define utils_dprintf(fd, ...) \
-    do { \
-      char msg[4096]; \
-      snprintf(msg, sizeof(msg), ##__VA_ARGS__); \
-      write(fd, msg, strlen(msg)); \
-    } while (0)
-
-#endif
 
 #define UTILS_ASSERT(expr) \
   do { \
@@ -114,7 +120,8 @@ static inline void _utils_xinit(const char *content) {
     bar_buf[i] = '-';
   }
 
-  utils_dprintf(1, "\n%s\n%s\n%s\n\n", bar_buf, buf, bar_buf);
+  sirius_logsp_impl(0, _SIRIUS_LOG_MODULE_NAME, "\n%s\n%s\n%s\n\n", bar_buf,
+                    buf, bar_buf);
 }
 
 static inline void utils_deinit() {
@@ -127,8 +134,6 @@ static inline void utils_init() {
   _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
   _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
 #endif
-
-  _utils_xinit("test begins");
 
 #ifdef _TEST_LOG_EXE_PATH
 #  if defined(_MSC_VER)
@@ -146,6 +151,8 @@ static inline void utils_init() {
   }
 #  endif
 #endif
+
+  _utils_xinit("test begins");
 }
 
 #ifdef __cplusplus
@@ -153,17 +160,16 @@ static inline void utils_init() {
 #endif
 
 #ifdef __cplusplus
-
-namespace Utils {
+namespace utils {
 class Init {
  public:
   Init() {
     utils_init();
   }
+
   ~Init() {
     utils_deinit();
   }
 };
-} // namespace Utils
-
+} // namespace utils
 #endif

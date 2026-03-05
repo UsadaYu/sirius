@@ -5,7 +5,7 @@
 static sirius_mutex_t g_mutex = SIRIUS_MUTEX_INITIALIZER;
 
 int main() {
-  auto init = Utils::Init();
+  auto init = utils::Init();
 
   sirius_infosp("--- Static initialization test begins ---\n");
 

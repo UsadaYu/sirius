@@ -5,8 +5,9 @@
 
 #include "utils/io.hpp"
 
-namespace Utils {
-namespace Args {
+namespace sirius {
+namespace utils {
+namespace args {
 /**
  * @note Most arguments are first stored in stack variables after they are
  * parsed, long-lived arguments cannot be of the `std::string_view` type here.
@@ -274,5 +275,6 @@ class Parser {
     return s;
   }
 };
-} // namespace Args
-} // namespace Utils
+} // namespace args
+} // namespace utils
+} // namespace sirius

@@ -4,7 +4,8 @@
 #include "sirius/foundation/thread.h"
 #include "utils/io.h"
 
-namespace Utils {
+namespace sirius {
+namespace utils {
 static void inline io_ln_fd(int fd, std::string_view msg) {
 #if defined(_WIN32) || defined(_WIN64)
   auto imsg = std::format("{0}\n", msg);
@@ -32,11 +33,12 @@ inline int utils_strerror(int err_code, char *buffer, size_t buffer_size) {
   return strerror_s(buffer, buffer_size, err_code);
 }
 #else
-inline int utils_strerror_impl(int ret, [[maybe_unused]] char *buffer) {
+namespace internal {
+inline int utils_strerror(int ret, [[maybe_unused]] char *buffer) {
   return ret;
 }
 
-inline int utils_strerror_impl(char *ret, char *buffer) {
+inline int utils_strerror(char *ret, char *buffer) {
   if (ret != buffer) {
     size_t buffer_size = utils_strnlen_s(ret, _SIRIUS_LOG_BUF_SIZE);
 
@@ -50,9 +52,11 @@ inline int utils_strerror_impl(char *ret, char *buffer) {
 
   return 0;
 }
+} // namespace internal
 
 inline int utils_strerror(int err_code, char *buffer, size_t buffer_size) {
-  return utils_strerror_impl(strerror_r(err_code, buffer, buffer_size), buffer);
+  return internal::utils_strerror(strerror_r(err_code, buffer, buffer_size),
+                                  buffer);
 }
 #endif
 
@@ -134,7 +138,7 @@ class Io {
                            std::string_view file, int line = 0) {
     time_t raw_time;
     struct tm tm_info;
-    time(&raw_time);
+    ::time(&raw_time);
     utils_localtime_r(&raw_time, &tm_info);
 
     std::string f_str = back_strip(file);
@@ -291,17 +295,22 @@ class Io {
     return s_pre(prefix, module, file, line);
   }
 };
-} // namespace Utils
+} // namespace utils
+} // namespace sirius
 
 #define IO_E(fmt, ...) \
-  (::Utils::Io::instance() \
+  (::sirius::utils::Io::instance() \
      .s_error(SIRIUS_FILE_NAME, __LINE__) \
-     .append((::Utils::Io::row_gs(fmt, ##__VA_ARGS__))))
+     .append((::sirius::utils::Io::row_gs(fmt, ##__VA_ARGS__))))
 
 #define IO_WSP(fmt, ...) \
-  (::Utils::Io::instance().s_warn("").append( \
-    (::Utils::Io::row_gs(fmt, ##__VA_ARGS__))))
+  (::sirius::utils::Io::instance().s_warn("").append( \
+    (::sirius::utils::Io::row_gs(fmt, ##__VA_ARGS__))))
 
 #define IO_ISP(fmt, ...) \
-  (::Utils::Io::instance().s_info("").append( \
-    (::Utils::Io::row_gs(fmt, ##__VA_ARGS__))))
+  (::sirius::utils::Io::instance().s_info("").append( \
+    (::sirius::utils::Io::row_gs(fmt, ##__VA_ARGS__))))
+
+#define IO_DSP(fmt, ...) \
+  (::sirius::utils::Io::instance().s_debug("").append( \
+    (::sirius::utils::Io::row_gs(fmt, ##__VA_ARGS__))))

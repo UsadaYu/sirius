@@ -28,7 +28,7 @@ static void thread_foo() {
 }
 
 int main() {
-  auto init = Utils::Init();
+  auto init = utils::Init();
 
   sirius_log_config_t cfg = {};
 

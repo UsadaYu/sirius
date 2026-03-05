@@ -61,7 +61,7 @@ void *foo(void *arg) {
 }
 
 int main() {
-  auto init = Utils::Init();
+  auto init = utils::Init();
 
   int ret;
   std::string es;

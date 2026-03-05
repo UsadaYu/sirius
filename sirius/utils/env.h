@@ -3,8 +3,9 @@
 #include "utils/decls.h"
 
 #ifdef __cplusplus
-namespace Utils {
-namespace Env {
+namespace sirius {
+namespace utils {
+namespace env {
 inline std::string get_env(const char *name) {
   if (!name)
     return {};
@@ -25,6 +26,7 @@ inline std::string get_env(const char *name) {
 
   return {};
 }
-} // namespace Env
-} // namespace Utils
+} // namespace env
+} // namespace utils
+} // namespace sirius
 #endif

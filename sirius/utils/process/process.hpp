@@ -2,26 +2,28 @@
 
 #include "utils/decls.h"
 
-namespace Utils {
-namespace Process {
+namespace sirius {
+namespace utils {
+namespace process {
 #if defined(_WIN32) || defined(_WIN64)
-using Pid = DWORD;
+using t_pid = DWORD;
 #else
-using Pid = pid_t;
+using t_pid = pid_t;
 #endif
 
-inline Pid pid() {
+inline t_pid pid() {
 #if defined(_WIN32) || defined(_WIN64)
   static auto pid = GetCurrentProcessId();
 
-  return static_cast<Pid>(pid);
+  return static_cast<t_pid>(pid);
 #else
   /**
    * @note `static` is disabled here because when functions such as `fork`
    * create a process, the data segment will be copied.
    */
-  return static_cast<Pid>(getpid());
+  return static_cast<t_pid>(getpid());
 #endif
 }
-} // namespace Process
-} // namespace Utils
+} // namespace process
+} // namespace utils
+} // namespace sirius

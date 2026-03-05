@@ -70,7 +70,7 @@ static void consumer_routine(SharedContext *ctx, int id) {
 }
 
 int main() {
-  auto init = Utils::Init();
+  auto init = utils::Init();
 
   SharedContext ctx;
   std::vector<std::thread> producers;

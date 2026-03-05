@@ -3,7 +3,7 @@
 #include "internal/utils.h"
 
 int main() {
-  auto init = Utils::Init();
+  auto init = utils::Init();
 
   sirius_infosp("--------------------------------\n");
   sirius_infosp("Sleep 1 s, start\n");

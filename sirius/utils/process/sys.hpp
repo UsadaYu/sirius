@@ -2,8 +2,10 @@
 
 #include "utils/decls.h"
 
-namespace Utils {
-namespace Process {
+namespace sirius {
+namespace utils {
+namespace process {
+namespace sys {
 enum class InitType {
   // --- Windows ---
   kWindows,
@@ -45,5 +47,7 @@ inline InitType check_init_type() {
   return InitType::kUnknown;
 }
 #endif
-} // namespace Process
-} // namespace Utils
+} // namespace sys
+} // namespace process
+} // namespace utils
+} // namespace sirius

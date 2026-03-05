@@ -4,8 +4,10 @@
 #include "utils/ns.hpp"
 #include "utils/process/process.hpp"
 
-namespace Utils {
-namespace Process {
+namespace sirius {
+namespace utils {
+namespace process {
+namespace mutex {
 enum class LockState : int {
   kSuccess = 0,
   kOwnerDead = 1,
@@ -16,9 +18,9 @@ enum class LockState : int {
   ( \
     std::format("\nPID: {0}" \
                 "\n{1}", \
-                pid(), utils_pretty_func))
+                static_cast<uint64_t>(pid()), utils_pretty_func))
 
-class FMutex {
+class FM {
  private:
   struct FHeader {
     uint8_t is_dirty; // 0: Clean; 1: Dirty
@@ -34,13 +36,13 @@ class FMutex {
 #endif
 
  private:
-  explicit FMutex(MutexHandle fd) noexcept : fd_(fd) {}
+  explicit FM(MutexHandle fd) noexcept : fd_(fd) {}
 
  public:
-  FMutex(const FMutex &) = delete;
-  FMutex &operator=(const FMutex &) = delete;
+  FM(const FM &) = delete;
+  FM &operator=(const FM &) = delete;
 
-  FMutex &operator=(FMutex &&other) noexcept {
+  FM &operator=(FM &&other) noexcept {
     if (this != &other) {
       destroy();
       fd_ = other.fd_;
@@ -50,18 +52,17 @@ class FMutex {
     return *this;
   }
 
-  FMutex(FMutex &&other) noexcept : fd_(other.fd_) {
+  FM(FM &&other) noexcept : fd_(other.fd_) {
     other.fd_ = kInvalidFd;
   }
 
-  static auto create(const char *file_name)
-    -> std::expected<FMutex, std::string> {
+  static auto create(const char *file_name) -> std::expected<FM, std::string> {
     if (!file_name) {
       return std::unexpected(
         IO_E("\nInvalid argument. Null `file_name`{0}", "{}", SUFFIX_));
     }
 
-    auto lock_path = Ns::Mutex::instance().file_lock_path(file_name);
+    auto lock_path = ns::Mutex::instance().file_lock_path(file_name);
     if (!lock_path.has_value()) {
       return std::unexpected(
         lock_path.error().append(Io::row_gs("{}", SUFFIX_)));
@@ -88,10 +89,10 @@ class FMutex {
     }
 #endif
 
-    return FMutex(fd);
+    return FM(fd);
   }
 
-  ~FMutex() noexcept {
+  ~FM() noexcept {
     destroy();
   }
 
@@ -232,19 +233,19 @@ class FMutex {
 /**
  * @note On POSIX, only one construction and one destruction are required.
  */
-class GMutex {
+class GM {
  private:
 #if defined(_WIN32) || defined(_WIN64)
-  explicit GMutex(HANDLE mutex) : mutex_(mutex) {}
+  explicit GM(HANDLE mutex) : mutex_(mutex) {}
 #else
-  explicit GMutex(pthread_mutex_t *mutex) : mutex_(mutex) {}
+  explicit GM(pthread_mutex_t *mutex) : mutex_(mutex) {}
 #endif
 
  public:
-  GMutex(const GMutex &) = delete;
-  GMutex &operator=(const GMutex &) = delete;
+  GM(const GM &) = delete;
+  GM &operator=(const GM &) = delete;
 
-  GMutex &operator=(GMutex &&other) noexcept {
+  GM &operator=(GM &&other) noexcept {
     if (this != &other) {
 #if defined(_WIN32) || defined(_WIN64)
       destroy();
@@ -256,39 +257,38 @@ class GMutex {
     return *this;
   }
 
-  GMutex(GMutex &&other) noexcept : mutex_(other.mutex_) {
+  GM(GM &&other) noexcept : mutex_(other.mutex_) {
     other.mutex_ = nullptr;
   }
 
 #if defined(_WIN32) || defined(_WIN64)
-  ~GMutex() noexcept {
+  ~GM() noexcept {
     destroy();
   }
 #else
-  ~GMutex() = default;
+  ~GM() = default;
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-  static auto create(const char *mutex_name)
-    -> std::expected<GMutex, std::string> {
+  static auto create(const char *mutex_name) -> std::expected<GM, std::string> {
     if (!mutex_name) {
       return std::unexpected(
         IO_E("\nInvalid argument. Null `mutex_name`{0}", "{}", SUFFIX_));
     }
 
     HANDLE mutex = CreateMutexA(
-      nullptr, FALSE, Ns::Mutex::win_generate_name(mutex_name).c_str());
+      nullptr, FALSE, ns::Mutex::win_generate_name(mutex_name).c_str());
     if (!mutex) {
       const DWORD dw_err = GetLastError();
       return std::unexpected(
         IO_E("{}", Io::win_err(dw_err, "CreateMutexA", "{}", SUFFIX_)));
     }
 
-    return GMutex(mutex);
+    return GM(mutex);
   }
 #else
   static auto create(pthread_mutex_t *mutex, bool is_creator)
-    -> std::expected<GMutex, std::string> {
+    -> std::expected<GM, std::string> {
     int ret;
     std::string es;
 
@@ -298,7 +298,7 @@ class GMutex {
     }
 
     if (!is_creator)
-      return GMutex(mutex);
+      return GM(mutex);
 
     pthread_mutexattr_t attr;
     ret = pthread_mutexattr_init(&attr);
@@ -330,7 +330,7 @@ class GMutex {
       return std::unexpected(es);
     }
 
-    return GMutex(mutex);
+    return GM(mutex);
 
   label_free:
     pthread_mutexattr_destroy(&attr);
@@ -449,5 +449,7 @@ class GMutex {
 };
 
 #undef SUFFIX_
-} // namespace Process
-} // namespace Utils
+} // namespace mutex
+} // namespace process
+} // namespace utils
+} // namespace sirius

@@ -42,8 +42,9 @@ static inline size_t utils_strnlen_s(const char *string, size_t max_len) {
 }
 
 #ifdef __cplusplus
-namespace Utils {
-namespace Utils {
+namespace sirius {
+namespace utils {
+namespace utils {
 template<typename T>
 concept IntegralOrEnum = std::integral<T> || std::is_enum_v<T>;
 
@@ -64,8 +65,9 @@ constexpr size_t next_power_of_2(size_t n) {
 
   return n;
 }
-} // namespace Utils
-} // namespace Utils
+} // namespace utils
+} // namespace utils
+} // namespace sirius
 #else
 static inline size_t utils_next_power_of_2(size_t n) {
   if (n <= 1)

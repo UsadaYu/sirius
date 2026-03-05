@@ -4,7 +4,8 @@
 
 #include "utils/io.hpp"
 
-namespace Utils {
+namespace sirius {
+namespace utils {
 class File {
  private:
   File() = default;
@@ -90,4 +91,5 @@ class File {
     return std::unexpected(ENOENT);
   }
 };
-} // namespace Utils
+} // namespace utils
+} // namespace sirius

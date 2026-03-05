@@ -2,8 +2,9 @@
 
 #include "utils/decls.h"
 
-namespace Utils {
-namespace Time {
+namespace sirius {
+namespace utils {
+namespace time {
 inline uint64_t get_process_cputime_ns() noexcept {
 #if defined(_WIN32) || defined(_WIN64)
   FILETIME ftKernel {}, ftUser {};
@@ -36,5 +37,6 @@ inline uint64_t get_monotonic_steady_ms() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(duration)
     .count();
 }
-} // namespace Time
-} // namespace Utils
+} // namespace time
+} // namespace utils
+} // namespace sirius

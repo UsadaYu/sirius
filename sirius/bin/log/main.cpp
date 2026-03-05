@@ -4,22 +4,26 @@
 
 #include <print>
 
+#include "bin/log/daemon.hpp"
 #include "sirius/version.h"
 #include "utils/log/exe.hpp"
 
-using ExeArgs = ::Utils::Log::Exe::Args;
+namespace sirius {
+namespace bin {
+namespace log {
+namespace u_log = utils::log;
 
 class Parser {
  public:
-  Parser(ExeArgs &exe_args) : exe_args_(exe_args) {}
+  Parser(u_log::exe::Args &exe_args) : exe_args_(exe_args) {}
 
   ~Parser() = default;
 
   auto arg_daemon() -> std::expected<void, std::string> {
-    auto values = exe_args_.parser.get_all(ExeArgs::kArgDaemon);
+    auto values = exe_args_.parser.get_all(u_log::exe::Args::kArgDaemon);
 
     for (auto value : values) {
-      if (value == ExeArgs::kArgDaemonSpawn) {
+      if (value == u_log::exe::Args::kArgDaemonSpawn) {
         if (auto ret = main_daemon(); !ret.has_value())
           return std::unexpected(ret.error());
       }
@@ -48,10 +52,10 @@ class Parser {
   }
 
  private:
-  ExeArgs &exe_args_;
+  u_log::exe::Args &exe_args_;
 
   auto main_daemon() -> std::expected<void, std::string> {
-    auto log_manager = std::make_unique<Utils::Log::Exe::Daemon>();
+    auto log_manager = std::make_unique<Daemon>();
 
     return log_manager->main();
   }
@@ -63,7 +67,7 @@ class Main {
    * @throw `std::runtime_error`.
    */
   Main(int argc, char **argv)
-      : exe_args_(ExeArgs::instance(argc, argv)), parser_(exe_args_) {}
+      : exe_args_(u_log::exe::Args::instance(argc, argv)), parser_(exe_args_) {}
 
   ~Main() = default;
 
@@ -84,9 +88,9 @@ class Main {
       }
 
       auto fn_arg = [&]() -> std::expected<void, std::string> (Parser::*)() {
-        if (option == ExeArgs::kArgDaemon) {
+        if (option == u_log::exe::Args::kArgDaemon) {
           return &Parser::arg_daemon;
-        } else if (option == ExeArgs::kArgVersion) {
+        } else if (option == u_log::exe::Args::kArgVersion) {
           return &Parser::arg_version;
         } else {
           return &Parser::arg_default;
@@ -101,17 +105,20 @@ class Main {
   }
 
  private:
-  ExeArgs &exe_args_;
-  ::Parser parser_;
+  u_log::exe::Args &exe_args_;
+  Parser parser_;
 };
+} // namespace log
+} // namespace bin
+} // namespace sirius
 
 int main(int argc, char **argv) {
   auto debug = Debug();
   std::string es;
-  std::unique_ptr<Main> main;
+  std::unique_ptr<sirius::bin::log::Main> main;
 
   try {
-    main = std::make_unique<Main>(argc, argv);
+    main = std::make_unique<sirius::bin::log::Main>(argc, argv);
   } catch (const std::runtime_error &e) {
     es = e.what();
     goto label_error;

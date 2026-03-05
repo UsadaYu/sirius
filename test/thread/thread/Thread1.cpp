@@ -44,7 +44,7 @@ void *foo(void *arg) {
 }
 
 int main() {
-  auto init = Utils::Init();
+  auto init = utils::Init();
 
   sirius_thread_t threads[kNbThreads];
 
