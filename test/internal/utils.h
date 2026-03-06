@@ -1,13 +1,5 @@
 #pragma once
 
-#if defined(__cplusplus)
-#  if defined(_MSVC_LANG)
-#    define UTILS_CXX_STD _MSVC_LANG
-#  else
-#    define UTILS_CXX_STD __cplusplus
-#  endif
-#endif
-
 #ifdef _SIRIUS_WIN_CRTDBG
 #  define _CRTDBG_MAP_ALLOC
 #  include <crtdbg.h>
@@ -83,7 +75,7 @@ static inline int utils_dprintf(int fd, const char *__restrict format, ...) {
   int written = vsnprintf(msg, sizeof(msg), format, args);
   va_end(args);
 
-  if (written > 0 && written < sizeof(msg)) {
+  if (written > 0 && (size_t)written < sizeof(msg)) {
 #if defined(_WIN32) || defined(_WIN64)
     _write(fd, msg, (unsigned int)(written));
 #else
@@ -96,7 +88,7 @@ static inline int utils_dprintf(int fd, const char *__restrict format, ...) {
 
 // --- sirius ---
 #include <sirius/foundation/log.h>
-#include <sirius/thread/cpu.h>
+#include <sirius/foundation/sync.h>
 
 #define UTILS_ASSERT(expr) \
   do { \

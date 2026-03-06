@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "sirius/thread/cpu.h"
+#include "sirius/foundation/sync.h"
 #include "sirius/thread/macro.h"
 
 #ifdef __cplusplus
@@ -13,6 +13,9 @@ extern "C" {
 #endif
 
 #if defined(_MSC_VER)
+extern long _InterlockedCompareExchange(long volatile *, long, long);
+extern long _InterlockedExchange(long volatile *, long);
+
 typedef volatile long sirius_spinlock_t;
 
 static inline int sirius_spin_init(sirius_spinlock_t *lock,
@@ -35,7 +38,7 @@ static inline int sirius_spin_lock(sirius_spinlock_t *lock) {
 
   do {
     while (*lock) {
-      sirius_cpu_relax();
+      sirius_cpu_pause();
     }
   } while (_InterlockedCompareExchange(lock, 1, 0));
 
@@ -77,7 +80,7 @@ static inline int sirius_spin_lock(sirius_spinlock_t *lock) {
 
   do {
     while (atomic_load_explicit(lock, memory_order_relaxed)) {
-      sirius_cpu_relax();
+      sirius_cpu_pause();
     }
   } while (atomic_exchange_explicit(lock, true, memory_order_acquire));
 
@@ -112,7 +115,7 @@ static inline int sirius_spin_lock(sirius_spinlock_t *lock) {
 
   do {
     while (*lock) {
-      sirius_cpu_relax();
+      sirius_cpu_pause();
     }
   } while (__sync_lock_test_and_set(lock, 1));
 

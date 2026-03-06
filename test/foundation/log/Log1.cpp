@@ -38,9 +38,9 @@ int main() {
   cfg.err.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
   sirius_log_configure(&cfg);
 
-  std::thread threads[NB_THREADS];
-  for (int i = 0; i < NB_THREADS; ++i) {
-    threads[i] = std::thread(thread_foo);
+  std::jthread threads[NB_THREADS];
+  for (auto &t : threads) {
+    t = std::jthread(thread_foo);
   }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
@@ -61,8 +61,10 @@ int main() {
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   g_exit_flag.store(true, std::memory_order_relaxed);
 
-  for (int i = 0; i < NB_THREADS; ++i) {
-    threads[i].join();
+  for (auto &t : threads) {
+    if (t.joinable()) {
+      t.join();
+    }
   }
 
   /**
@@ -76,12 +78,11 @@ int main() {
   sirius_log_configure(&cfg);
   sirius_warnsp("--------------------------------\n");
   sirius_warnsp("- Ultra-long log printing test\n");
-  char ultra_long_string[40960] = {0};
-  for (size_t i = 0; i < sizeof(ultra_long_string) - 1; ++i) {
-    ultra_long_string[i] = 'Q';
-  }
+  char ultra_long_string[40960];
+  std::memset(ultra_long_string, 'Q', sizeof(ultra_long_string));
+  ultra_long_string[sizeof(ultra_long_string) - 1] = '\0';
   sirius_warnsp("- The length of the string to be printed: %zu\n",
-                strlen(ultra_long_string));
+                std::strlen(ultra_long_string));
   sirius_logsp_impl(SIRIUS_LOG_LEVEL_INFO, _SIRIUS_LOG_MODULE_NAME, "- %s\n",
                     ultra_long_string);
   sirius_warnsp("--------------------------------\n");

@@ -29,14 +29,14 @@ class FM {
 
 #if defined(_WIN32) || defined(_WIN64)
   static inline const HANDLE kInvalidFd = INVALID_HANDLE_VALUE;
-  using MutexHandle = HANDLE;
+  using hmutex = HANDLE;
 #else
   static inline constexpr int kInvalidFd = -1;
-  using MutexHandle = int;
+  using hmutex = int;
 #endif
 
  private:
-  explicit FM(MutexHandle fd) noexcept : fd_(fd) {}
+  explicit FM(hmutex fd) noexcept : fd_(fd) {}
 
  public:
   FM(const FM &) = delete;
@@ -56,10 +56,11 @@ class FM {
     other.fd_ = kInvalidFd;
   }
 
-  static auto create(const char *file_name) -> std::expected<FM, std::string> {
-    if (!file_name) {
+  static auto create(std::string_view file_name)
+    -> std::expected<FM, std::string> {
+    if (file_name.empty()) {
       return std::unexpected(
-        IO_E("\nInvalid argument. Null `file_name`{0}", "{}", SUFFIX_));
+        IO_E("\nInvalid argument. Null `file_name`{0}", SUFFIX_));
     }
 
     auto lock_path = ns::Mutex::instance().file_lock_path(file_name);
@@ -68,7 +69,7 @@ class FM {
         lock_path.error().append(Io::row_gs("{}", SUFFIX_)));
     }
 
-    MutexHandle fd;
+    hmutex fd;
 
 #if defined(_WIN32) || defined(_WIN64)
     fd = CreateFileW(lock_path.value().c_str(), GENERIC_READ | GENERIC_WRITE,
@@ -227,7 +228,7 @@ class FM {
   }
 
  private:
-  MutexHandle fd_;
+  hmutex fd_;
 };
 
 /**
@@ -270,10 +271,11 @@ class GM {
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-  static auto create(const char *mutex_name) -> std::expected<GM, std::string> {
-    if (!mutex_name) {
+  static auto create(std::string_view mutex_name)
+    -> std::expected<GM, std::string> {
+    if (mutex_name.empty()) {
       return std::unexpected(
-        IO_E("\nInvalid argument. Null `mutex_name`{0}", "{}", SUFFIX_));
+        IO_E("\nInvalid argument. Null `mutex_name`{0}", SUFFIX_));
     }
 
     HANDLE mutex = CreateMutexA(
@@ -382,9 +384,9 @@ class GM {
 
  private:
 #if defined(_WIN32) || defined(_WIN64)
-  HANDLE mutex_ = nullptr;
+  HANDLE mutex_;
 #else
-  pthread_mutex_t *mutex_ = nullptr;
+  pthread_mutex_t *mutex_;
 #endif
 
   auto lock_impl(bool is_trylock = false)

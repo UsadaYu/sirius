@@ -27,6 +27,7 @@ subdir = join_paths('foundation')
 api_sirius = []
 api_sirius += [
   join_paths(subdir, 'log.h'),
+  join_paths(subdir, 'sync.h'),
   join_paths(subdir, 'thread.h'),
 ]
 install_headers(api_sirius, subdir: join_paths('sirius', subdir))
@@ -54,7 +55,6 @@ subdir = join_paths('thread')
 api_sirius = []
 api_sirius += [
   join_paths(subdir, 'cond.h'),
-  join_paths(subdir, 'cpu.h'),
   join_paths(subdir, 'macro.h'),
   join_paths(subdir, 'mutex.h'),
   join_paths(subdir, 'sem.h'),

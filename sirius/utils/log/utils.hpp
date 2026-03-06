@@ -8,10 +8,10 @@
 namespace sirius {
 namespace utils {
 namespace log {
-inline constexpr const char *kShmKey = UTILS_LOG_KEY "_shm";
-inline constexpr const char *kMutexProcessKey = UTILS_LOG_KEY "_mutex_process";
-inline constexpr const char *kMutexShmKey = UTILS_LOG_KEY "_mutex_shm";
-inline constexpr const char *kMutexCrashKey = UTILS_LOG_KEY "_mutex_crash";
+inline constexpr std::string_view kShmKey = UTILS_LOG_KEY "_shm";
+inline constexpr std::string_view kMutexProcessKey = UTILS_LOG_KEY "_mutex_process";
+inline constexpr std::string_view kMutexShmKey = UTILS_LOG_KEY "_mutex_shm";
+inline constexpr std::string_view kMutexCrashKey = UTILS_LOG_KEY "_mutex_crash";
 sirius_static_assert(kMutexProcessKey != kMutexShmKey &&
                        kMutexProcessKey != kMutexCrashKey &&
                        kMutexShmKey != kMutexCrashKey,

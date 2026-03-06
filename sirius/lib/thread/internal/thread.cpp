@@ -19,7 +19,6 @@ struct SiriusThreadExitException {
 };
 #endif
 
-// --- Static Initialization ---
 #if defined(_WIN32) || defined(_WIN64)
 /**
  * @note Global static initialization and deinitialization.
@@ -28,8 +27,8 @@ struct SiriusThreadExitException {
  */
 class ThreadResourceManager {
  public:
-  std::mutex mutex;
-  std::set<sirius_thread_t> active_threads;
+  std::mutex mutex {};
+  std::set<sirius_thread_t> active_threads {};
 
   ~ThreadResourceManager() {
     manager_is_alive() = false;
@@ -74,17 +73,18 @@ class ThreadResourceManager {
     }
   }
 };
-
-static ThreadResourceManager g_manager;
 #endif
 
-// --- Static ---
+namespace {
 #if defined(_WIN32) || defined(_WIN64)
+// --- Static Initialization ---
+static ThreadResourceManager g_manager;
+
 /**
  * @return If the caller needs to terminate the thread immediately (by calling
  * `_endthreadex`), return 1; Otherwise, return 0.
  */
-static inline int win_try_cleanup(sirius_thread_t thr) {
+inline int win_try_cleanup(sirius_thread_t thr) {
   bool should_free = false;
 
   sirius_spin_lock(&thr->spin);
@@ -109,7 +109,7 @@ static inline int win_try_cleanup(sirius_thread_t thr) {
   return 0;
 }
 
-static inline bool has_been_destructed() {
+inline bool has_been_destructed() {
   if (ThreadResourceManager::manager_is_alive())
     return false;
 
@@ -129,9 +129,14 @@ static inline bool has_been_destructed() {
   return true;
 }
 #endif
+} // namespace
+} // namespace sirius
 
-// --- Internal Interface ---
+using namespace sirius;
+
 #if defined(_WIN32) || defined(_WIN64)
+// --- Internal Interface ---
+
 extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
   thread_wrapper_arg_s warg = *(thread_wrapper_arg_s *)pv;
   free(pv);
@@ -178,10 +183,9 @@ extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
 extern "C" void win_mark_detach(sirius_thread_t thr) {
   g_manager.mark(thr);
 }
-#endif
 
 // --- API Interface ---
-#if defined(_WIN32) || defined(_WIN64)
+
 extern "C" sirius_api void sirius_thread_exit(void *retval) _sirius_throw_spec {
   /**
    * @note An exception is thrown to trigger stack expansion, and the c++
@@ -231,4 +235,3 @@ extern "C" sirius_api int sirius_thread_detach(sirius_thread_t thread) {
   return 0;
 }
 #endif
-} // namespace sirius

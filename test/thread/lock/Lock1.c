@@ -100,8 +100,9 @@ static void *thread_func(void *arg) {
 
     lock_unlock(g_counter_lock);
 
-    if (i % 1000 == 0)
-      sirius_cpu_relax();
+    if (i % 1000 == 0) {
+      sirius_os_yield();
+    }
   }
 
   sirius_infosp("The thread ended. Index: %d; TID: %" PRIu64 "\n", thread_index,
@@ -254,7 +255,7 @@ static void *thread_func_fairness(void *arg) {
     }
 
     if (i % 100 == 0) {
-      sirius_cpu_relax();
+      sirius_os_yield();
     }
   }
 

@@ -30,16 +30,12 @@ typedef struct {
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-
 #  ifdef __cplusplus
 extern "C" {
 #  endif
-
 unsigned __stdcall win_thread_wrapper(void *pv);
 void win_mark_detach(sirius_thread_t thr);
-
 #  ifdef __cplusplus
 }
 #  endif
-
 #endif

@@ -1,6 +1,6 @@
 #include "sirius/c/time.h"
 
-#include "sirius/thread/cpu.h"
+#include "sirius/foundation/sync.h"
 #include "utils/decls.h"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -45,7 +45,7 @@ sirius_api void sirius_usleep(uint64_t usec) {
       if (end.QuadPart >= target)
         break;
 
-      sirius_cpu_relax();
+      sirius_os_yield();
     } while (1);
   }
 
@@ -105,7 +105,7 @@ sirius_api void sirius_nsleep(uint64_t nsec) {
       if (end.QuadPart >= target)
         break;
 
-      sirius_cpu_relax();
+      sirius_os_yield();
     } while (1);
   }
 

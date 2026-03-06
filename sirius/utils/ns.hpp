@@ -14,8 +14,8 @@
 namespace sirius {
 namespace utils {
 namespace ns {
-inline constexpr const char *kSuffixShm = "_shm";
-inline constexpr const char *kSuffixMutex = "_mutex";
+inline constexpr std::string_view kSuffixShm = "_shm";
+inline constexpr std::string_view kSuffixMutex = "_mutex";
 
 /**
  * @brief 64-bit FNV-1a hash.
@@ -60,10 +60,10 @@ inline std::string sanitize_name(std::string_view s) {
  */
 inline std::string
 generate_namespace_prefix(const std::string &runtime_salt = "") {
-  std::string base = std::string(_SIRIUS_NAMESPACE) + "|" +
-    std::string(_SIRIUS_POSIX_FILE_MODE) + "|" + std::string(_SIRIUS_USER_KEY);
+  std::string base = std::format("{0}|{1}|{2}", _SIRIUS_NAMESPACE,
+                                 _SIRIUS_POSIX_FILE_MODE, _SIRIUS_USER_KEY);
   if (!runtime_salt.empty()) {
-    base += "|" + runtime_salt;
+    base.append("|").append(runtime_salt);
   }
 
   std::transform(base.begin(), base.end(), base.begin(),
@@ -84,15 +84,17 @@ inline std::string generate_name(std::string_view name,
                                  bool is_global = false) {
 #if defined(_WIN32) || defined(_WIN64)
   std::string scope = is_global ? "Global\\" : "Local\\";
-  std::string prefix =
-    scope + std::string(_SIRIUS_NAMESPACE) + "_" + generate_namespace_prefix();
-  std::string nm = prefix + "_" + sanitize_name(name) + kSuffixShm;
+  std::string prefix = std::format("{0}{1}_{2}", scope, _SIRIUS_NAMESPACE,
+                                   generate_namespace_prefix());
+  std::string nm =
+    prefix.append("_").append(sanitize_name(name)).append(kSuffixShm);
 
   return nm;
 #else
   std::string prefix =
-    std::string(_SIRIUS_NAMESPACE) + "_" + generate_namespace_prefix();
-  std::string nm = prefix + "_" + sanitize_name(name) + kSuffixShm;
+    std::format("{0}_{1}", _SIRIUS_NAMESPACE, generate_namespace_prefix());
+  std::string nm =
+    prefix.append("_").append(sanitize_name(name)).append(kSuffixShm);
 
   return nm;
 #endif
@@ -124,24 +126,24 @@ class Mutex {
   static std::string win_generate_name(std::string_view name,
                                        bool is_global = false) {
     std::string scope = is_global ? "Global\\" : "Local\\";
-    std::string prefix = scope + std::string(_SIRIUS_NAMESPACE) + "_" +
-      generate_namespace_prefix();
-    std::string nm = prefix + "_" + sanitize_name(name) + kSuffixMutex;
+    std::string prefix = std::format("{0}{1}_{2}", scope, _SIRIUS_NAMESPACE,
+                                     generate_namespace_prefix());
+    std::string nm =
+      prefix.append("_").append(sanitize_name(name)).append(kSuffixMutex);
 
     return nm;
   }
 #endif
 
-  auto file_lock_path(const std::string &name)
+  auto file_lock_path(std::string_view name)
     -> std::expected<std::filesystem::path, std::string> {
+    std::string m_name(name);
     std::filesystem::path lock_path = "";
 
-    {
-      std::lock_guard lock(mutex_m_map_);
+    std::lock_guard lock(mutex_map_);
 
-      if (auto it = m_map_.find(name); it != m_map_.end())
-        return it->second;
-    }
+    if (auto it = map_.find(m_name); it != map_.end())
+      return it->second;
 
     std::filesystem::path base = "";
     std::vector<std::filesystem::path> prefixes;
@@ -186,23 +188,18 @@ class Mutex {
     if (base.empty())
       return std::unexpected(IO_WSP("Fail to get file lock path"));
 
-    std::string prefix = generate_namespace_prefix();
     std::string fname =
-      prefix + "_" + sanitize_name(name) + kSuffixMutex + ".lock";
+      std::format("{0}_{1}{2}.lock", generate_namespace_prefix(),
+                  sanitize_name(m_name), kSuffixMutex);
     lock_path = base / fname;
-
-    {
-      std::lock_guard lock(mutex_m_map_);
-
-      m_map_.insert(std::pair(name, lock_path));
-    }
+    map_.insert(std::pair(m_name, lock_path));
 
     return lock_path;
   }
 
  private:
-  std::mutex mutex_m_map_;
-  std::map<std::string, std::filesystem::path> m_map_;
+  std::mutex mutex_map_;
+  std::map<std::string, std::filesystem::path> map_;
 };
 } // namespace ns
 } // namespace utils

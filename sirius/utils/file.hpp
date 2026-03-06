@@ -14,6 +14,7 @@ class File {
 
  public:
   File(const File &) = delete;
+  File &operator=(const File &) = delete;
 
 #if !defined(_WIN32) && !defined(_WIN64)
   static mode_t string_to_mode(const std::string &mode_str) {

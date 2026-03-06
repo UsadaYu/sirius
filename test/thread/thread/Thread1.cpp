@@ -49,11 +49,11 @@ int main() {
   sirius_thread_t threads[kNbThreads];
 
   // --- Join ---
-  for (size_t i = 0; i < kNbThreads; ++i) {
-    UTILS_ASSERT(!sirius_thread_create(threads + i, nullptr, foo, nullptr));
+  for (auto &t : threads) {
+    UTILS_ASSERT(!sirius_thread_create(&t, nullptr, foo, nullptr));
   }
-  for (size_t i = 0; i < kNbThreads; ++i) {
-    UTILS_ASSERT(!sirius_thread_join(threads[i], nullptr));
+  for (auto &t : threads) {
+    UTILS_ASSERT(!sirius_thread_join(t, nullptr));
   }
 
   // --- Detach ---
@@ -62,8 +62,8 @@ int main() {
   memset(threads, 0, kNbThreads * sizeof(sirius_thread_t));
   sirius_thread_attr_t attr {};
   attr.detach_state = kSiriusThreadCreateDetached;
-  for (size_t i = 0; i < kNbThreads; ++i) {
-    UTILS_ASSERT(!sirius_thread_create(threads + i, &attr, foo, nullptr));
+  for (auto &t : threads) {
+    UTILS_ASSERT(!sirius_thread_create(&t, &attr, foo, nullptr));
   }
 
   while (g_index.load() <= kNbThreads) {
