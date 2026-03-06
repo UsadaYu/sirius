@@ -45,7 +45,7 @@ class Parser {
     return {};
   }
 
-  auto arg_default() -> std::expected<void, std::string> {
+  auto arg_usage() -> std::expected<void, std::string> {
     exe_args_.parser.print_usage("`" _SIRIUS_LOG_MODULE_NAME "`");
 
     return {};
@@ -71,8 +71,8 @@ class Main {
 
   ~Main() = default;
 
-  auto main_default() -> std::expected<void, std::string> {
-    return parser_.arg_default();
+  auto main_usage() -> std::expected<void, std::string> {
+    return parser_.arg_usage();
   }
 
   auto main_arg(int argc, char **argv) -> std::expected<void, std::string> {
@@ -93,7 +93,7 @@ class Main {
         } else if (option == u_log::exe::Args::kArgVersion) {
           return &Parser::arg_version;
         } else {
-          return &Parser::arg_default;
+          return &Parser::arg_usage;
         }
       }();
 
@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
   }
 
   if (argc == 1) {
-    if (auto ret = main->main_default(); !ret.has_value()) {
+    if (auto ret = main->main_usage(); !ret.has_value()) {
       es = ret.error();
       goto label_error;
     }

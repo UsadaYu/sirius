@@ -65,7 +65,7 @@ class Io {
   static inline constexpr size_t kPrefixLength = 55;
 
  private:
-  Io() : ansi_enable_out_(true), ansi_enable_err_(true) {}
+  Io() = default;
 
   ~Io() = default;
 
@@ -138,7 +138,7 @@ class Io {
                            std::string_view file, int line = 0) {
     time_t raw_time;
     struct tm tm_info;
-    ::time(&raw_time);
+    std::time(&raw_time);
     utils_localtime_r(&raw_time, &tm_info);
 
     std::string f_str = back_strip(file);
@@ -236,8 +236,8 @@ class Io {
   }
 
  private:
-  std::atomic<bool> ansi_enable_out_;
-  std::atomic<bool> ansi_enable_err_;
+  std::atomic<bool> ansi_enable_out_ = true;
+  std::atomic<bool> ansi_enable_err_ = true;
 
   static std::string back_strip(std::string_view sv) {
     auto it = std::find_if(sv.rbegin(), sv.rend(), [](unsigned char ch) {

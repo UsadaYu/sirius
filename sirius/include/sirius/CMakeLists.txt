@@ -35,7 +35,7 @@ api_install(subdir api_files)
 
 # foundation
 set(subdir "foundation")
-set(api_files "${subdir}/log.h" "${subdir}/thread.h")
+set(api_files "${subdir}/log.h" "${subdir}/sync.h" "${subdir}/thread.h")
 api_install(subdir api_files)
 
 # internal
@@ -50,14 +50,8 @@ api_install(subdir api_files)
 
 # thread
 set(subdir "thread")
-set(api_files
-    "${subdir}/cond.h"
-    "${subdir}/cpu.h"
-    "${subdir}/macro.h"
-    "${subdir}/mutex.h"
-    "${subdir}/sem.h"
-    "${subdir}/spinlock.h"
-    "${subdir}/thread.h")
+set(api_files "${subdir}/cond.h" "${subdir}/macro.h" "${subdir}/mutex.h"
+              "${subdir}/sem.h" "${subdir}/spinlock.h" "${subdir}/thread.h")
 api_install(subdir api_files)
 
 # .

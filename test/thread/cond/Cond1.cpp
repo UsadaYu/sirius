@@ -84,9 +84,10 @@ int main() {
     producers.emplace_back(producer_routine, &ctx, i);
   }
 
-  for (auto &t : producers) {
-    if (t.joinable())
-      t.join();
+  for (auto &producer : producers) {
+    if (producer.joinable()) {
+      producer.join();
+    }
   }
 
   sirius_mutex_lock(&ctx.mutex);
@@ -94,9 +95,10 @@ int main() {
   sirius_cond_broadcast(&ctx.cond_not_empty);
   sirius_mutex_unlock(&ctx.mutex);
 
-  for (auto &t : consumers) {
-    if (t.joinable())
-      t.join();
+  for (auto &consumer : consumers) {
+    if (consumer.joinable()) {
+      consumer.join();
+    }
   }
 
   // Verify the result

@@ -25,7 +25,7 @@ class QueueTestContext {
   std::atomic<size_t> total_produced {0};
   std::atomic<size_t> total_consumed {0};
 
-  std::vector<std::vector<char>> memory_pool;
+  std::vector<std::vector<char>> memory_pool {};
 
   QueueTestContext() {
     sirius_queue_args_t qargs {};
@@ -46,10 +46,12 @@ class QueueTestContext {
   }
 
   ~QueueTestContext() {
-    if (q_free)
+    if (q_free) {
       sirius_queue_free(q_free);
-    if (q_data)
+    }
+    if (q_data) {
       sirius_queue_free(q_data);
+    }
   }
 };
 
@@ -139,8 +141,8 @@ int main() {
     }
   }
 
-  for (int i = 0; i < kNbProducers; ++i) {
-    sirius_thread_join(producers[i], nullptr);
+  for (auto producer : producers) {
+    sirius_thread_join(producer, nullptr);
   }
   sirius_infosp("All producers finished\n");
 

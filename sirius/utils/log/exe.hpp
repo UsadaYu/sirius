@@ -53,11 +53,11 @@ class Args {
     return instance;
   }
 
-  static std::vector<std::string> &cmds_daemon() {
-    static std::vector<std::string> cmd = {std::string("--").append(kArgDaemon),
-                                           kArgDaemonSpawn};
+  static std::vector<std::string> cmds_daemon() {
+    static std::vector<std::string> cmds = {
+      std::string("--").append(kArgDaemon), kArgDaemonSpawn};
 
-    return cmd;
+    return cmds;
   }
 
  private:
@@ -87,7 +87,7 @@ class Args {
  */
 class Exe {
  private:
-  Exe() : path_("") {}
+  Exe() = default;
 
   ~Exe() = default;
 
@@ -133,9 +133,9 @@ class Exe {
    * - (4) Install.
    */
   auto get_path() -> std::expected<std::filesystem::path, int /* errno */> {
-    std::filesystem::path exe_set;
+    std::filesystem::path exe_set {};
     std::filesystem::path exe_env = path_env();
-    std::filesystem::path exe_dll;
+    std::filesystem::path exe_dll {};
     std::filesystem::path exe_install = path_install();
 
     {
@@ -167,8 +167,8 @@ class Exe {
   }
 
  private:
-  std::filesystem::path path_;
-  std::mutex mutex_;
+  std::filesystem::path path_ {};
+  std::mutex mutex_ {};
 
   std::filesystem::path path_env() {
     std::string env = env::get_env(SIRIUS_ENV_LOG_EXE_PATH);

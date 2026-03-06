@@ -44,9 +44,8 @@ int main() {
 
   attr.detach_state = kSiriusThreadCreateDetached;
 
-  for (auto thread : threads) {
-    int ret = sirius_thread_create(&thread, &attr, foo, nullptr);
-    if (ret) {
+  for (auto &t : threads) {
+    if (int ret = sirius_thread_create(&t, &attr, foo, nullptr); ret) {
       sirius_error("sirius_thread_create: %d\n", ret);
       return -1;
     }

@@ -246,8 +246,8 @@ class Parser {
   }
 
  private:
-  std::unordered_map<std::string, OptionSpec> specs_;
-  std::unordered_map<std::string, std::vector<std::string>> parsed_;
+  std::unordered_map<std::string, OptionSpec> specs_ {};
+  std::unordered_map<std::string, std::vector<std::string>> parsed_ {};
 
   /**
    * @return `std::string_view::npos` on failure.
