@@ -22,7 +22,6 @@
 
 // --- sirius_api ---
 #if defined(_WIN32) || defined(_WIN64)
-
 #  ifndef sirius_api
 #    ifdef _SIRIUS_BUILDING
 #      ifdef _SIRIUS_WIN_DLL
@@ -38,9 +37,7 @@
 #      endif
 #    endif
 #  endif
-
 #else
-
 #  ifndef sirius_api
 #    if _sirius_gcc_version_check_at_least(4, 0) || defined(__clang__)
 #      define sirius_api __attribute__((visibility("default")))
@@ -48,5 +45,4 @@
 #      define sirius_api
 #    endif
 #  endif
-
 #endif

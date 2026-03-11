@@ -8,7 +8,7 @@ set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
 # --- sirius::thread ---
 set(sources "")
-list(APPEND sources "internal/thread.cpp")
+list(APPEND sources "inner/thread.cpp")
 list(APPEND sources "cond.c" "mutex.c" "sem.c" "thread.c")
 
 add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})

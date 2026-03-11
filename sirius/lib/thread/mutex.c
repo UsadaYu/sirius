@@ -1,11 +1,10 @@
-#include "lib/thread/internal/mutex.h"
+#include "lib/thread/inner/mutex.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 sirius_api int sirius_mutex_init(sirius_mutex_t *mutex,
                                  const enum SiriusMutexType *type) {
   sirius_mutex_s *m = (sirius_mutex_s *)mutex;
   enum SiriusMutexType mt = type ? *type : kSiriusMutexNormal;
-
   m->type = mt;
 
   if (mt == kSiriusMutexRecursive) {
@@ -26,7 +25,6 @@ sirius_api int sirius_mutex_init(sirius_mutex_t *mutex,
   } else { // kSiriusMutexNormal
     InitializeSRWLock(&m->handle.srw_lock);
   }
-
   return 0;
 }
 
@@ -45,37 +43,31 @@ sirius_api int sirius_mutex_destroy(sirius_mutex_t *mutex) {
      */
     (void)m;
   }
-
   return 0;
 }
 
 sirius_api int sirius_mutex_lock(sirius_mutex_t *mutex) {
   sirius_mutex_s *m = (sirius_mutex_s *)mutex;
-
   if (m->type == kSiriusMutexRecursive) {
     EnterCriticalSection(&m->handle.critical_section);
   } else {
     AcquireSRWLockExclusive(&m->handle.srw_lock);
   }
-
   return 0;
 }
 
 sirius_api int sirius_mutex_unlock(sirius_mutex_t *mutex) {
   sirius_mutex_s *m = (sirius_mutex_s *)mutex;
-
   if (m->type == kSiriusMutexRecursive) {
     LeaveCriticalSection(&m->handle.critical_section);
   } else {
     ReleaseSRWLockExclusive(&m->handle.srw_lock);
   }
-
   return 0;
 }
 
 sirius_api int sirius_mutex_trylock(sirius_mutex_t *mutex) {
   sirius_mutex_s *m = (sirius_mutex_s *)mutex;
-
   if (m->type == kSiriusMutexRecursive) {
     BOOL ok = TryEnterCriticalSection(&m->handle.critical_section);
     return ok ? 0 : EBUSY;
@@ -99,7 +91,6 @@ sirius_api int sirius_mutex_init(sirius_mutex_t *mutex,
 
   int mt = *type == kSiriusMutexRecursive ? PTHREAD_MUTEX_RECURSIVE
                                           : PTHREAD_MUTEX_NORMAL;
-
   ret = pthread_mutexattr_settype(&attr, mt);
   if (ret) {
     pthread_mutexattr_destroy(&attr);
@@ -108,7 +99,6 @@ sirius_api int sirius_mutex_init(sirius_mutex_t *mutex,
 
   ret = pthread_mutex_init((pthread_mutex_t *)mutex, &attr);
   pthread_mutexattr_destroy(&attr);
-
   return ret;
 }
 

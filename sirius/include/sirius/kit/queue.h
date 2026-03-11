@@ -1,7 +1,7 @@
 #pragma once
 
 #include "sirius/attributes.h"
-#include "sirius/internal/common.h"
+#include "sirius/inner/common.h"
 #include "sirius/macro.h"
 
 #ifdef __cplusplus

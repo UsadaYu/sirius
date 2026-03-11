@@ -1,7 +1,7 @@
 #include <sirius/c/time.h>
 #include <sirius/thread/thread.h>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 /**
  * @brief LOCK_TYPE: 0 - spinlock; 1 - mutex

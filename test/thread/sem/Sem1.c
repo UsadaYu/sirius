@@ -1,7 +1,7 @@
 #include <sirius/thread/sem.h>
 #include <sirius/thread/thread.h>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 static const int kIndexStart = 1;
 

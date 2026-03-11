@@ -2,7 +2,7 @@
 
 #include <thread>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 #define NB_THREADS (4)
 #ifndef GEN_FILE_NAME

@@ -19,20 +19,18 @@ class Parser {
 
   ~Parser() = default;
 
-  auto arg_daemon() -> std::expected<void, std::string> {
+  auto arg_daemon() -> std::expected<void, UTrace> {
     auto values = exe_args_.parser.get_all(u_log::exe::Args::kArgDaemon);
-
     for (auto value : values) {
       if (value == u_log::exe::Args::kArgDaemonSpawn) {
         if (auto ret = main_daemon(); !ret.has_value())
-          return std::unexpected(ret.error());
+          UTRACE_RETURN(ret);
       }
     }
-
     return {};
   }
 
-  auto arg_version() -> std::expected<void, std::string> {
+  auto arg_version() -> std::expected<void, UTrace> {
 #if (defined(_WIN32) || defined(_WIN64)) && defined(__GNUC__)
     std::cout << std::format("`{0}` version: {1}", _SIRIUS_LOG_MODULE_NAME,
                              SIRIUS_VERSION)
@@ -41,22 +39,19 @@ class Parser {
     std::println(std::cout, "`{0}` version: {1}", _SIRIUS_LOG_MODULE_NAME,
                  SIRIUS_VERSION);
 #endif
-
     return {};
   }
 
-  auto arg_usage() -> std::expected<void, std::string> {
+  auto arg_usage() -> std::expected<void, UTrace> {
     exe_args_.parser.print_usage("`" _SIRIUS_LOG_MODULE_NAME "`");
-
     return {};
   }
 
  private:
   u_log::exe::Args &exe_args_;
 
-  auto main_daemon() -> std::expected<void, std::string> {
+  auto main_daemon() -> std::expected<void, UTrace> {
     auto log_manager = std::make_unique<Daemon>();
-
     return log_manager->main();
   }
 };
@@ -71,23 +66,22 @@ class Main {
 
   ~Main() = default;
 
-  auto main_usage() -> std::expected<void, std::string> {
+  auto main_usage() -> std::expected<void, UTrace> {
     return parser_.arg_usage();
   }
 
-  auto main_arg(int argc, char **argv) -> std::expected<void, std::string> {
+  auto main_arg(int argc, char **argv) -> std::expected<void, UTrace> {
     for (size_t i = 1; i < static_cast<size_t>(argc); ++i) {
-      std::string option, value;
-
       if (!exe_args_.parser.is_option_token(argv[i]))
         continue;
 
+      std::string option, value;
       if (auto ret = exe_args_.parser.extract(argv[i], option, value);
           !ret.has_value()) {
-        return std::unexpected(ret.error());
+        UTRACE_RETURN(ret);
       }
 
-      auto fn_arg = [&]() -> std::expected<void, std::string> (Parser::*)() {
+      auto fn_arg = [&]() -> std::expected<void, UTrace> (Parser::*)() {
         if (option == u_log::exe::Args::kArgDaemon) {
           return &Parser::arg_daemon;
         } else if (option == u_log::exe::Args::kArgVersion) {
@@ -96,9 +90,8 @@ class Main {
           return &Parser::arg_usage;
         }
       }();
-
       if (auto ret = (parser_.*fn_arg)(); !ret.has_value())
-        return std::unexpected(ret.error());
+        UTRACE_RETURN(ret);
     }
 
     return {};
@@ -123,31 +116,26 @@ int main(int argc, char **argv) {
     es = e.what();
     goto label_error;
   } catch (...) {
-    es = IO_E("exception: unknow");
+    es = io_str_error("exception: unknow");
     goto label_error;
   }
 
   if (argc == 1) {
     if (auto ret = main->main_usage(); !ret.has_value()) {
-      es = ret.error();
+      es = ret.error().join_self_all();
       goto label_error;
     }
     return 0;
   }
 
   if (auto ret = main->main_arg(argc, argv); !ret.has_value()) {
-    es = ret.error();
+    es = ret.error().join_self_all();
     goto label_error;
   }
 
   return 0;
 
 label_error:
-#if (defined(_WIN32) || defined(_WIN64)) && defined(__GNUC__)
-  std::cerr << es << std::endl;
-#else
-  std::println(std::cerr, "{0}", es);
-#endif
-
+  io_ln_error("{0}", es);
   return -1;
 }

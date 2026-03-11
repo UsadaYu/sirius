@@ -7,20 +7,33 @@
 namespace sirius {
 namespace utils {
 namespace process {
-namespace mutex {
 enum class LockState : int {
   kSuccess = 0,
   kOwnerDead = 1,
   kBusy = 2,
 };
 
-#define SUFFIX_ \
-  ( \
-    std::format("\nPID: {0}" \
-                "\n{1}", \
-                static_cast<uint64_t>(pid()), utils_pretty_func))
+class FMutex;
+class GMutex;
+class Inner {
+ private:
+  friend class FMutex;
+  friend class GMutex;
 
-class FM {
+  static std::string line_pid() { return std::format("\nPID: {0}", pid()); }
+
+#if defined(_WIN32) || defined(_WIN64)
+  static std::string c_error(const DWORD err_code, std::string_view fn_str) {
+    return Io::win_err(err_code, fn_str, "{}", line_pid());
+  }
+#else
+  static std::string c_error(const int err_code, std::string_view fn_str) {
+    return Io::errno_err(err_code, fn_str, "{}", line_pid());
+  }
+#endif
+};
+
+class FMutex {
  private:
   struct FHeader {
     uint8_t is_dirty; // 0: Clean; 1: Dirty
@@ -36,66 +49,75 @@ class FM {
 #endif
 
  private:
-  explicit FM(hmutex fd) noexcept : fd_(fd) {}
+  explicit FMutex(hmutex fd, std::filesystem::path lock_path) noexcept
+      : fd_(fd), lock_path_(lock_path) {}
 
  public:
-  FM(const FM &) = delete;
-  FM &operator=(const FM &) = delete;
+  FMutex(const FMutex &) = delete;
+  FMutex &operator=(const FMutex &) = delete;
 
-  FM &operator=(FM &&other) noexcept {
+  FMutex &operator=(FMutex &&other) noexcept {
     if (this != &other) {
       destroy();
       fd_ = other.fd_;
+      lock_path_ = other.lock_path_;
       other.fd_ = kInvalidFd;
+      other.lock_path_ = "";
     }
-
     return *this;
   }
 
-  FM(FM &&other) noexcept : fd_(other.fd_) {
+  FMutex(FMutex &&other) noexcept
+      : fd_(other.fd_), lock_path_(other.lock_path_) {
     other.fd_ = kInvalidFd;
+    other.lock_path_ = "";
   }
 
+  /**
+   * @note Considering the file may be deleted or replaced.
+   * On Windows, the `FILE_SHARE_DELETE` will not be included when
+   * `CreateFileW`.
+   * On POSIX, prevent this by `stat`.
+   */
   static auto create(std::string_view file_name)
-    -> std::expected<FM, std::string> {
+    -> std::expected<FMutex, UTrace> {
     if (file_name.empty()) {
-      return std::unexpected(
-        IO_E("\nInvalid argument. Null `file_name`{0}", SUFFIX_));
+      auto es = std::format("\nInvalid argument. Null `file_name`{0}",
+                            Inner::line_pid());
+      return std::unexpected(UTrace(std::move(es)));
     }
 
-    auto lock_path = ns::Mutex::instance().file_lock_path(file_name);
-    if (!lock_path.has_value()) {
-      return std::unexpected(
-        lock_path.error().append(Io::row_gs("{}", SUFFIX_)));
+    std::filesystem::path lock_path {};
+    if (auto ret = ns::Mutex::instance().file_lock_path(file_name);
+        !ret.has_value()) {
+      ret.error().msg_append(Inner::line_pid());
+      UTRACE_RETURN(ret);
+    } else {
+      lock_path = std::move(ret.value());
     }
 
     hmutex fd;
-
 #if defined(_WIN32) || defined(_WIN64)
-    fd = CreateFileW(lock_path.value().c_str(), GENERIC_READ | GENERIC_WRITE,
+    fd = CreateFileW(lock_path.c_str(), GENERIC_READ | GENERIC_WRITE,
                      FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
                      FILE_ATTRIBUTE_NORMAL, nullptr);
     if (fd == INVALID_HANDLE_VALUE) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(
-        IO_E("{}", Io::win_err(dw_err, "CreateFileW", "{}", SUFFIX_)));
+      return std::unexpected(UTrace(Inner::c_error(dw_err, "CreateFileW")));
     }
 #else
-    fd = open(lock_path.value().c_str(), O_RDWR | O_CREAT,
+    fd = open(lock_path.c_str(), O_RDWR | O_CREAT,
               File::string_to_mode(_SIRIUS_POSIX_FILE_MODE));
     if (fd == -1) {
       const int errno_err = errno;
-      return std::unexpected(
-        IO_E("{}", Io::errno_err(errno_err, "open", "{}", SUFFIX_)));
+      return std::unexpected(UTrace(Inner::c_error(errno_err, "open")));
     }
 #endif
 
-    return FM(fd);
+    return FMutex(fd, std::move(lock_path));
   }
 
-  ~FM() noexcept {
-    destroy();
-  }
+  ~FMutex() noexcept { destroy(); }
 
   void destroy() noexcept {
     if (fd_ != kInvalidFd) {
@@ -108,25 +130,35 @@ class FM {
     }
   }
 
-  auto lock() -> std::expected<LockState, std::string> {
+  auto lock() -> std::expected<LockState, UTrace> {
 #if defined(_WIN32) || defined(_WIN64)
     OVERLAPPED overlapped {};
     if (!LockFileEx(fd_, LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &overlapped)) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(
-        IO_E("{}", Io::win_err(dw_err, "LockFileEx", "{}", SUFFIX_)));
+      return std::unexpected(UTrace(Inner::c_error(dw_err, "LockFileEx")));
     }
 #else
-    struct flock lock_ptr;
+    struct flock lock_ptr {};
     lock_ptr.l_type = F_WRLCK;
     lock_ptr.l_whence = SEEK_SET;
     lock_ptr.l_start = 0;
     lock_ptr.l_len = 0;
-
     if (fcntl(fd_, F_SETLKW, &lock_ptr) == -1) {
       const int errno_err = errno;
-      return std::unexpected(
-        IO_E("{}", Io::errno_err(errno_err, "fcntl", "{}", SUFFIX_)));
+      return std::unexpected(UTrace(Inner::c_error(errno_err, "fcntl (lock)")));
+    }
+
+    struct stat st_fd {}, st_path {};
+    if (fstat(fd_, &st_fd) == -1) {
+      const int errno_err = errno;
+      return std::unexpected(UTrace(Inner::c_error(errno_err, "fstat")));
+    }
+
+    if (stat(lock_path_.c_str(), &st_path) == -1 ||
+        st_fd.st_ino != st_path.st_ino) {
+      auto es = std::format("File was unlinked or replaced before locking{0}",
+                            Inner::line_pid());
+      return std::unexpected(UTrace(std::move(es)));
     }
 #endif
 
@@ -154,19 +186,17 @@ class FM {
     } else {
       if (header.is_dirty == 1) {
         lock_state = LockState::kOwnerDead;
-        auto es = IO_WSP(
-          "\nPID: {0}"
-          "\nThe process (PID: {1}) that previously held the lock may have "
-          "crashed",
-          pid(), header.owner_pid);
-        io_errln(es);
+        auto es = std::format(
+          "\nThe process (PID: {0}) that previously held the lock may have "
+          "crashed{1}",
+          header.owner_pid, Inner::line_pid());
+        io_ln_warnsp("{}", es);
       }
     }
 
     FHeader new_header;
     new_header.is_dirty = 1;
     new_header.owner_pid = static_cast<uint64_t>(pid());
-
 #if defined(_WIN32) || defined(_WIN64)
     DWORD written_bytes;
     OVERLAPPED ov_write {};
@@ -183,7 +213,7 @@ class FM {
     return lock_state;
   }
 
-  auto unlock() -> std::expected<void, std::string> {
+  auto unlock() -> std::expected<void, UTrace> {
     std::string es;
     FHeader header;
     header.is_dirty = 0;
@@ -199,8 +229,7 @@ class FM {
     OVERLAPPED ov_lock {};
     if (!UnlockFileEx(fd_, 0, 1, 0, &ov_lock)) {
       const DWORD dw_err = GetLastError();
-      es = IO_E("{}", Io::win_err(dw_err, "UnlockFileEx", "{}", SUFFIX_));
-      return std::unexpected(es);
+      return std::unexpected(UTrace(Inner::c_error(dw_err, "UnlockFileEx")));
     }
 #else
     if (pwrite(fd_, &header, sizeof(FHeader), 0) != -1) {
@@ -212,41 +241,39 @@ class FM {
     lock_ptr.l_whence = SEEK_SET;
     lock_ptr.l_start = 0;
     lock_ptr.l_len = 0;
-
     if (fcntl(fd_, F_SETLK, &lock_ptr) == -1) {
       const int errno_err = errno;
-      es = IO_E("{}", Io::errno_err(errno_err, "fcntl", "{}", SUFFIX_));
-      return std::unexpected(es);
+      return std::unexpected(
+        UTrace(Inner::c_error(errno_err, "fcntl (unlock)")));
     }
 #endif
 
     return {};
   }
 
-  bool valid() const noexcept {
-    return fd_ != kInvalidFd;
-  }
+  bool valid() const noexcept { return fd_ != kInvalidFd; }
 
  private:
   hmutex fd_;
+  std::filesystem::path lock_path_;
 };
 
 /**
  * @note On POSIX, only one construction and one destruction are required.
  */
-class GM {
+class GMutex {
  private:
 #if defined(_WIN32) || defined(_WIN64)
-  explicit GM(HANDLE mutex) : mutex_(mutex) {}
+  explicit GMutex(HANDLE mutex) : mutex_(mutex) {}
 #else
-  explicit GM(pthread_mutex_t *mutex) : mutex_(mutex) {}
+  explicit GMutex(pthread_mutex_t *mutex) : mutex_(mutex) {}
 #endif
 
  public:
-  GM(const GM &) = delete;
-  GM &operator=(const GM &) = delete;
+  GMutex(const GMutex &) = delete;
+  GMutex &operator=(const GMutex &) = delete;
 
-  GM &operator=(GM &&other) noexcept {
+  GMutex &operator=(GMutex &&other) noexcept {
     if (this != &other) {
 #if defined(_WIN32) || defined(_WIN64)
       destroy();
@@ -254,90 +281,73 @@ class GM {
       mutex_ = other.mutex_;
       other.mutex_ = nullptr;
     }
-
     return *this;
   }
 
-  GM(GM &&other) noexcept : mutex_(other.mutex_) {
+  GMutex(GMutex &&other) noexcept : mutex_(other.mutex_) {
     other.mutex_ = nullptr;
   }
 
 #if defined(_WIN32) || defined(_WIN64)
-  ~GM() noexcept {
-    destroy();
-  }
+  ~GMutex() noexcept { destroy(); }
 #else
-  ~GM() = default;
+  ~GMutex() = default;
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
   static auto create(std::string_view mutex_name)
-    -> std::expected<GM, std::string> {
+    -> std::expected<GMutex, UTrace> {
     if (mutex_name.empty()) {
-      return std::unexpected(
-        IO_E("\nInvalid argument. Null `mutex_name`{0}", SUFFIX_));
+      auto es = std::format("\nInvalid argument. Null `mutex_name`{0}",
+                            Inner::line_pid());
+      return std::unexpected(UTrace(std::move(es)));
     }
 
     HANDLE mutex = CreateMutexA(
       nullptr, FALSE, ns::Mutex::win_generate_name(mutex_name).c_str());
     if (!mutex) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(
-        IO_E("{}", Io::win_err(dw_err, "CreateMutexA", "{}", SUFFIX_)));
+      return std::unexpected(UTrace(Inner::c_error(dw_err, "CreateMutexA")));
     }
 
-    return GM(mutex);
+    return GMutex(mutex);
   }
 #else
   static auto create(pthread_mutex_t *mutex, bool is_creator)
-    -> std::expected<GM, std::string> {
-    int ret;
-    std::string es;
-
+    -> std::expected<GMutex, UTrace> {
     if (!mutex) {
-      es = IO_E("\nInvalid argument. Null `mutex`{0}", "{}", SUFFIX_);
-      return std::unexpected(es);
+      auto es =
+        std::format("\nInvalid argument. Null `mutex`{0}", Inner::line_pid());
+      return std::unexpected(UTrace(std::move(es)));
     }
 
     if (!is_creator)
-      return GM(mutex);
+      return GMutex(mutex);
 
     pthread_mutexattr_t attr;
-    ret = pthread_mutexattr_init(&attr);
-    if (ret) {
-      es =
-        IO_E("{}", Io::errno_err(ret, "pthread_mutexattr_init", "{}", SUFFIX_));
-      return std::unexpected(es);
+    if (int ret = pthread_mutexattr_init(&attr); ret) {
+      return std::unexpected(
+        UTrace(Inner::c_error(ret, "pthread_mutexattr_init")));
     }
-
-    ret = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-    if (ret) {
-      es =
-        IO_E("{}",
-             Io::errno_err(ret, "pthread_mutexattr_setpshared", "{}", SUFFIX_));
-      goto label_free;
+    if (int ret = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+        ret) {
+      pthread_mutexattr_destroy(&attr);
+      return std::unexpected(
+        UTrace(Inner::c_error(ret, "pthread_mutexattr_setpshared")));
     }
-
-    ret = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
-    if (ret) {
-      es = IO_E(
-        "{}", Io::errno_err(ret, "pthread_mutexattr_setrobust", "{}", SUFFIX_));
-      goto label_free;
+    if (int ret = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
+        ret) {
+      pthread_mutexattr_destroy(&attr);
+      return std::unexpected(
+        UTrace(Inner::c_error(ret, "pthread_mutexattr_setrobust")));
     }
-
-    ret = pthread_mutex_init(mutex, &attr);
-    pthread_mutexattr_destroy(&attr);
-    if (ret) {
-      es = IO_E("{}", Io::errno_err(ret, "pthread_mutex_init", "{}", SUFFIX_));
-      return std::unexpected(es);
+    if (int ret = pthread_mutex_init(mutex, &attr); ret) {
+      pthread_mutexattr_destroy(&attr);
+      return std::unexpected(UTrace(Inner::c_error(ret, "pthread_mutex_init")));
     }
-
-    return GM(mutex);
-
-  label_free:
     pthread_mutexattr_destroy(&attr);
 
-    return std::unexpected(es);
+    return GMutex(mutex);
   }
 #endif
 
@@ -352,35 +362,28 @@ class GM {
     }
   }
 
-  auto lock() -> std::expected<LockState, std::string> {
-    return lock_impl(false);
-  }
+  auto lock() -> std::expected<LockState, UTrace> { return lock_impl(false); }
 
-  auto trylock() -> std::expected<LockState, std::string> {
-    return lock_impl(true);
-  }
+  auto trylock() -> std::expected<LockState, UTrace> { return lock_impl(true); }
 
-  auto unlock() -> std::expected<void, std::string> {
+  auto unlock() -> std::expected<void, UTrace> {
 #if defined(_WIN32) || defined(_WIN64)
     if (!ReleaseMutex(mutex_)) {
       const DWORD dw_err = GetLastError();
-      return std::unexpected(
-        IO_E("{}", Io::win_err(dw_err, "ReleaseMutex", "{}", SUFFIX_)));
+      return std::unexpected(UTrace(Inner::c_error(dw_err, "ReleaseMutex")));
     }
 #else
     int ret = pthread_mutex_unlock(mutex_);
     if (ret) {
       return std::unexpected(
-        IO_E("{}", Io::errno_err(ret, "ReleaseMutex", "{}", SUFFIX_)));
+        UTrace(Inner::c_error(ret, "pthread_mutex_unlock")));
     }
 #endif
 
     return {};
   }
 
-  bool valid() const noexcept {
-    return mutex_ != nullptr;
-  }
+  bool valid() const noexcept { return mutex_ != nullptr; }
 
  private:
 #if defined(_WIN32) || defined(_WIN64)
@@ -389,18 +392,14 @@ class GM {
   pthread_mutex_t *mutex_;
 #endif
 
-  auto lock_impl(bool is_trylock = false)
-    -> std::expected<LockState, std::string> {
+  auto lock_impl(bool is_trylock = false) -> std::expected<LockState, UTrace> {
 #if defined(_WIN32) || defined(_WIN64)
     DWORD dw_err = ERROR_SUCCESS;
-
     DWORD wait_ms = is_trylock ? 0 : INFINITE;
-
     const std::string fn_str =
       std::format("WaitForSingleObject (trylock: {0})", is_trylock);
 
-    DWORD wait_ret = WaitForSingleObject(mutex_, wait_ms);
-    switch (wait_ret) {
+    switch (DWORD wait_ret = WaitForSingleObject(mutex_, wait_ms); wait_ret) {
     [[likely]] case WAIT_OBJECT_0:
       return LockState::kSuccess;
     case WAIT_ABANDONED:
@@ -409,20 +408,19 @@ class GM {
       return LockState::kBusy;
     case WAIT_FAILED:
       dw_err = GetLastError();
-      return std::unexpected(
-        IO_E("{}", Io::win_err(dw_err, fn_str, "{}", SUFFIX_)));
+      return std::unexpected(UTrace(Inner::c_error(dw_err, fn_str)));
     default:
-      return std::unexpected(IO_E("{0}", SUFFIX_));
+      auto es = std::format("\n{0}. `wait_ret`: {1}{2}", fn_str, wait_ret,
+                            Inner::line_pid());
+      return std::unexpected(UTrace(std::move(es)));
     }
 #else
     int (*lock_ptr)(pthread_mutex_t *) =
       is_trylock ? pthread_mutex_trylock : pthread_mutex_lock;
-
     const std::string fn_str =
       std::format("mutex_lock (trylock: {0})", is_trylock);
 
-    int ret = lock_ptr(mutex_);
-    switch (ret) {
+    switch (int ret = lock_ptr(mutex_); ret) {
     [[likely]] case 0:
       return LockState::kSuccess;
     case EOWNERDEAD:
@@ -432,26 +430,18 @@ class GM {
       return LockState::kBusy;
     case ENOTRECOVERABLE:
     default:
-      return std::unexpected(
-        IO_E("{}", Io::errno_err(ret, fn_str, "{}", SUFFIX_)));
+      return std::unexpected(UTrace(Inner::c_error(ret, fn_str)));
     }
-
-    return LockState::kSuccess;
 #endif
 
   label_owner_dead:
-    auto es = IO_WSP(
-      "\nPID: {0}"
-      "\nThe process that previously held the lock may have crashed",
-      pid());
-    io_errln(es);
-
+    auto es = std::format(
+      "\nThe process that previously held the lock may have crashed{0}",
+      Inner::line_pid());
+    io_ln_warnsp("{}", es);
     return LockState::kOwnerDead;
   }
 };
-
-#undef SUFFIX_
-} // namespace mutex
 } // namespace process
 } // namespace utils
 } // namespace sirius

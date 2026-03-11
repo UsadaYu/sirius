@@ -1,9 +1,6 @@
 #pragma once
 
-#include <errno.h>
-
 #if defined(_WIN32) || defined(_WIN64)
-
 // clang-format off
 #  include "utils/decls.h"
 // clang-format on
@@ -11,8 +8,8 @@
 #  include <minwindef.h>
 #  include <winerror.h>
 
-static inline int utils_winerr_to_errno(DWORD err) {
-  const DWORD dw_err = err;
+static inline int utils_winerr_to_errno(const DWORD err_code) {
+  const DWORD dw_err = err_code;
 
   switch (dw_err) {
   case ERROR_SUCCESS:
@@ -116,7 +113,7 @@ static inline int utils_winerr_to_errno(DWORD err) {
     /**
      * @note Best-effort mapping.
      */
-    if (err >= WSABASEERR) {
+    if (dw_err >= WSABASEERR) {
       /**
        * @note If it is a winsock error, special handling may be required.
        */
@@ -126,5 +123,7 @@ static inline int utils_winerr_to_errno(DWORD err) {
   }
 }
 #else
-#  define utils_winerr_to_errno(err) (err)
+#  define utils_winerr_to_errno(err_code) (err_code)
 #endif
+
+#include <errno.h>

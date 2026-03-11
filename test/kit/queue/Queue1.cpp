@@ -4,7 +4,7 @@
 
 #include <vector>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 static constexpr int kNbProducers = 32;
 static constexpr int kNbMsgsPerThread = 2048;

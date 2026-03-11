@@ -8,7 +8,7 @@ extern "C" {
  * @note This variable only needs to be guaranteed to exist, not a public
  * variable.
  */
-int sirius_foundation_link_anchor_ = 0;
+int sirius_foundation_inner_link_anchor = 0;
 
 #ifdef __cplusplus
 }
@@ -29,7 +29,6 @@ static void constructor(void) {
     goto label_exit;
 
   atexit(destructor);
-
   return;
 
 label_exit:
@@ -47,6 +46,6 @@ label_exit:
 
 #  pragma section(".CRT$XCS", read)
 
-__declspec(allocate(".CRT$XCS")) void(WINAPI *sirius_internal_constructor_ptr)(
+__declspec(allocate(".CRT$XCS")) void(WINAPI *sirius_inner_constructor_ptr)(
   void) = constructor;
 #endif

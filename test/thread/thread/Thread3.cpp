@@ -2,7 +2,7 @@
 
 #include <thread>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 /**
  * @note Setting the rotation mode and thread priority often requires certain

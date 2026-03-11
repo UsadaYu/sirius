@@ -1,13 +1,10 @@
 #pragma once
 
 #include <algorithm>
-#include <cctype>
-#include <iomanip>
 #include <map>
 #include <mutex>
-#include <sstream>
-#include <system_error>
 
+#include "utils/config.h"
 #include "utils/env.h"
 #include "utils/file.hpp"
 
@@ -20,13 +17,12 @@ inline constexpr std::string_view kSuffixMutex = "_mutex";
 /**
  * @brief 64-bit FNV-1a hash.
  */
-inline uint64_t fnv1a64(const std::string &s) {
+inline uint64_t fnv1a64(std::string_view s) {
   uint64_t h = 14695981039346656037ULL;
   for (unsigned char c : s) {
     h ^= static_cast<uint64_t>(c);
     h *= 1099511628211ULL;
   }
-
   return h;
 }
 
@@ -34,11 +30,7 @@ inline uint64_t fnv1a64(const std::string &s) {
  * @brief `hex` encoding uint64 -> string.
  */
 inline std::string u64_to_hex(uint64_t v) {
-  std::ostringstream oss;
-  oss << std::hex << std::nouppercase << std::setfill('0') << std::setw(16)
-      << v;
-
-  return oss.str();
+  return std::format("{:016x}", v);
 }
 
 inline std::string sanitize_name(std::string_view s) {
@@ -51,51 +43,46 @@ inline std::string sanitize_name(std::string_view s) {
       out += '_';
     }
   }
-
   return out;
 }
 
-/**
- * @brief Combine and generate prefixes.
- */
 inline std::string
-generate_namespace_prefix(const std::string &runtime_salt = "") {
-  std::string base = std::format("{0}|{1}|{2}", _SIRIUS_NAMESPACE,
-                                 _SIRIUS_POSIX_FILE_MODE, _SIRIUS_USER_KEY);
+generate_namespace_prefix(std::string_view runtime_salt = "") {
+  static std::string_view base = std::string(_SIRIUS_NAMESPACE)
+                                   .append("|")
+                                   .append(_SIRIUS_POSIX_FILE_MODE)
+                                   .append("|")
+                                   .append(_SIRIUS_USER_KEY);
+  std::string s;
   if (!runtime_salt.empty()) {
-    base.append("|").append(runtime_salt);
+    s = std::string(base).append("|").append(runtime_salt);
   }
-
-  std::transform(base.begin(), base.end(), base.begin(),
-                 [](unsigned char c) -> char {
-                   return static_cast<char>(std::tolower(c));
-                 });
-
-  uint64_t h = fnv1a64(base);
-
+  std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) -> char {
+    return static_cast<char>(std::tolower(c));
+  });
+  uint64_t h = fnv1a64(s);
   std::string hex = u64_to_hex(h);
   std::string prefix = "ns_" + hex.substr(0, 16);
-
   return sanitize_name(prefix);
 }
 
 namespace shm {
 inline std::string generate_name(std::string_view name,
-                                 bool is_global = false) {
+                                 bool is_global /* Windows */ = false) {
 #if defined(_WIN32) || defined(_WIN64)
   std::string scope = is_global ? "Global\\" : "Local\\";
-  std::string prefix = std::format("{0}{1}_{2}", scope, _SIRIUS_NAMESPACE,
-                                   generate_namespace_prefix());
+  std::string prefix = scope.append(_SIRIUS_NAMESPACE)
+                         .append("_")
+                         .append(generate_namespace_prefix());
   std::string nm =
     prefix.append("_").append(sanitize_name(name)).append(kSuffixShm);
-
   return nm;
 #else
-  std::string prefix =
-    std::format("{0}_{1}", _SIRIUS_NAMESPACE, generate_namespace_prefix());
+  std::string prefix = std::string(_SIRIUS_NAMESPACE)
+                         .append("_")
+                         .append(generate_namespace_prefix());
   std::string nm =
     prefix.append("_").append(sanitize_name(name)).append(kSuffixShm);
-
   return nm;
 #endif
 }
@@ -118,7 +105,6 @@ class Mutex {
 
   static Mutex &instance() {
     static Mutex instance;
-
     return instance;
   }
 
@@ -126,48 +112,47 @@ class Mutex {
   static std::string win_generate_name(std::string_view name,
                                        bool is_global = false) {
     std::string scope = is_global ? "Global\\" : "Local\\";
-    std::string prefix = std::format("{0}{1}_{2}", scope, _SIRIUS_NAMESPACE,
-                                     generate_namespace_prefix());
+    std::string prefix = scope.append(_SIRIUS_NAMESPACE)
+                           .append("_")
+                           .append(generate_namespace_prefix());
     std::string nm =
       prefix.append("_").append(sanitize_name(name)).append(kSuffixMutex);
-
     return nm;
   }
 #endif
 
   auto file_lock_path(std::string_view name)
-    -> std::expected<std::filesystem::path, std::string> {
+    -> std::expected<std::filesystem::path, UTrace> {
     std::string m_name(name);
-    std::filesystem::path lock_path = "";
+    std::filesystem::path lock_path {};
+    std::filesystem::path base {};
+    std::vector<std::filesystem::path> prefixes {};
+
+    auto append_prefix = [&](std::filesystem::path path) {
+      if (!path.empty() && !std::ranges::contains(prefixes, path)) {
+        prefixes.push_back(path);
+      }
+    };
 
     std::lock_guard lock(mutex_map_);
 
     if (auto it = map_.find(m_name); it != map_.end())
       return it->second;
 
-    std::filesystem::path base = "";
-    std::vector<std::filesystem::path> prefixes;
-
+    append_prefix(_SIRIUS_TMP_DIR);
 #if defined(_WIN32) || defined(_WIN64)
     TCHAR temp_path[MAX_PATH];
     DWORD dw_ret = GetTempPath(MAX_PATH, temp_path);
     if (dw_ret > 0 && dw_ret <= MAX_PATH) {
-      prefixes.push_back(std::filesystem::path(temp_path));
+      append_prefix(temp_path);
     }
 #else
-    prefixes.push_back(_SIRIUS_POSIX_TMP_DIR);
-
-    if (auto xdg = env::get_env("XDG_RUNTIME_DIR"); !xdg.empty()) {
-      prefixes.push_back(xdg);
-    }
-
-    prefixes.push_back("/var/tmp");
+    append_prefix(env::get_env("XDG_RUNTIME_DIR"));
+    append_prefix("/var/tmp");
 #endif
 
     for (auto &prefix : prefixes) {
-      if (prefix.empty())
-        continue;
-
+      std::string err_msg;
       try {
         std::filesystem::path b = prefix / _SIRIUS_NAMESPACE;
         std::filesystem::create_directories(b);
@@ -177,23 +162,24 @@ class Mutex {
 #endif
         break;
       } catch (const std::filesystem::filesystem_error &e) {
-        return std::unexpected(IO_E("\nfilesystem_error: {0}", e.what()));
+        err_msg = std::format("\nexception (filesystem_error): {0}", e.what());
       } catch (const std::exception &e) {
-        return std::unexpected(IO_E("\nexception: {0}", e.what()));
+        err_msg = std::format("exception: {0}", e.what());
       } catch (...) {
-        return std::unexpected(IO_E("exception: unknow"));
+        err_msg = "exception: unknow";
       }
+      return std::unexpected(UTrace(std::move(err_msg)));
     }
 
     if (base.empty())
-      return std::unexpected(IO_WSP("Fail to get file lock path"));
-
-    std::string fname =
-      std::format("{0}_{1}{2}.lock", generate_namespace_prefix(),
-                  sanitize_name(m_name), kSuffixMutex);
+      return std::unexpected(UTrace("Fail to get the file lock directory"));
+    std::string fname = generate_namespace_prefix()
+                          .append("_")
+                          .append(sanitize_name(m_name))
+                          .append(kSuffixMutex)
+                          .append(".lock");
     lock_path = base / fname;
     map_.insert(std::pair(m_name, lock_path));
-
     return lock_path;
   }
 

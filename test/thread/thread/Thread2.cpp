@@ -4,7 +4,7 @@
 #include <array>
 #include <set>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 static constexpr int kNbThreads = 6;
 

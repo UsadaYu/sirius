@@ -54,7 +54,7 @@ static force_inline void queue_mutex_unlock(enum SiriusQueueType type,
 }
 
 static inline bool is_power_of_2(size_t n) {
-  return (n > 0) && ((n & (n - 1)) == 0);
+  return n > 0 && (n & (n - 1)) == 0;
 }
 
 sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
@@ -83,13 +83,11 @@ sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
 
   if (q->capacity == 0)
     q->capacity = 2;
-
   q->capacity_mask = q->capacity - 1;
   q->elem_count = 0;
   q->front = 0;
   q->rear = 0;
   q->type = args->queue_type;
-
   q->elements = (size_t *)calloc(q->capacity, sizeof(size_t));
   if (!q->elements) {
     const int errno_err = errno;
@@ -118,7 +116,6 @@ label_free2:
   free(q->elements);
 label_free1:
   free(q);
-
   return ret;
 }
 
@@ -133,7 +130,6 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue) {
     sirius_cond_destroy(&queue->cond_non_empty);
     sirius_mutex_destroy(&queue->mutex);
   }
-
   if (queue->elements) {
     free(queue->elements);
     queue->elements = nullptr;
@@ -209,9 +205,7 @@ sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
 #define G QUEUE_WAIT(ret, queue->cond_non_empty, queue, 0, milliseconds)
 
   T_QUEUE(ret, queue->type, queue->mutex, queue->cond_non_full);
-
   return ret;
-
 #undef G
 #undef F
 #undef E
@@ -237,9 +231,7 @@ sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
   QUEUE_WAIT(ret, queue->cond_non_full, queue, queue->capacity, milliseconds)
 
   T_QUEUE(ret, queue->type, queue->mutex, queue->cond_non_empty);
-
   return ret;
-
 #undef G
 #undef F
 #undef E
@@ -252,11 +244,9 @@ sirius_api int sirius_queue_reset(sirius_queue_t *queue) {
   }
 
   queue_mutex_lock(queue->type, &queue->mutex);
-
   queue->front = 0;
   queue->rear = 0;
   queue->elem_count = 0;
-
   queue_mutex_unlock(queue->type, &queue->mutex);
 
   return 0;
@@ -269,11 +259,8 @@ sirius_api int sirius_queue_nb_cache(sirius_queue_t *queue, size_t *num) {
   }
 
   *num = 0;
-
   queue_mutex_lock(queue->type, &queue->mutex);
-
   *num = queue->elem_count;
-
   queue_mutex_unlock(queue->type, &queue->mutex);
 
   return 0;

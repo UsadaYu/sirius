@@ -40,8 +40,12 @@
 #  if __cplusplus >= 201103L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201103L)
 #    include <atomic>
 #  endif
+#  if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+#    include <filesystem>
+#  endif
 #  if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
 #    include <format>
+#    include <source_location>
 #  endif
 #  if __cplusplus >= 202302L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202302L)
 #    include <expected>

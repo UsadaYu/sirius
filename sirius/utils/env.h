@@ -19,8 +19,7 @@ inline std::string get_env(const char *name) {
     return var;
   }
 #  else
-  const char *var = std::getenv(name);
-  if (var)
+  if (const char *var = std::getenv(name); var != nullptr)
     return std::string(var);
 #  endif
 

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <filesystem>
-
 #include "utils/io.hpp"
 
 namespace sirius {
@@ -22,46 +20,44 @@ class File {
   }
 #endif
 
-  static std::filesystem::perms string_to_perms(const std::string &perm_str) {
-    std::string str = perm_str;
-    if (str.size() > 1 && str[0] == '0') {
-      str = str.substr(1);
+  static std::filesystem::perms string_to_perms(std::string_view str) {
+    std::string perm_str(str);
+    if (perm_str.size() > 1 && perm_str.starts_with('0')) {
+      perm_str = perm_str.substr(1);
     }
 
     uint32_t perm_value;
     try {
-      perm_value = std::stoi(str, nullptr, 8);
+      perm_value = std::stoi(perm_str, nullptr, 8);
     } catch (...) {
       return std::filesystem::perms::none;
     }
-
     return static_cast<std::filesystem::perms>(perm_value);
   }
 
   static auto set_permissions_safe(const std::filesystem::path &path,
-                                   const std::string &perm_str,
+                                   std::string_view perm_str,
                                    bool symlink_perms = false)
-    -> std::expected<void, std::string> {
+    -> std::expected<void, UTrace> {
+    if (!std::filesystem::exists(path)) {
+      auto es = std::format("\nNo such file or directory: {0}", path.string());
+      return std::unexpected(UTrace(std::move(es)));
+    }
+
     try {
-      if (!std::filesystem::exists(path)) {
-        return std::unexpected(
-          IO_E("\nNo such file or directory: {0}", path.string()));
-      }
-
       std::filesystem::perms perm = string_to_perms(perm_str);
-
       std::filesystem::perm_options options =
         std::filesystem::perm_options::replace;
       if (symlink_perms) {
         options |= std::filesystem::perm_options::nofollow;
       }
-
       std::filesystem::permissions(path, perm, options);
       return {};
     } catch (const std::exception &e) {
-      return std::unexpected(IO_E("\nexception: {0}", e.what()));
+      auto es = std::format("\nexception: {0}", e.what());
+      return std::unexpected(UTrace(std::move(es)));
     } catch (...) {
-      return std::unexpected(IO_E("exception: unknow"));
+      return std::unexpected(UTrace("exception: unknow"));
     }
   }
 
@@ -72,19 +68,17 @@ class File {
       return std::unexpected(EINVAL);
 
     std::filesystem::path exe_path = base_dir / exe_name;
-
     if (std::filesystem::exists(exe_path))
       return exe_path;
 
 #if defined(_WIN32) || defined(_WIN64)
-    const std::string suffix = ".exe";
-    if (exe_name.ends_with(suffix)) {
+    constexpr std::string_view kSuffix = ".exe";
+    if (exe_name.ends_with(kSuffix)) {
       exe_path =
-        base_dir / exe_name.substr(0, exe_name.length() - suffix.length());
+        base_dir / exe_name.substr(0, exe_name.length() - kSuffix.length());
     } else {
-      exe_path = base_dir / (std::string(exe_name).append(suffix));
+      exe_path = base_dir / std::string(exe_name).append(kSuffix);
     }
-
     if (std::filesystem::exists(exe_path))
       return exe_path;
 #endif

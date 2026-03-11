@@ -1,7 +1,7 @@
 #pragma once
 
 #include "sirius/attributes.h"
-#include "sirius/internal/common.h"
+#include "sirius/inner/common.h"
 
 typedef struct {
   sirius_alignas(void *) unsigned char __data[32];

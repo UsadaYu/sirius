@@ -38,8 +38,8 @@ set(subdir "foundation")
 set(api_files "${subdir}/log.h" "${subdir}/sync.h" "${subdir}/thread.h")
 api_install(subdir api_files)
 
-# internal
-set(subdir "internal")
+# inner
+set(subdir "inner")
 set(api_files "${subdir}/attributes.h" "${subdir}/common.h" "${subdir}/macro.h")
 api_install(subdir api_files)
 

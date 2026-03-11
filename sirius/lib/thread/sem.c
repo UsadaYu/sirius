@@ -27,16 +27,13 @@ sirius_api int sirius_sem_init(sirius_sem_t *sem, int pshared,
    */
   LONG initial = (value > (unsigned)LONG_MAX) ? LONG_MAX : (LONG)value;
   LONG maximum = LONG_MAX;
-
   HANDLE h = CreateSemaphore(nullptr, initial, maximum, nullptr);
   if (!h) {
     const DWORD dw_err = GetLastError();
     foundation_win_last_error(dw_err, "CreateSemaphore");
     return utils_winerr_to_errno(dw_err);
   }
-
   *((HANDLE *)sem) = h;
-
   return 0;
 }
 
@@ -47,9 +44,7 @@ sirius_api int sirius_sem_destroy(sirius_sem_t *sem) {
   BOOL ok = CloseHandle(*((HANDLE *)sem));
   if (!ok)
     return utils_winerr_to_errno(GetLastError());
-
   *((HANDLE *)sem) = nullptr;
-
   return 0;
 }
 
@@ -89,12 +84,11 @@ sirius_api int sirius_sem_trywait(sirius_sem_t *sem) {
 sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
   DWORD timeout_ms;
   uint64_t tm_prev, tm_cur, tm_elapsed;
-
   tm_prev = GetTickCount64();
+
   while (milliseconds > 0) {
     timeout_ms = milliseconds > (uint64_t)(INFINITE - 1) ? INFINITE - 1
                                                          : (DWORD)milliseconds;
-
     DWORD wait_ret = WaitForSingleObject(*((HANDLE *)sem), timeout_ms);
     switch (wait_ret) {
     case WAIT_OBJECT_0:
@@ -104,7 +98,6 @@ sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
       tm_elapsed = tm_cur - tm_prev;
       if (tm_elapsed >= milliseconds)
         return ETIMEDOUT;
-
       milliseconds -= tm_elapsed;
       tm_prev = tm_cur;
       break;
@@ -116,7 +109,6 @@ sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
       return EINVAL;
     }
   }
-
   return ETIMEDOUT;
 }
 
@@ -124,7 +116,6 @@ sirius_api int sirius_sem_post(sirius_sem_t *sem) {
   BOOL ok = ReleaseSemaphore(*((HANDLE *)sem), 1, nullptr);
   if (!ok)
     return utils_winerr_to_errno(GetLastError());
-
   return 0;
 }
 #else
@@ -151,7 +142,6 @@ sirius_api int sirius_sem_wait(sirius_sem_t *sem) {
   do {
     ret = sem_wait((sem_t *)sem);
   } while (ret == -1 && errno == EINTR);
-
   return ret == 0 ? 0 : errno;
 }
 
@@ -161,7 +151,6 @@ sirius_api int sirius_sem_trywait(sirius_sem_t *sem) {
 
 sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
   struct timespec ts;
-
   if (clock_gettime(CLOCK_REALTIME, &ts))
     return errno;
 
@@ -176,7 +165,6 @@ sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
   do {
     ret = sem_timedwait((sem_t *)sem, &ts);
   } while (ret == -1 && errno == EINTR);
-
   return ret == 0 ? 0 : errno;
 }
 

@@ -19,16 +19,16 @@ void destructor_foundation_thread();
 
 #if defined(_MSC_VER)
 #  if defined(_M_IX86)
-#    pragma comment(linker, "/include:_sirius_internal_link_anchor")
+#    pragma comment(linker, "/include:_sirius_foundation_inner_link_anchor")
 #  else
-#    pragma comment(linker, "/include:sirius_foundation_link_anchor_")
+#    pragma comment(linker, "/include:sirius_foundation_inner_link_anchor")
 #  endif
 #elif defined(__GNUC__) || defined(__clang__)
 /**
  * @note `anchor` is not necessary for most non-Windows platforms, but it is
  * still retained here.
  */
-extern int sirius_foundation_link_anchor_;
+extern int sirius_foundation_inner_link_anchor;
 static const int *__sirius_keep_alive __attribute__((used, section(".data"))) =
-  &sirius_foundation_link_anchor_;
+  &sirius_foundation_inner_link_anchor;
 #endif

@@ -11,125 +11,129 @@ namespace bin {
 namespace log {
 using u_io = utils::Io;
 namespace u_log = utils::log;
-namespace ul_shm = u_log::shm;
 namespace u_prcs = utils::process;
 
 class Daemon {
  public:
   Daemon()
-      : should_leave_(u_prcs::sys::check_init_type() !=
-                        u_prcs::sys::InitType::kUnreliableInit &&
-                      u_prcs::sys::check_init_type() !=
-                        u_prcs::sys::InitType::kUnknown),
-        log_shm_(ul_shm::Shm::instance()),
+      : should_leave_(u_prcs::sys_init_type() !=
+                        u_prcs::SysInitType::kUnreliableInit &&
+                      u_prcs::sys_init_type() != u_prcs::SysInitType::kUnknown),
+        log_shm_(u_log::Shm::instance()),
         fd_out_(STDOUT_FILENO),
         fd_err_(STDERR_FILENO) {}
 
   ~Daemon() = default;
 
-  auto main() -> std::expected<void, std::string> {
-    bool main_ret = false;
-    std::string ret_msg;
+  auto main() -> std::expected<void, UTrace> {
+    {
+      u_log::GMutex::LockGuard();
 
-    if (auto ret = ul_shm::GMutex::instance().lock(); !ret.has_value()) {
-      return ret;
-    }
-    if (auto ret = log_shm_.shm_alloc(u_log::MasterType::kDaemon);
-        !ret.has_value()) {
-      ret_msg = ret.error();
-      goto label_free1;
-    } else {
-      master_ = std::move(ret.value());
-    }
-    if (auto ret = master_->slots_alloc(); !ret.has_value()) {
-      ret_msg = ret.error();
-      goto label_free2;
-    }
-    (void)ul_shm::GMutex::instance().unlock();
+      if (auto ret = log_shm_.shm_alloc(u_log::MasterType::kDaemon);
+          !ret.has_value()) {
+        UTRACE_RETURN(ret);
+      } else {
+        master_ = std::move(ret.value());
+      }
 
-    if (auto ret = daemon_main(); !ret.has_value()) {
-      ret_msg = ret.error();
-    } else {
-      main_ret = true;
+      if (auto ret = master_->slots_alloc(); !ret.has_value()) {
+        log_shm_.shm_free();
+        UTRACE_RETURN(ret);
+      }
     }
 
+    auto main_ret = daemon_main();
+    if (!main_ret.has_value()) {
+      main_ret.error().add_context();
+    }
+
+    (void)u_log::GMutex::instance().lock();
     master_->slots_free();
-  label_free2:
-    master_.reset();
     log_shm_.shm_free();
-  label_free1:
-    (void)ul_shm::GMutex::instance().unlock();
+    log_shm_.shm_free();
+    (void)u_log::GMutex::instance().unlock();
 
-    return main_ret ? std::expected<void, std::string> {}
-                    : std::unexpected(ret_msg);
+    return main_ret;
   }
 
   void log_write(int level, const void *buffer, size_t size) {
     int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
-
     utils_write(fd, buffer, size);
   }
 
  private:
   bool should_leave_;
-  ul_shm::Shm &log_shm_;
-  std::unique_ptr<ul_shm::Shm::Master> master_;
+  u_log::Shm &log_shm_;
+  std::unique_ptr<u_log::Shm::Master> master_;
   int fd_out_;
   int fd_err_;
 
-  std::jthread thread_crash_, thread_consumer_, thread_monitor_;
+  class MainStructor {
+   public:
+    MainStructor(Daemon &parent)
+        : parent_(parent), master_(*parent.master_.get()) {
+      io_ln_infosp("Daemon startup (PID: {0})", u_prcs::pid());
 
-  void daemon_setup() {
-    utils::io_outln(IO_ISP("Daemon startup (PID: {0})", u_prcs::pid()));
+      thread_crash_ = std::jthread([this](std::stop_token st) {
+        parent_.thread_crash(st);
+      });
+      thread_consumer_ = std::jthread([this](std::stop_token st) {
+        parent_.thread_consumer(st);
+      });
+      thread_monitor_ = std::jthread([this](std::stop_token st) {
+        parent_.thread_monitor(st);
+      });
 
-    thread_crash_ = std::jthread(std::bind_front(&Daemon::thread_crash, this));
-    thread_consumer_ =
-      std::jthread(std::bind_front(&Daemon::thread_consumer, this));
-    thread_monitor_ =
-      std::jthread(std::bind_front(&Daemon::thread_monitor, this));
-
-    master_->get_shm_header()->is_daemon_ready.store(true,
-                                                     std::memory_order_relaxed);
-  }
-
-  void daemon_teardown() {
-    thread_monitor_.request_stop();
-    thread_consumer_.request_stop();
-    thread_crash_.request_stop();
-
-    if (thread_monitor_.joinable()) {
-      thread_monitor_.join();
-    }
-    if (thread_consumer_.joinable()) {
-      thread_consumer_.join();
-    }
-    if (thread_crash_.joinable()) {
-      thread_crash_.join();
+      master_.get_shm_header()->is_daemon_ready.store(
+        true, std::memory_order_relaxed);
     }
 
-    utils::io_outln(IO_ISP("Daemon teardown (PID: {0})", u_prcs::pid()));
-  }
+    ~MainStructor() {
+      master_.get_shm_header()->is_daemon_ready.store(
+        false, std::memory_order_relaxed);
+
+      thread_monitor_.request_stop();
+      thread_consumer_.request_stop();
+      thread_crash_.request_stop();
+
+      if (thread_monitor_.joinable()) {
+        thread_monitor_.join();
+      }
+      if (thread_consumer_.joinable()) {
+        thread_consumer_.join();
+      }
+      if (thread_crash_.joinable()) {
+        thread_crash_.join();
+      }
+
+      io_ln_infosp("Daemon teardown (PID: {0})", u_prcs::pid());
+    }
+
+   private:
+    Daemon &parent_;
+    u_log::Shm::Master &master_;
+    std::jthread thread_crash_ {}, thread_consumer_ {}, thread_monitor_ {};
+  };
 
   /**
    * @note After this function ends, the `Shm::GMutex` will be held.
    */
-  auto daemon_main() -> std::expected<void, std::string> {
+  auto daemon_main() -> std::expected<void, UTrace> {
+    auto main_structor = MainStructor(*this);
+
     auto header = master_->get_shm_header();
-
-    daemon_setup();
-
     uint64_t sleep_ms = 500;
     while (true) {
       std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
 
-      (void)ul_shm::GMutex::instance().lock();
+      if (auto ret = u_log::GMutex::instance().lock(); !ret.has_value()) {
+        UTRACE_RETURN(ret);
+      }
 
       {
         master_->lock_guard();
-
-        if (header->attached_count <= u_log::kProcessNbDaemon) {
+        if (header->slot_attached_count <= u_log::kProcessNbDaemon) {
           if (should_leave_) {
-            header->is_daemon_ready.store(false, std::memory_order_relaxed);
             break;
           } else {
             sleep_ms = 2500;
@@ -139,25 +143,22 @@ class Daemon {
         }
       }
 
-      (void)ul_shm::GMutex::instance().unlock();
+      (void)u_log::GMutex::instance().unlock();
     }
-
-    daemon_teardown();
 
     return {};
   }
 
   void thread_crash(std::stop_token stop_token) {
     if (auto ret = master_->mutex_crash_lock(); !ret.has_value()) {
-      utils::io_errln(
-        ret.error().append(u_io::row_gs("\n{}", utils_pretty_func)));
+      io_ln_error("{}", ret.error().join_self_all());
       return;
     }
 
     for (uint64_t i = 0; !stop_token.stop_requested();
          std::this_thread::sleep_for(std::chrono::milliseconds(1500))) {
       if (++i % 60 == 0) {
-        utils::io_outln(IO_DSP("Daemon is alive (PID: {0})", u_prcs::pid()));
+        io_ln_infosp("Daemon is alive (PID: {0})", u_prcs::pid());
       }
     }
 
@@ -191,9 +192,9 @@ class Daemon {
 
       uint64_t retry_times = u_log::kShmCapacity - (index_wr - index_rd) + 10;
       if (auto opt_slot = get_slot(index_rd, retry_times); opt_slot) {
-        ul_shm::Slot &slot = opt_slot->get();
-        ul_shm::Buffer &buffer = slot.buffer;
-        if (buffer.type == ul_shm::DataType::kLog) [[likely]] {
+        u_log::ShmSlot &slot = opt_slot->get();
+        u_log::ShmBuf &buffer = slot.buffer;
+        if (buffer.type == u_log::ShmBufDataType::kLog) [[likely]] {
           auto &data = buffer.data.log;
           log_write(buffer.level, (void *)data.buf, data.buf_size);
         } else {
@@ -201,7 +202,7 @@ class Daemon {
           /* ---------------- Not Yet ---------------- */
           /* ----------------------------------------- */
         }
-        slot.state.store(ul_shm::SlotState::kFree, std::memory_order_release);
+        slot.state.store(u_log::ShmSlotState::kFree, std::memory_order_release);
       } else if (stop_token.stop_requested()) {
         break;
       }
@@ -218,23 +219,19 @@ class Daemon {
       std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
       uint64_t now = utils::time::get_monotonic_steady_ms();
-
       for (size_t i = 0; i < u_log::kShmCapacity; ++i) {
-        ul_shm::SlotState s = slots[i].state.load(std::memory_order_acquire);
-
-        if (s == ul_shm::SlotState::kWaiting) {
+        u_log::ShmSlotState s = slots[i].state.load(std::memory_order_acquire);
+        if (s == u_log::ShmSlotState::kWaiting) {
           uint64_t ts = slots[i].timestamp_ms.load(std::memory_order_relaxed);
-          if (now - ts > u_log::kShmSlotResetTimeoutMilliseconds) {
-            utils::io_errln(IO_WSP("Recovering stuck slot: {0}", i));
+          if (now - ts > u_log::kShmSlotResetTimeoutMs) {
+            io_ln_warnsp("Recovering stuck slot: {0}", i);
 
             /**
              * @note Construct a forged log indicating data loss.
              */
-            auto es =
-              IO_WSP("Slot recovered/skipped due to timeout").append("\n");
-            slots[i].buffer.type = ul_shm::DataType::kLog;
+            auto es = io_str_warnsp("Slot recovered/skipped due to timeout");
+            slots[i].buffer.type = u_log::ShmBufDataType::kLog;
             slots[i].buffer.level = SIRIUS_LOG_LEVEL_ERROR;
-
             auto &log = slots[i].buffer.data.log;
             log.buf_size = es.size();
             std::memcpy(log.buf, es.c_str(), log.buf_size + 1);
@@ -243,7 +240,7 @@ class Daemon {
              * @note Let it be `kReady`, so that consumers can read it, thereby
              * advancing the index.
              */
-            slots[i].state.store(ul_shm::SlotState::kReady,
+            slots[i].state.store(u_log::ShmSlotState::kReady,
                                  std::memory_order_release);
           }
         }
@@ -251,17 +248,17 @@ class Daemon {
     }
   }
 
-  [[nodiscard]] std::optional<std::reference_wrapper<ul_shm::Slot>>
+  [[nodiscard]] std::optional<std::reference_wrapper<u_log::ShmSlot>>
   get_slot(const uint64_t read_index, const int retry_times) {
     size_t slot_idx = read_index & (u_log::kShmCapacity - 1);
-    ul_shm::Slot &slot = master_->get_shm_slots()[slot_idx];
+    u_log::ShmSlot &slot = master_->get_shm_slots()[slot_idx];
 
     int retries = 0;
     while (slot.state.load(std::memory_order_acquire) !=
-           ul_shm::SlotState::kReady) {
+           u_log::ShmSlotState::kReady) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (++retries > retry_times) {
-        utils::io_errln(IO_WSP("Skip corrupted slot index: {0}", read_index));
+        io_ln_warnsp("Skip corrupted slot index: {0}", read_index);
         return std::nullopt;
       }
     }

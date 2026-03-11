@@ -20,8 +20,8 @@ sirius_interface_link_args = interface_link_args
 sirius_sources = []
 
 sirius_sources += [
-  'internal/initializer.c',
-  'internal/thread.cpp',
+  'inner/initializer.c',
+  'inner/thread.cpp',
 ]
 sirius_sources += [
   'sirius_cond.c',

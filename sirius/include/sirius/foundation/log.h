@@ -85,12 +85,9 @@ extern "C" {
  * @brief Set the path of the log executable file.
  */
 sirius_api int sirius_log_set_exe_path(const char *path);
-
 sirius_api void sirius_log_configure(const sirius_log_config_t *cfg);
-
 sirius_api void sirius_log_impl(int level, const char *module, const char *file,
                                 int line, const char *fmt, ...);
-
 sirius_api void sirius_logsp_impl(int level, const char *module,
                                   const char *fmt, ...);
 

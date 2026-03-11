@@ -3,7 +3,7 @@
 #include <queue>
 #include <thread>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 static constexpr int kNbProducers = 4;
 static constexpr int kNbConsumers = 4;

@@ -21,13 +21,13 @@
 #endif
 
 /**
- * @brief On POSIX, the temporary directory for the files.
+ * @brief The temporary directory for the files.
  *
  * @example
- * CFLAGS += -D_SIRIUS_POSIX_TMP_DIR='"$(_SIRIUS_POSIX_TMP_DIR)"'
+ * CFLAGS += -D_SIRIUS_TMP_DIR='"$(_SIRIUS_TMP_DIR)"'
  */
-#ifndef _SIRIUS_POSIX_TMP_DIR
-#  define _SIRIUS_POSIX_TMP_DIR "/var/run/"
+#ifndef _SIRIUS_TMP_DIR
+#  define _SIRIUS_TMP_DIR ""
 #endif
 
 /**

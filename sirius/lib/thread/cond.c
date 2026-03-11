@@ -1,6 +1,6 @@
 #include "sirius/thread/cond.h"
 
-#include "lib/thread/internal/mutex.h"
+#include "lib/thread/inner/mutex.h"
 #include "utils/errno.h"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -21,7 +21,6 @@ sirius_cond_init(sirius_cond_t *__restrict cond,
    */
   (void)type;
   InitializeConditionVariable((CONDITION_VARIABLE *)cond);
-
   return 0;
 }
 
@@ -30,7 +29,6 @@ sirius_api int sirius_cond_destroy(sirius_cond_t *cond) {
    * @note Windows condition variables don't require explicit destruction.
    */
   (void)cond;
-
   return 0;
 }
 
@@ -48,7 +46,6 @@ sirius_api int sirius_cond_wait(sirius_cond_t *__restrict cond,
       return utils_winerr_to_errno(GetLastError());
     }
   }
-
   return 0;
 }
 
@@ -59,7 +56,6 @@ sirius_api int sirius_cond_timedwait(sirius_cond_t *__restrict cond,
   sirius_mutex_s *m = (sirius_mutex_s *)mutex;
   DWORD timeout_ms;
   uint64_t tm_prev, tm_cur, tm_elapsed;
-
   tm_prev = GetTickCount64();
 
 #  define E \
@@ -96,20 +92,17 @@ sirius_api int sirius_cond_timedwait(sirius_cond_t *__restrict cond,
 #  undef C
   }
 
-#  undef E
-
   return ETIMEDOUT;
+#  undef E
 }
 
 sirius_api int sirius_cond_signal(sirius_cond_t *cond) {
   WakeConditionVariable((CONDITION_VARIABLE *)cond);
-
   return 0;
 }
 
 sirius_api int sirius_cond_broadcast(sirius_cond_t *cond) {
   WakeAllConditionVariable((CONDITION_VARIABLE *)cond);
-
   return 0;
 }
 #else
@@ -138,7 +131,6 @@ sirius_cond_init(sirius_cond_t *__restrict cond,
 
   ret = pthread_cond_init((pthread_cond_t *)cond, &attr);
   pthread_condattr_destroy(&attr);
-
   return ret;
 }
 
@@ -164,7 +156,6 @@ sirius_api int sirius_cond_timedwait(sirius_cond_t *__restrict cond,
     ts.tv_sec += ts.tv_nsec / 1000000000L;
     ts.tv_nsec = ts.tv_nsec % 1000000000L;
   }
-
   return pthread_cond_timedwait((pthread_cond_t *)cond,
                                 (pthread_mutex_t *)mutex, &ts);
 }

@@ -1,11 +1,10 @@
 #include <sirius/thread/thread.h>
 
-#include <filesystem>
 #include <iomanip>
 #include <mutex>
 #include <thread>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 static constexpr int kNbThreads = 128;
 

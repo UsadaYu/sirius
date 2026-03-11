@@ -1,4 +1,4 @@
-#include "lib/thread/internal/thread.h"
+#include "lib/thread/inner/thread.h"
 
 #include "utils/io.hpp"
 
@@ -34,11 +34,9 @@ class ThreadResourceManager {
     manager_is_alive() = false;
 
     std::lock_guard lock(mutex);
-
     for (auto thr : active_threads) {
       if (thr && !thr->resource_is_free) {
         thr->resource_is_free = true;
-
         sirius_spin_destroy(&thr->spin);
         free(thr);
       }
@@ -56,7 +54,6 @@ class ThreadResourceManager {
 
   inline void mark(sirius_thread_t thr) {
     std::lock_guard lock(mutex);
-
     active_threads.insert(thr);
   }
 
@@ -66,7 +63,6 @@ class ThreadResourceManager {
     if (thr && !thr->resource_is_free) {
       thr->resource_is_free = true;
       active_threads.erase(thr);
-
       sirius_spin_destroy(&thr->spin);
       CloseHandle(thr->handle);
       free(thr);
@@ -88,9 +84,7 @@ inline int win_try_cleanup(sirius_thread_t thr) {
   bool should_free = false;
 
   sirius_spin_lock(&thr->spin);
-
   thr->finished = true;
-
   if (thr->detached) {
     /**
      * @note Detached threads uniformly release resources through their child
@@ -98,7 +92,6 @@ inline int win_try_cleanup(sirius_thread_t thr) {
      */
     should_free = true;
   }
-
   sirius_spin_unlock(&thr->spin);
 
   if (should_free) {
@@ -114,18 +107,15 @@ inline bool has_been_destructed() {
     return false;
 
   static std::atomic<bool> once_print = false;
-
   if (once_print.exchange(true, std::memory_order_relaxed))
     return true;
 
-  auto es = IO_E(
+  io_ln_warnsp(
     "\n---------- Fatal Error ----------"
     "\nThe thread manager has been destructed"
     "\nThe `main` function may have already ended"
     "\nOr some unknown errors occurred"
     "\nThere should be no further operations on the thread");
-  utils::io_ln_fd(STDERR_FILENO, es);
-
   return true;
 }
 #endif
@@ -143,7 +133,6 @@ extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
 
   DWORD dw_err = 0;
   sirius_thread_t thr = warg.thr;
-
   if (!sirius_foundation_thread_tls_set_value(thr, &dw_err)) {
     if (has_been_destructed()) {
       /**
@@ -155,9 +144,7 @@ extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
     }
 
     foundation_win_last_error(dw_err, "TlsSetValue");
-
     win_try_cleanup(thr);
-
     return utils_winerr_to_errno(dw_err);
   }
 
@@ -205,18 +192,14 @@ extern "C" sirius_api int sirius_thread_detach(sirius_thread_t thread) {
   bool should_free_now = false;
 
   sirius_spin_lock(&thread->spin);
-
   if (thread->detached) {
     sirius_spin_unlock(&thread->spin);
     return EINVAL;
   }
-
   thread->detached = 1;
-
   if (thread->finished) {
     should_free_now = true;
   }
-
   sirius_spin_unlock(&thread->spin);
 
   g_manager.mark(thread);
@@ -228,7 +211,6 @@ extern "C" sirius_api int sirius_thread_detach(sirius_thread_t thread) {
      * kernel object for safety).
      */
     WaitForSingleObject(thread->handle, 0);
-
     g_manager.resource_free(thread);
   }
 

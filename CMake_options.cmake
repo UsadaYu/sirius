@@ -14,9 +14,9 @@ set(SIRIUS_POSIX_FILE_MODE
     "0775"
     CACHE STRING "On POSIX, the permissions of the created files")
 
-set(SIRIUS_POSIX_TMP_DIR
-    "/var/tmp/"
-    CACHE STRING "On POSIX, the temporary directory for the files")
+set(SIRIUS_TMP_DIR
+    ""
+    CACHE STRING "The temporary directory for the files")
 
 set(SIRIUS_USER_KEY
     "d32d87be6fe35062a7945ffd4f4a69d4"

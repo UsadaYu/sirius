@@ -1,6 +1,6 @@
 #include <sirius/thread/mutex.h>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 static sirius_mutex_t g_mutex = SIRIUS_MUTEX_INITIALIZER;
 

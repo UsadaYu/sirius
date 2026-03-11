@@ -1,8 +1,6 @@
-# sirius-0.3.14
+# sirius-0.3.15
 
 ---
-
-
 
 # 1 Build and Compile
 
@@ -29,8 +27,6 @@ cmake --build build --target install
 ctest --test-dir build --verbose -j4
 ```
 
-
-
 ## 1.2 Meson
 
 ```shell
@@ -52,6 +48,3 @@ meson install -C builddir
 # --- Run Tests ---
 meson test -C builddir --verbose --num-processes 4
 ```
-
-
-

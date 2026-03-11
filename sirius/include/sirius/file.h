@@ -22,7 +22,6 @@
 static inline const char *_sirius_basename(const char *path) {
   const char *p = path;
   const char *last = path;
-
   while (*p) {
     if (*p == '/'
 #  if defined(_WIN32) || defined(_WIN64)

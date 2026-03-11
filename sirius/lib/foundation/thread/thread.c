@@ -195,7 +195,6 @@ bool constructor_foundation_thread() {
       return false;
     }
   }
-
   return true;
 }
 
@@ -205,7 +204,6 @@ sirius_api BOOL sirius_foundation_thread_tls_set_value(LPVOID lpTlsValue,
   if (dw_err) {
     *dw_err = GetLastError();
   }
-
   return ret;
 }
 
@@ -214,7 +212,6 @@ sirius_api LPVOID sirius_foundation_thread_tls_get_value(DWORD *dw_err) {
   if (dw_err) {
     *dw_err = GetLastError();
   }
-
   return ret;
 }
 #else

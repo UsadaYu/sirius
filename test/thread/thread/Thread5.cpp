@@ -7,7 +7,7 @@
 #include <random>
 #include <thread>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 static constexpr int kNbThreads = 48;
 

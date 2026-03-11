@@ -35,7 +35,6 @@ class Parser {
      * @brief If not empty, only these values are allowed.
      */
     std::vector<std::string> allowed_values;
-
     std::string help;
   };
 
@@ -47,46 +46,42 @@ class Parser {
   auto add_option(const std::string &option, bool requires_value,
                   const std::vector<std::string> &allowed_values = {},
                   bool required = false, bool multiple = false,
-                  const std::string &help = {})
-    -> std::expected<void, std::string> {
-    OptionSpec s;
-
+                  const std::string &help = {}) -> std::expected<void, UTrace> {
     if (first_valid_pos(option) != 0 || option.contains("=")) {
-      auto es = IO_E(
+      auto es = std::format(
         "\nInvalid argument. `option`: {0}"
         "\nThe option string cannot start with empty or contain `=`",
         option);
-      return std::unexpected(es);
+      return std::unexpected(UTrace(std::move(es)));
     }
 
     if (requires_value) {
       if (allowed_values.empty()) {
-        return std::unexpected(
-          IO_E("Missing value for option `--{0}`", option));
+        auto es = std::format("Missing value for option `--{0}`", option);
+        return std::unexpected(UTrace(std::move(es)));
       }
-
       for (auto v : allowed_values) {
         if (first_valid_pos(v) != 0 || v.starts_with("--")) {
-          auto es = IO_E(
+          auto es = std::format(
             "\nInvalid argument. option `--{0}`, `value`: {1}"
             "\nThe value string cannot start with empty or `--`",
             option, v);
-          return std::unexpected(es);
+          return std::unexpected(UTrace(std::move(es)));
         }
       }
     }
 
+    OptionSpec s;
     s.requires_value = requires_value;
     s.allowed_values = std::move(allowed_values);
     s.required = required;
     s.multiple = multiple;
     s.help = help;
     specs_[option] = std::move(s);
-
     return {};
   }
 
-  bool is_option_token(std::string_view token) const {
+  static bool is_option_token(std::string_view token) {
     return token.starts_with("--");
   }
 
@@ -98,34 +93,31 @@ class Parser {
    * @note Support the form: --option=value.
    */
   auto extract(std::string_view token, std::string &option, std::string &value)
-    -> std::expected<void, std::string> {
+    -> std::expected<void, UTrace> {
     constexpr size_t kOptionPos = 2;
 
     if (!is_option_token(token) ||
         first_valid_pos(token.substr(kOptionPos)) != 0) {
-      return std::unexpected(
-        IO_E("Invalid argument. `token` (option): {0}", token));
+      auto es = std::format("Invalid argument. `token` (option): {0}", token);
+      return std::unexpected(UTrace(std::move(es)));
     }
 
     if (size_t eq = token.find('=', kOptionPos); eq != std::string_view::npos) {
       option = token.substr(kOptionPos, eq - kOptionPos);
       value = token.substr(eq + 1);
-
       if (first_valid_pos(value) != 0) {
-        return std::unexpected(
-          IO_E("Missing valid value for option `--{0}`", option));
+        auto es = std::format("Missing valid value for option `--{0}`", option);
+        return std::unexpected(UTrace(std::move(es)));
       }
-
       return {};
     }
 
     option = token.substr(kOptionPos);
     value = {};
-
     return {};
   }
 
-  auto parse(int argc, char **argv) -> std::expected<void, std::string> {
+  auto parse(int argc, char **argv) -> std::expected<void, UTrace> {
     parsed_.clear();
 
     for (int i = 1; i < argc; ++i) {
@@ -133,22 +125,21 @@ class Parser {
       std::string option, value;
 
       if (auto ret = extract(token, option, value); !ret.has_value()) {
-        return std::unexpected(ret.error());
+        UTRACE_RETURN(ret);
       }
 
       const OptionSpec *spec = nullptr;
       if (auto it = specs_.find(option); it == specs_.end()) {
-        return std::unexpected(IO_E("Invalid argument. `option`: {0}", option));
+        auto es = std::format("Invalid argument. `option`: {0}", option);
+        return std::unexpected(UTrace(std::move(es)));
       } else {
         spec = &it->second;
       }
-
       if (!spec->multiple && parsed_.count(option) &&
           !parsed_[option].empty()) {
-        return std::unexpected(
-          IO_E("Option `--{0}` may only appear once", option));
+        auto es = std::format("Option `--{0}` may only appear once", option);
+        return std::unexpected(UTrace(std::move(es)));
       }
-
       if (!spec->requires_value) {
         parsed_[option].push_back("__PLACEHOLDER__");
         continue;
@@ -157,19 +148,20 @@ class Parser {
       if (value.empty()) {
         if (i + 1 >= argc || is_option_token(argv[i + 1]) ||
             first_valid_pos(argv[i + 1]) != 0) {
-          return std::unexpected(
-            IO_E("Missing valid value for option `--{0}`", option));
+          auto es =
+            std::format("Missing valid value for option `--{0}`", option);
+          return std::unexpected(UTrace(std::move(es)));
         }
         value = std::string(argv[++i]);
       }
 
       // requires_value
       if (!std::ranges::contains(spec->allowed_values, value)) {
-        auto es = IO_E(
+        auto es = std::format(
           "\nInvalid argument. The `value` for option `--{0}`. "
           "Actual: {1}; Allowed: {2}",
           option, value, vector_join(spec->allowed_values, ", "));
-        return std::unexpected(es);
+        return std::unexpected(UTrace(std::move(es)));
       }
 
       parsed_[option].push_back(value);
@@ -178,8 +170,8 @@ class Parser {
     for (auto const &[option, spec] : specs_) {
       if (spec.required) {
         if (!parsed_.count(option) || parsed_.at(option).empty()) {
-          return std::unexpected(
-            IO_E("Required option missing `--{0}`", option));
+          auto es = std::format("Required option missing `--{0}`", option);
+          return std::unexpected(UTrace(std::move(es)));
         }
       }
     }
@@ -198,11 +190,9 @@ class Parser {
                   const std::string &def = "") const {
     if (!has(option))
       return def;
-
     auto it = specs_.find(option);
     if (it == specs_.end())
       return def;
-
     return it->second.requires_value ? parsed_.at(option).front() : def;
   }
 
@@ -212,36 +202,36 @@ class Parser {
   std::vector<std::string> get_all(const std::string &option) const {
     if (!has(option))
       return {};
-
     auto it = specs_.find(option);
     if (it == specs_.end())
       return {};
-
     return it->second.requires_value ? parsed_.at(option)
                                      : std::vector<std::string> {};
   }
 
   void print_usage(std::string_view prog_name) const {
-    io_outln(std::string("Usage: ").append(prog_name).append(
+    io_msg_outln(std::string("Usage: ").append(prog_name).append(
       " [options]\n\nOptions:"));
-
     for (auto const &[option, spec] : specs_) {
       std::string line = std::string("  --").append(option);
-      if (spec.requires_value)
-        line += " <value>";
+      if (spec.requires_value) {
+        line.append(" <value>");
+      }
       if (!spec.help.empty()) {
-        line += std::string("  ").append(spec.help);
+        line.append("  ").append(spec.help);
       }
       if (!spec.allowed_values.empty()) {
-        line += " (allowed: " + vector_join(spec.allowed_values, "|") + ")";
+        line.append(" (allowed: ")
+          .append(vector_join(spec.allowed_values, "|"))
+          .append(")");
       }
       if (spec.required) {
-        line += " [required]";
+        line.append(" [required]");
       }
       if (spec.multiple) {
-        line += " [multiple]";
+        line.append(" [multiple]");
       }
-      io_outln(line);
+      io_msg_outln(line);
     }
   }
 
@@ -257,21 +247,18 @@ class Parser {
       if (char ch = s.at(i); !std::isspace(ch) && ch != '\0')
         return i;
     }
-
     return std::string_view::npos;
   }
 
   static std::string vector_join(const std::vector<std::string> &v,
                                  std::string_view sep) {
     std::string s;
-
     for (size_t i = 0; i < v.size(); ++i) {
       if (i) {
         s.append(sep);
       }
       s.append(v[i]);
     }
-
     return s;
   }
 };

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sirius/internal/attributes.h"
+#include "sirius/inner/attributes.h"
 
 // --- force_inline ---
 #ifndef force_inline

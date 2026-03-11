@@ -12,7 +12,6 @@ static int win_map_flags(int flags) {
   int os_flags = 0;
 
   os_flags |= _O_BINARY;
-
   if (flags & kSIRIUS_O_RDONLY) {
     os_flags |= _O_RDONLY;
   }
@@ -61,7 +60,6 @@ sirius_api int sirius_open(const char *path, int flags, int mode) {
    * @note _SH_DENYNO: Allow other processes to read and write.
    */
   errno_t err = _sopen_s(&fd, path, os_flags, _SH_DENYNO, os_mode);
-
   if (err != 0) {
     /**
      * @note When `_sopen_s` fails, it will set `errno`, but also return an
@@ -71,7 +69,6 @@ sirius_api int sirius_open(const char *path, int flags, int mode) {
     errno = err;
     return -1;
   }
-
   return fd;
 }
 

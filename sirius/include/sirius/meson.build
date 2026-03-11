@@ -32,8 +32,8 @@ api_sirius += [
 ]
 install_headers(api_sirius, subdir: join_paths('sirius', subdir))
 
-# internal
-subdir = join_paths('internal')
+# inner
+subdir = join_paths('inner')
 api_sirius = []
 api_sirius += [
   join_paths(subdir, 'attributes.h'),

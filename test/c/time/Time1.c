@@ -1,6 +1,6 @@
 #include <sirius/c/time.h>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 int main() {
   utils_init();

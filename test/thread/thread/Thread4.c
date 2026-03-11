@@ -6,7 +6,7 @@
 #include <sirius/thread/spinlock.h>
 #include <sirius/thread/thread.h>
 
-#include "internal/utils.h"
+#include "inner/utils.h"
 
 #define NB_GROUPS 4
 #define INDEX_INIT (-1)

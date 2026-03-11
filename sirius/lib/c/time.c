@@ -44,7 +44,6 @@ sirius_api void sirius_usleep(uint64_t usec) {
       QueryPerformanceCounter(&end);
       if (end.QuadPart >= target)
         break;
-
       sirius_os_yield();
     } while (1);
   }
@@ -56,7 +55,6 @@ sirius_api void sirius_usleep(uint64_t usec) {
   struct timespec req, rem;
   req.tv_sec = usec / 1000000ULL;
   req.tv_nsec = (usec % 1000000ULL) * 1000ULL;
-
   while (nanosleep(&req, &rem) == -1) {
     if (errno == EINTR) {
       req.tv_sec = rem.tv_sec;
@@ -75,7 +73,6 @@ sirius_api void sirius_nsleep(uint64_t nsec) {
 #if defined(_WIN32) || defined(_WIN64)
   uint64_t sleep_ms = nsec / 1000000ULL;
   uint64_t remaining_nsec = nsec % 1000000ULL;
-
   TIMECAPS tc;
   UINT period = 1;
   if (timeGetDevCaps(&tc, sizeof(TIMECAPS)) == TIMERR_NOERROR) {
@@ -99,7 +96,6 @@ sirius_api void sirius_nsleep(uint64_t nsec) {
     double remaining_seconds = (double)remaining_nsec / 1e9;
     LONGLONG target =
       start.QuadPart + (LONGLONG)(remaining_seconds * freq.QuadPart);
-
     do {
       QueryPerformanceCounter(&end);
       if (end.QuadPart >= target)
@@ -116,7 +112,6 @@ sirius_api void sirius_nsleep(uint64_t nsec) {
   struct timespec req, rem;
   req.tv_sec = nsec / 1000000000ULL;
   req.tv_nsec = nsec % 1000000000ULL;
-
   while (nanosleep(&req, &rem) == -1) {
     if (errno == EINTR) {
       req.tv_sec = rem.tv_sec;
@@ -132,13 +127,11 @@ sirius_api uint64_t sirius_get_clock_monotonic_us() {
 #if defined(_WIN32) || defined(_WIN64)
   static LARGE_INTEGER qpc_frequency_us = {0};
   LARGE_INTEGER counter;
-
   if (unlikely(qpc_frequency_us.QuadPart == 0)) {
     if (unlikely(!QueryPerformanceFrequency(&qpc_frequency_us))) {
       return 0;
     }
   }
-
   if (unlikely(!QueryPerformanceCounter(&counter)))
     return 0;
 
@@ -161,12 +154,10 @@ sirius_api uint64_t sirius_get_clock_monotonic_ns() {
 #if defined(_WIN32) || defined(_WIN64)
   static LARGE_INTEGER frequency = {0};
   LARGE_INTEGER counter;
-
   if (unlikely(frequency.QuadPart == 0)) {
     if (unlikely(!QueryPerformanceFrequency(&frequency)))
       return 0;
   }
-
   if (unlikely(!QueryPerformanceCounter(&counter)))
     return 0;
 
