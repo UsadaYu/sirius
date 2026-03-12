@@ -61,20 +61,14 @@ class Args {
 
  private:
   auto init(int argc, char **argv) -> std::expected<void, UTrace> {
-    std::expected<void, UTrace> ret;
-#define E(expr) \
-  do { \
-    ret = expr; \
-    if (!ret.has_value()) { \
-      UTRACE_RETURN(ret); \
-    } \
-  } while (0)
+#define E(expr) and_then([&]() { return (expr); })
 
     // clang-format off
-    E(parser.add_option(kArgHelp, false, {}, false, false, "Helper"));
-    E(parser.add_option(kArgVersion, false, {}, false, false, "Print version"));
-    E(parser.add_option(kArgDaemon, true, {kArgDaemonSpawn}, false, false, "Daemon"));
-    E(parser.parse(argc, argv));
+    return parser.add_option(kArgHelp, false, {}, false, false, "Helper")
+      .E(parser.add_option(kArgVersion, false, {}, false, false, "Print version"))
+      .E(parser.add_option(kArgDaemon, true, {kArgDaemonSpawn}, false, false, "Daemon"))
+      .E(parser.parse(argc, argv))
+      .utrace_transform_error_default();
     // clang-format on
 
     return {};

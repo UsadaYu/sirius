@@ -91,7 +91,7 @@ class FMutex {
     if (auto ret = ns::Mutex::instance().file_lock_path(file_name);
         !ret.has_value()) {
       ret.error().msg_append(Inner::line_pid());
-      UTRACE_RETURN(ret);
+      utrace_return(ret);
     } else {
       lock_path = std::move(ret.value());
     }

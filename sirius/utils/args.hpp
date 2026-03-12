@@ -125,7 +125,7 @@ class Parser {
       std::string option, value;
 
       if (auto ret = extract(token, option, value); !ret.has_value()) {
-        UTRACE_RETURN(ret);
+        utrace_return(ret);
       }
 
       const OptionSpec *spec = nullptr;

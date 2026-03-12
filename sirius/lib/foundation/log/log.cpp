@@ -93,7 +93,7 @@ class SharedManager {
       if (auto ret = log_shm_.shm_alloc(u_log::MasterType::kNative);
           !ret.has_value()) {
         initialized_.store(false, std::memory_order_relaxed);
-        UTRACE_RETURN(ret);
+        utrace_return(ret);
       } else {
         master_ = std::move(ret.value());
       }
@@ -101,7 +101,7 @@ class SharedManager {
       if (auto ret = master_->slots_alloc(); !ret.has_value()) {
         log_shm_.shm_free();
         initialized_.store(false, std::memory_order_relaxed);
-        UTRACE_RETURN(ret);
+        utrace_return(ret);
       }
 
       if (try_spawner()) {
@@ -109,7 +109,7 @@ class SharedManager {
           master_->slots_free();
           log_shm_.shm_free();
           initialized_.store(false, std::memory_order_relaxed);
-          UTRACE_RETURN(ret);
+          utrace_return(ret);
         }
       }
 
@@ -117,7 +117,7 @@ class SharedManager {
         master_->slots_free();
         log_shm_.shm_free();
         initialized_.store(false, std::memory_order_relaxed);
-        UTRACE_RETURN(ret);
+        utrace_return(ret);
       }
     }
 
@@ -427,7 +427,7 @@ inline std::mutex g_shared_mutex {};
 inline uint64_t g_shared_try_times = 0;
 inline uint64_t g_shared_try_timestamp_ms = 0;
 inline constexpr uint64_t kSharedRetryTimeIntervalMilliseconds = 15 * 1000;
-inline std::unique_ptr<SharedManager> g_shared_manager {};
+static std::unique_ptr<SharedManager> g_shared_manager {};
 
 inline void g_shared_log_manager_deinit(void) {
   g_shared_manager->deinit();

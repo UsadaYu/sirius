@@ -186,7 +186,7 @@ class Shm {
     }
 
     auto slots_alloc() -> std::expected<void, UTrace> {
-      if (parent_.is_shm_creator_) {
+      if (is_shm_creator()) {
         header_->is_daemon_ready.store(false);
         header_->spawner_timestamp = 0;
         header_->slot_attached_count = 0;
@@ -195,22 +195,24 @@ class Shm {
         }
         header_->write_index.store(0);
         header_->read_index.store(0);
-
-        if (auto ret = master_alloc(); !ret.has_value())
-          UTRACE_RETURN(ret);
-        header_->magic = ShmHeader::kMagicHeader;
       } else {
-        if (header_->magic != ShmHeader::ShmHeader::kMagicHeader) {
+        if (header_->magic != ShmHeader::kMagicHeader) {
           auto es = std::format("Invalid argument. `magic`: {0}{1}",
                                 header_->magic, line_pid());
           return std::unexpected(UTrace(std::move(es)));
         }
-
-        if (auto ret = master_alloc(); !ret.has_value())
-          UTRACE_RETURN(ret);
       }
 
-      return {};
+      return master_alloc()
+        .and_then([&]() -> std::expected<void, UTrace> {
+          header_->magic =
+            is_shm_creator() ? ShmHeader::kMagicHeader : header_->magic;
+          return {};
+        })
+        .transform_error([&](UTrace &&e) {
+          e.msg_append(std::format("Shm creator: {0}", is_shm_creator()));
+          utrace_transform_error(e);
+        });
     }
 
     /**
@@ -264,9 +266,9 @@ class Shm {
 
       switch (master_type_) {
       case MasterType::kDaemon:
-        return daemon_master_alloc();
+        return daemon_master_alloc().utrace_transform_error_default();
       case MasterType::kNative:
-        return native_master_alloc();
+        return native_master_alloc().utrace_transform_error_default();
       default:
         return std::unexpected(UTrace("Invalid argument. `master_type_`"));
       }
@@ -354,11 +356,13 @@ class Shm {
         return std::unexpected(UTrace("Another daemon already exists"));
       }
 
-      if (auto ret = slot_alloc(); !ret.has_value())
-        UTRACE_RETURN(ret);
-      thread_guard_ =
-        std::jthread(std::bind_front(&Master::daemon_thread_guard, this));
-      return {};
+      return slot_alloc()
+        .and_then([&]() -> std::expected<void, UTrace> {
+          thread_guard_ =
+            std::jthread(std::bind_front(&Master::daemon_thread_guard, this));
+          return {};
+        })
+        .utrace_transform_error_default();
     }
 
     void daemon_thread_guard(std::stop_token stop_token) {
@@ -391,7 +395,7 @@ class Shm {
 
     auto native_master_alloc() -> std::expected<void, UTrace> {
       if (auto ret = slot_alloc(); !ret.has_value())
-        UTRACE_RETURN(ret);
+        utrace_return(ret);
 
       thread_guard_ =
         std::jthread(std::bind_front(&Master::native_thread_guard, this));
@@ -467,17 +471,16 @@ class Shm {
       return std::unexpected(UTrace(std::move(es)));
     }
 
-    if (auto ret = open_shm(); !ret.has_value()) {
-      initialized_.store(false, std::memory_order_seq_cst);
-      UTRACE_RETURN(ret);
-    }
-    if (auto ret = memory_map(); !ret.has_value()) {
-      close_shm();
-      initialized_.store(false, std::memory_order_seq_cst);
-      UTRACE_RETURN(ret);
-    }
-
-    return std::make_unique<Master>(MasterToken {}, *this, master_type);
+    return open_shm()
+      .and_then([&]() { return memory_map(); })
+      .and_then([&]() -> std::expected<std::unique_ptr<Master>, UTrace> {
+        return std::make_unique<Master>(MasterToken {}, *this, master_type);
+      })
+      .transform_error([&](UTrace &&e) {
+        close_shm();
+        initialized_.store(false, std::memory_order_seq_cst);
+        utrace_transform_error(e);
+      });
   }
 
   void shm_free() {
@@ -547,15 +550,16 @@ class Shm {
       const DWORD dw_err = GetLastError();
       return std::unexpected(UTrace(c_error(dw_err, "MapViewOfFile")));
     }
-    header_ = static_cast<ShmHeader *>(ptr);
 
-    if (auto ret = mutex_create(); !ret.has_value()) {
-      UnmapViewOfFile(header_);
-      header_ = nullptr;
-      UTRACE_RETURN(ret);
-    }
-
-    return {};
+    return mutex_create()
+      .transform_error([&](UTrace &&e) {
+        UnmapViewOfFile(ptr);
+        utrace_transform_error(e);
+      })
+      .and_then([&]() -> std::expected<void, UTrace> {
+        header_ = static_cast<ShmHeader *>(ptr);
+        return {};
+      });
   }
 
   void memory_unmap() {
@@ -620,15 +624,16 @@ class Shm {
       const int errno_err = errno;
       return std::unexpected(UTrace(c_error(errno_err, "mmap")));
     }
-    header_ = static_cast<ShmHeader *>(ptr);
 
-    if (auto ret = mutex_create(); !ret.has_value()) {
-      munmap(header_, kTotalShmSize);
-      header_ = nullptr;
-      UTRACE_RETURN(ret);
-    }
-
-    return {};
+    return mutex_create()
+      .transform_error([&](UTrace &&e) {
+        munmap(ptr, kTotalShmSize);
+        utrace_transform_error(e);
+      })
+      .and_then([&]() -> std::expected<void, UTrace> {
+        header_ = static_cast<ShmHeader *>(ptr);
+        return {};
+      });
   }
 
   void memory_unmap() {
@@ -650,47 +655,38 @@ class Shm {
 #endif
 
   auto mutex_create() -> std::expected<void, UTrace> {
-#if defined(_WIN32) || defined(_WIN64)
-#  define fn_create() process::GMutex::create(M_ARG)
-#else
-#  define fn_create() process::GMutex::create(M_ARG, is_shm_creator_)
-#endif
     auto fn_destroy = [&](std::optional<process::GMutex> &mutex) {
-      if (is_shm_creator_) {
+      if (is_shm_creator_ && mutex.has_value()) {
         mutex->destroy();
         mutex.reset();
       }
     };
 
 #if defined(_WIN32) || defined(_WIN64)
-#  define M_ARG (kMutexShmKey)
+#  define E() process::GMutex::create(kMutexShmKey)
 #else
-#  define M_ARG (&header_->mutex_shm)
+#  define E() process::GMutex::create(&header_->mutex_shm, is_shm_creator_)
 #endif
-    if (auto ret = fn_create(); !ret.has_value()) {
-      UTRACE_RETURN(ret);
-    } else {
-      mutex_shm_.emplace(std::move(ret.value()));
-    }
-#undef M_ARG
-
+    return E()
+#undef E
+      .and_then([&](auto var) {
+        mutex_shm_.emplace(std::move(var));
 #if defined(_WIN32) || defined(_WIN64)
-#  define M_ARG (kMutexCrashKey)
+#  define E() process::GMutex::create(kMutexCrashKey)
 #else
-#  define M_ARG (&header_->mutex_crash)
+#  define E() process::GMutex::create(&header_->mutex_crash, is_shm_creator_)
 #endif
-    if (auto ret = fn_create(); !ret.has_value()) {
-      if (is_shm_creator_) {
+        return E();
+#undef E
+      })
+      .and_then([&](auto var) -> std::expected<void, UTrace> {
+        mutex_crash_.emplace(std::move(var));
+        return {};
+      })
+      .transform_error([&](UTrace &&e) {
         fn_destroy(mutex_shm_);
-      }
-      UTRACE_RETURN(ret);
-    } else {
-      mutex_crash_.emplace(std::move(ret.value()));
-    }
-#undef M_ARG
-
-    return {};
-#undef fn_create
+        utrace_transform_error(e);
+      });
   }
 
   void mutex_destroy() {
@@ -752,12 +748,14 @@ class GMutex {
   }
 
   auto lock() -> std::expected<void, UTrace> {
-    if (auto ret = mutex_->lock(); !ret.has_value())
-      UTRACE_RETURN(ret);
-    return {};
+    return mutex_->lock()
+      .and_then([&](auto) -> std::expected<void, UTrace> { return {}; })
+      .utrace_transform_error_default();
   }
 
-  auto unlock() -> std::expected<void, UTrace> { return mutex_->unlock(); }
+  auto unlock() -> std::expected<void, UTrace> {
+    return mutex_->unlock().utrace_transform_error_default();
+  }
 
   class LockGuard {
    public:
@@ -791,12 +789,12 @@ class GMutex {
   std::optional<hmutex> mutex_ {};
 
   auto create() -> std::expected<void, UTrace> {
-    if (auto ret = hmutex::create(kMutexProcessKey); !ret.has_value()) {
-      UTRACE_RETURN(ret);
-    } else {
-      mutex_.emplace(std::move(ret.value()));
-    }
-    return {};
+    return hmutex::create(kMutexProcessKey)
+      .and_then([&](auto var) -> std::expected<void, UTrace> {
+        mutex_.emplace(std::move(var));
+        return {};
+      })
+      .utrace_transform_error_default();
   }
 
   void destroy() {

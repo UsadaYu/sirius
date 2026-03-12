@@ -26,33 +26,29 @@ class Daemon {
   ~Daemon() = default;
 
   auto main() -> std::expected<void, UTrace> {
-    {
+    try {
       u_log::GMutex::LockGuard();
-
-      if (auto ret = log_shm_.shm_alloc(u_log::MasterType::kDaemon);
-          !ret.has_value()) {
-        UTRACE_RETURN(ret);
-      } else {
-        master_ = std::move(ret.value());
-      }
-
-      if (auto ret = master_->slots_alloc(); !ret.has_value()) {
-        log_shm_.shm_free();
-        UTRACE_RETURN(ret);
-      }
+      auto ret = log_shm_.shm_alloc(u_log::MasterType::kDaemon)
+                   .and_then([&](auto var) {
+                     master_ = std::move(var);
+                     return master_->slots_alloc();
+                   })
+                   .transform_error([&](UTrace &&e) {
+                     log_shm_.shm_free();
+                     utrace_transform_error(e);
+                   });
+      if (!ret.has_value())
+        return ret;
+    } catch (const std::exception &e) {
+      return std::unexpected(UTrace(std::move(e.what())));
     }
 
-    auto main_ret = daemon_main();
-    if (!main_ret.has_value()) {
-      main_ret.error().add_context();
-    }
-
-    (void)u_log::GMutex::instance().lock();
+    auto main_ret = daemon_main().utrace_transform_error_default();
     master_->slots_free();
     log_shm_.shm_free();
-    log_shm_.shm_free();
-    (void)u_log::GMutex::instance().unlock();
-
+    if (main_ret.has_value()) {
+      (void)u_log::GMutex::instance().unlock();
+    }
     return main_ret;
   }
 
@@ -74,15 +70,12 @@ class Daemon {
         : parent_(parent), master_(*parent.master_.get()) {
       io_ln_infosp("Daemon startup (PID: {0})", u_prcs::pid());
 
-      thread_crash_ = std::jthread([this](std::stop_token st) {
-        parent_.thread_crash(st);
-      });
-      thread_consumer_ = std::jthread([this](std::stop_token st) {
-        parent_.thread_consumer(st);
-      });
-      thread_monitor_ = std::jthread([this](std::stop_token st) {
-        parent_.thread_monitor(st);
-      });
+      thread_crash_ =
+        std::jthread([this](std::stop_token st) { parent_.thread_crash(st); });
+      thread_consumer_ = std::jthread(
+        [this](std::stop_token st) { parent_.thread_consumer(st); });
+      thread_monitor_ = std::jthread(
+        [this](std::stop_token st) { parent_.thread_monitor(st); });
 
       master_.get_shm_header()->is_daemon_ready.store(
         true, std::memory_order_relaxed);
@@ -116,7 +109,7 @@ class Daemon {
   };
 
   /**
-   * @note After this function ends, the `Shm::GMutex` will be held.
+   * @note The `Shm::GMutex` will be held if return success.
    */
   auto daemon_main() -> std::expected<void, UTrace> {
     auto main_structor = MainStructor(*this);
@@ -127,7 +120,7 @@ class Daemon {
       std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
 
       if (auto ret = u_log::GMutex::instance().lock(); !ret.has_value()) {
-        UTRACE_RETURN(ret);
+        utrace_return(ret);
       }
 
       {

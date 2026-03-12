@@ -46,6 +46,6 @@ label_exit:
 
 #  pragma section(".CRT$XCS", read)
 
-__declspec(allocate(".CRT$XCS")) void(WINAPI *sirius_inner_constructor_ptr)(
-  void) = constructor;
+__declspec(allocate(".CRT$XCS")) void(
+  WINAPI *sirius_foundation_inner_constructor_ptr)(void) = constructor;
 #endif

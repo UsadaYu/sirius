@@ -30,8 +30,8 @@ struct UTraceContext {
 
 class UTrace {
  public:
-  UTrace(std::string message,
-         std::source_location loc = std::source_location::current())
+  explicit UTrace(std::string message,
+                  std::source_location loc = std::source_location::current())
       : message_(std::move(message)) {
     add_context(loc);
   }
@@ -85,11 +85,20 @@ class UTrace {
   std::vector<UTraceContext> trace_;
 };
 
-#  define UTRACE_RETURN(ret) \
+#  define utrace_return(ret) \
     do { \
       ret.error().add_context(); \
       return std::unexpected(std::move(ret.error())); \
     } while (0)
+
+#  define utrace_transform_error(e) \
+    do { \
+      e.add_context(); \
+      return std::move(e); \
+    } while (0)
+
+#  define utrace_transform_error_default() \
+    transform_error([](UTrace &&e) { utrace_transform_error(e); })
 #endif
 
 // --- utils_localtime_r ---
