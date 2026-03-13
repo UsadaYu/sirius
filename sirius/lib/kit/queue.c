@@ -1,3 +1,7 @@
+// clang-format off
+#include "utils/decls.h"
+// clang-format on
+
 #include "sirius/kit/queue.h"
 
 #include "lib/foundation/log/log.h"

@@ -1,3 +1,7 @@
+// clang-format off
+#include "utils/decls.h"
+// clang-format on
+
 #include "lib/thread/inner/mutex.h"
 
 #if defined(_WIN32) || defined(_WIN64)

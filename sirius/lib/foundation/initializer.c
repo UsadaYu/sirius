@@ -1,3 +1,7 @@
+// clang-format off
+#include "utils/decls.h"
+// clang-format on
+
 #include "lib/foundation/initializer.h"
 
 #ifdef __cplusplus

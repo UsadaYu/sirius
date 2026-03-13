@@ -1,3 +1,4 @@
+#include "utils/decls.h"
 #pragma once
 
 #include "utils/log/utils.hpp"
@@ -124,11 +125,14 @@ class Shm {
  private:
   class LockGuard {
    public:
+    /**
+     * @throw `UTraceException`.
+     */
     explicit LockGuard(process::GMutex &mutex) : mutex_(mutex) {
       if (auto ret = mutex_.lock(); ret.has_value()) {
         lock_state_ = ret.value();
       } else {
-        throw std::runtime_error(ret.error().join_self_all());
+        throw UTraceException(ret.error());
       }
     }
 
@@ -168,16 +172,15 @@ class Shm {
     ~Master() = default;
 
    public:
+    // clang-format off
     bool is_shm_creator() const { return parent_.is_shm_creator_; }
+    [[nodiscard]] LockGuard lock_guard() { return LockGuard(parent_.mutex_shm_.value()); }  // @throw `UTraceException`.
     auto mutex_crash_lock() { return parent_.mutex_crash_->lock(); }
     auto mutex_crash_trylock() { return parent_.mutex_crash_->trylock(); }
     auto mutex_crash_unlock() { return parent_.mutex_crash_->unlock(); }
-    LockGuard lock_guard() { return LockGuard(parent_.mutex_shm_.value()); }
     ShmHeader *get_shm_header() const { return header_; }
-    ShmSlot *get_shm_slots() const {
-      return reinterpret_cast<ShmSlot *>(reinterpret_cast<uint8_t *>(header_) +
-                                         kHeaderOffset);
-    }
+    ShmSlot *get_shm_slots() const { return reinterpret_cast<ShmSlot *>(reinterpret_cast<uint8_t *>(header_) + kHeaderOffset); }
+    // clang-format on
 
     void slots_free() {
       if (header_) {
@@ -241,7 +244,7 @@ class Shm {
       }
 
       {
-        lock_guard();
+        auto lock = lock_guard();
         for (size_t i = 0; i < kProcessMax; ++i) {
           if (header_->slot_master_type[i] == MasterType::kDaemon) {
             io_ln_infosp("Reset the old daemon slot");
@@ -307,7 +310,7 @@ class Shm {
       bool found = false;
 
       {
-        lock_guard();
+        auto lock = lock_guard();
         for (size_t i = 0; i < kProcessMax; ++i) {
           if (slot_check(i)) {
             slot_reset(i);
@@ -323,7 +326,7 @@ class Shm {
     }
 
     auto slot_alloc() -> std::expected<void, UTrace> {
-      lock_guard();
+      auto lock = lock_guard();
 
       for (size_t i = 0; i < kProcessMax; ++i) {
         if (header_->slot_master_type[i] == MasterType::kNone) {
@@ -377,7 +380,7 @@ class Shm {
         }
 
         {
-          lock_guard();
+          auto lock = lock_guard();
           if (header_->slot_attached_count == kProcessNbDaemon)
             continue;
           uint64_t timestamp_ms = time::get_monotonic_steady_ms();
@@ -417,7 +420,7 @@ class Shm {
       size_t index = 0;
 
       {
-        lock_guard();
+        auto lock = lock_guard();
         for (; !slot_check(index); ++index) {
           if (index == kProcessMax - 1) {
             io_ln_error("No valid pid was matched");
@@ -432,7 +435,7 @@ class Shm {
       while (!stop_token.stop_requested()) {
         {
           uint64_t timestamp_ms = time::get_monotonic_steady_ms();
-          lock_guard();
+          auto lock = lock_guard();
           if (slot_check(index)) [[likely]] {
             header_->slot_map[index].timestamp_ms = timestamp_ms;
           } else {
@@ -551,20 +554,20 @@ class Shm {
       return std::unexpected(UTrace(c_error(dw_err, "MapViewOfFile")));
     }
 
-    return mutex_create()
-      .transform_error([&](UTrace &&e) {
-        UnmapViewOfFile(ptr);
-        utrace_transform_error(e);
-      })
+    return mutex_create(static_cast<ShmHeader *>(ptr))
       .and_then([&]() -> std::expected<void, UTrace> {
         header_ = static_cast<ShmHeader *>(ptr);
         return {};
+      })
+      .transform_error([&](UTrace &&e) {
+        UnmapViewOfFile(ptr);
+        utrace_transform_error(e);
       });
   }
 
   void memory_unmap() {
     {
-      LockGuard(mutex_shm_.value());
+      auto lock = LockGuard(mutex_shm_.value());
       if (header_->slot_attached_count == 0) {
         header_->magic = 0;
       }
@@ -625,14 +628,14 @@ class Shm {
       return std::unexpected(UTrace(c_error(errno_err, "mmap")));
     }
 
-    return mutex_create()
-      .transform_error([&](UTrace &&e) {
-        munmap(ptr, kTotalShmSize);
-        utrace_transform_error(e);
-      })
+    return mutex_create(static_cast<ShmHeader *>(ptr))
       .and_then([&]() -> std::expected<void, UTrace> {
         header_ = static_cast<ShmHeader *>(ptr);
         return {};
+      })
+      .transform_error([&](UTrace &&e) {
+        munmap(ptr, kTotalShmSize);
+        utrace_transform_error(e);
       });
   }
 
@@ -641,7 +644,7 @@ class Shm {
       return;
 
     {
-      LockGuard(mutex_shm_.value());
+      auto lock = LockGuard(mutex_shm_.value());
       if (header_->slot_attached_count == 0) {
         header_->magic = 0;
       }
@@ -654,7 +657,8 @@ class Shm {
   }
 #endif
 
-  auto mutex_create() -> std::expected<void, UTrace> {
+  auto mutex_create([[maybe_unused]] ShmHeader *header)
+    -> std::expected<void, UTrace> {
     auto fn_destroy = [&](std::optional<process::GMutex> &mutex) {
       if (is_shm_creator_ && mutex.has_value()) {
         mutex->destroy();
@@ -665,7 +669,7 @@ class Shm {
 #if defined(_WIN32) || defined(_WIN64)
 #  define E() process::GMutex::create(kMutexShmKey)
 #else
-#  define E() process::GMutex::create(&header_->mutex_shm, is_shm_creator_)
+#  define E() process::GMutex::create(&header->mutex_shm, is_shm_creator_)
 #endif
     return E()
 #undef E
@@ -674,7 +678,7 @@ class Shm {
 #if defined(_WIN32) || defined(_WIN64)
 #  define E() process::GMutex::create(kMutexCrashKey)
 #else
-#  define E() process::GMutex::create(&header_->mutex_crash, is_shm_creator_)
+#  define E() process::GMutex::create(&header->mutex_crash, is_shm_creator_)
 #endif
         return E();
 #undef E
@@ -727,23 +731,20 @@ class GMutex {
   GMutex &operator=(GMutex &&) = delete;
 
   /**
-   * @throw `std::runtime_error`.
+   * @throw `UTraceException`.
    */
   static GMutex &instance() {
     static GMutex instance;
     static std::once_flag once_flag;
     static bool initialized = false;
 
-    std::string ret_msg;
-    std::call_once(once_flag, [&ret_msg]() {
-      if (auto ret = instance.create(); !ret.has_value()) {
-        ret_msg = ret.error().join_self_all();
-        return;
-      }
-      initialized = true;
+    std::expected<void, sirius::UTrace> once_ret {};
+    std::call_once(once_flag, [&once_ret]() {
+      once_ret = instance.create();
+      initialized = once_ret.has_value();
     });
     if (!initialized)
-      throw std::runtime_error(ret_msg);
+      throw UTraceException(std::move(once_ret.error()));
     return instance;
   }
 
@@ -757,6 +758,7 @@ class GMutex {
     return mutex_->unlock().utrace_transform_error_default();
   }
 
+ private:
   class LockGuard {
    public:
     LockGuard(const LockGuard &) = delete;
@@ -765,12 +767,14 @@ class GMutex {
     LockGuard &operator=(LockGuard &&) = delete;
 
     /**
-     * @throw `std::runtime_error`.
+     * @throw `UTraceException`.
      */
     explicit LockGuard() {
-      if (auto ret = mutex_.lock(); !ret.has_value())
-        throw std::runtime_error(ret.error().join_self_all());
-      owns_ = true;
+      if (auto ret = mutex_.lock(); ret.has_value()) {
+        owns_ = true;
+      } else {
+        throw UTraceException(ret.error());
+      }
     }
 
     ~LockGuard() noexcept {
@@ -784,6 +788,11 @@ class GMutex {
     GMutex &mutex_ = GMutex::instance();
     bool owns_ = false;
   };
+
+ public:
+  // clang-format off
+  [[nodiscard]] LockGuard lock_guard() { return LockGuard(); } // @throw `UTraceException`.
+  // clang-format on
 
  private:
   std::optional<hmutex> mutex_ {};

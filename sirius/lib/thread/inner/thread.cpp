@@ -1,3 +1,7 @@
+// clang-format off
+#include "utils/decls.h"
+// clang-format on
+
 #include "lib/thread/inner/thread.h"
 
 #include "utils/io.hpp"
@@ -33,7 +37,7 @@ class ThreadResourceManager {
   ~ThreadResourceManager() {
     manager_is_alive() = false;
 
-    std::lock_guard lock(mutex);
+    auto lock = std::lock_guard(mutex);
     for (auto thr : active_threads) {
       if (thr && !thr->resource_is_free) {
         thr->resource_is_free = true;
@@ -53,12 +57,12 @@ class ThreadResourceManager {
   }
 
   inline void mark(sirius_thread_t thr) {
-    std::lock_guard lock(mutex);
+    auto lock = std::lock_guard(mutex);
     active_threads.insert(thr);
   }
 
   inline void resource_free(sirius_thread_t thr) {
-    std::lock_guard lock(mutex);
+    auto lock = std::lock_guard(mutex);
 
     if (thr && !thr->resource_is_free) {
       thr->resource_is_free = true;

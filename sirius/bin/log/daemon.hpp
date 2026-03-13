@@ -27,7 +27,7 @@ class Daemon {
 
   auto main() -> std::expected<void, UTrace> {
     try {
-      u_log::GMutex::LockGuard();
+      auto lock = u_log::GMutex::instance().lock_guard();
       auto ret = log_shm_.shm_alloc(u_log::MasterType::kDaemon)
                    .and_then([&](auto var) {
                      master_ = std::move(var);
@@ -124,7 +124,7 @@ class Daemon {
       }
 
       {
-        master_->lock_guard();
+        auto lock = master_->lock_guard();
         if (header->slot_attached_count <= u_log::kProcessNbDaemon) {
           if (should_leave_) {
             break;

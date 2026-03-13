@@ -1,3 +1,4 @@
+#include "utils/decls.h"
 #pragma once
 
 #include <algorithm>
@@ -134,7 +135,7 @@ class Mutex {
       }
     };
 
-    std::lock_guard lock(mutex_map_);
+    auto lock = std::lock_guard(mutex_map_);
 
     if (auto it = map_.find(m_name); it != map_.end())
       return it->second;

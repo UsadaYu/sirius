@@ -1,7 +1,10 @@
+// clang-format off
+#include "utils/decls.h"
+// clang-format on
+
 #include "sirius/c/time.h"
 
 #include "sirius/foundation/sync.h"
-#include "utils/decls.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #  include <mmsystem.h>

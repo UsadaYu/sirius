@@ -1,3 +1,4 @@
+#include "utils/decls.h"
 #pragma once
 
 #include <mutex>
@@ -33,23 +34,20 @@ class Args {
   Args &operator=(const Args &) = delete;
 
   /**
-   * @throw `std::runtime_error`.
+   * @throw `UTraceException`.
    */
   static Args &instance(int argc, char **argv) {
     static Args instance;
     static std::once_flag once_flag;
     static bool initialized = false;
 
-    std::string ret_msg;
-    std::call_once(once_flag, [&argc, &argv, &ret_msg]() {
-      if (auto ret = instance.init(argc, argv); !ret.has_value()) {
-        ret_msg = ret.error().join_self_all();
-        return;
-      }
-      initialized = true;
+    std::expected<void, sirius::UTrace> once_ret {};
+    std::call_once(once_flag, [&argc, &argv, &once_ret]() {
+      once_ret = instance.init(argc, argv);
+      initialized = once_ret.has_value();
     });
     if (!initialized)
-      throw std::runtime_error(ret_msg);
+      throw UTraceException(std::move(once_ret.error()));
     return instance;
   }
 
@@ -71,7 +69,6 @@ class Args {
       .utrace_transform_error_default();
     // clang-format on
 
-    return {};
 #undef E
   }
 };
@@ -105,7 +102,7 @@ class Exe {
       return ENOENT;
 
     {
-      std::lock_guard lock(mutex_);
+      auto lock = std::lock_guard(mutex_);
       path_ = path;
     }
 
@@ -130,7 +127,7 @@ class Exe {
     std::filesystem::path exe_install = path_install();
 
     {
-      std::lock_guard lock(mutex_);
+      auto lock = std::lock_guard(mutex_);
       exe_set = path_;
     }
 

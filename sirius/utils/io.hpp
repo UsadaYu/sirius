@@ -1,3 +1,4 @@
+#include "utils/decls.h"
 #pragma once
 
 #include "sirius/foundation/log.h"
@@ -167,14 +168,14 @@ class Io {
       return {};
 
     std::string err_msg;
-    err_msg.reserve(size_needed + 2);
+    err_msg.resize(size_needed);
     int byte_count =
       WideCharToMultiByte(CP_UTF8, 0, wbuffer, static_cast<int>(ret),
                           &err_msg[0], size_needed, nullptr, nullptr);
     LocalFree(wbuffer);
     if (byte_count == 0)
       return {};
-    return err_msg;
+    return back_strip(err_msg);
   }
 #endif
 

@@ -1,3 +1,4 @@
+#include "utils/decls.h"
 #pragma once
 
 #ifndef LIB_FOUNDATION_THREAD_THREAD_H_
@@ -5,7 +6,6 @@
 #endif
 
 #include "utils/attributes.h"
-#include "utils/decls.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #  if defined(__cplusplus)

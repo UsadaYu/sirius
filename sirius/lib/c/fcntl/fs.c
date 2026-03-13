@@ -1,6 +1,8 @@
-#include "sirius/c/fs.h"
-
+// clang-format off
 #include "utils/decls.h"
+// clang-format on
+
+#include "sirius/c/fs.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #  include <io.h>

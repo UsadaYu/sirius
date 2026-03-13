@@ -1,13 +1,7 @@
+#include "utils/decls.h"
 #pragma once
 
 #if defined(_WIN32) || defined(_WIN64)
-// clang-format off
-#  include "utils/decls.h"
-// clang-format on
-
-#  include <minwindef.h>
-#  include <winerror.h>
-
 static inline int utils_winerr_to_errno(const DWORD err_code) {
   const DWORD dw_err = err_code;
 
@@ -125,5 +119,3 @@ static inline int utils_winerr_to_errno(const DWORD err_code) {
 #else
 #  define utils_winerr_to_errno(err_code) (err_code)
 #endif
-
-#include <errno.h>

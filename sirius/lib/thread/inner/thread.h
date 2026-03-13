@@ -1,3 +1,4 @@
+#include "utils/decls.h"
 #pragma once
 
 #include "lib/foundation/log/log.h"

@@ -1,3 +1,7 @@
+// clang-format off
+#include "utils/decls.h"
+// clang-format on
+
 #include "lib/thread/inner/thread.h"
 
 #define WIN_THREAD_PRIORITY_MAX (31)

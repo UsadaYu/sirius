@@ -54,7 +54,7 @@ class Parser {
 class Main {
  public:
   /**
-   * @throw `std::runtime_error`.
+   * @throw `UTraceException`.
    */
   Main(int argc, char **argv)
       : exe_args_(u_log::exe::Args::instance(argc, argv)), parser_(exe_args_) {}
@@ -72,20 +72,22 @@ class Main {
 
       std::string option, value;
       auto ret =
-        exe_args_.parser.extract(argv[i], option, value).and_then([&]() {
-          auto fn_arg = [&]() -> std::expected<void, UTrace> (Parser::*)() {
-            if (option == u_log::exe::Args::kArgDaemon) {
-              return &Parser::arg_daemon;
-            } else if (option == u_log::exe::Args::kArgVersion) {
-              return &Parser::arg_version;
-            } else {
-              return &Parser::arg_usage;
-            }
-          }();
-          return (parser_.*fn_arg)();
-        }).utrace_transform_error_default();
+        exe_args_.parser.extract(argv[i], option, value)
+          .and_then([&]() {
+            auto fn_arg = [&]() -> std::expected<void, UTrace> (Parser::*)() {
+              if (option == u_log::exe::Args::kArgDaemon) {
+                return &Parser::arg_daemon;
+              } else if (option == u_log::exe::Args::kArgVersion) {
+                return &Parser::arg_version;
+              } else {
+                return &Parser::arg_usage;
+              }
+            }();
+            return (parser_.*fn_arg)();
+          })
+          .utrace_transform_error_default();
       if (!ret.has_value())
-        ret;
+        return ret;
     }
 
     return {};

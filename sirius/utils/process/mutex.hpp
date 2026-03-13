@@ -1,3 +1,4 @@
+#include "utils/decls.h"
 #pragma once
 
 #include "utils/io.hpp"
@@ -362,9 +363,13 @@ class GMutex {
     }
   }
 
-  auto lock() -> std::expected<LockState, UTrace> { return lock_impl(false); }
+  auto lock() -> std::expected<LockState, UTrace> {
+    return lock_impl(false).utrace_transform_error_default();
+  }
 
-  auto trylock() -> std::expected<LockState, UTrace> { return lock_impl(true); }
+  auto trylock() -> std::expected<LockState, UTrace> {
+    return lock_impl(true).utrace_transform_error_default();
+  }
 
   auto unlock() -> std::expected<void, UTrace> {
 #if defined(_WIN32) || defined(_WIN64)

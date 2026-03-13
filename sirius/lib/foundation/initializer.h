@@ -1,7 +1,7 @@
+#include "utils/decls.h"
 #pragma once
 
 #include "utils/attributes.h"
-#include "utils/decls.h"
 
 #ifdef __cplusplus
 extern "C" {

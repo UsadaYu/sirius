@@ -17,7 +17,7 @@ void *foo(void *arg) {
   std::string nspace;
 
   {
-    std::lock_guard lock(g_mutex);
+    auto lock = std::lock_guard(g_mutex);
 
     if (g_index.load() < 10) {
       nspace = "   ";

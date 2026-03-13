@@ -1,6 +1,5 @@
-#pragma once
-
 #include "utils/decls.h"
+#pragma once
 
 #ifdef __cplusplus
 namespace sirius {

@@ -1,3 +1,7 @@
+// clang-format off
+#include "utils/decls.h"
+// clang-format on
+
 #include "sirius/thread/cond.h"
 
 #include "lib/thread/inner/mutex.h"

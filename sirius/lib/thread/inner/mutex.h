@@ -1,8 +1,8 @@
+#include "utils/decls.h"
 #pragma once
 
 #include "sirius/thread/mutex.h"
 #include "utils/attributes.h"
-#include "utils/decls.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 typedef struct {

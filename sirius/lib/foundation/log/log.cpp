@@ -1,3 +1,7 @@
+// clang-format off
+#include "utils/decls.h"
+// clang-format on
+
 #include "sirius/foundation/log.h"
 
 #include "lib/foundation/initializer.h"
@@ -46,7 +50,7 @@ class PrivateManager {
   ~PrivateManager() = default;
 
   void log_write(int level, const void *buffer, size_t size) {
-    std::lock_guard lock(mutex_);
+    auto lock = std::lock_guard(mutex_);
     int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
     utils_write(fd, buffer, size);
   }
@@ -58,7 +62,7 @@ class PrivateManager {
       /* ---------------- Not Yet ---------------- */
       /* ----------------------------------------- */
     } else {
-      std::lock_guard lock(mutex_);
+      auto lock = std::lock_guard(mutex_);
       if (put_type == PutType::kOut) {
         fd_out_ = STDOUT_FILENO;
       } else {
@@ -84,67 +88,67 @@ class SharedManager {
   ~SharedManager() { deinit(); }
 
   auto init() -> std::expected<void, UTrace> {
-    if (initialized_.exchange(true, std::memory_order_relaxed))
+    if (initialized_.exchange(true, std::memory_order_seq_cst))
       return {};
 
-    {
-      u_log::GMutex::LockGuard();
-
-      if (auto ret = log_shm_.shm_alloc(u_log::MasterType::kNative);
-          !ret.has_value()) {
-        initialized_.store(false, std::memory_order_relaxed);
-        utrace_return(ret);
-      } else {
-        master_ = std::move(ret.value());
-      }
-
-      if (auto ret = master_->slots_alloc(); !ret.has_value()) {
-        log_shm_.shm_free();
-        initialized_.store(false, std::memory_order_relaxed);
-        utrace_return(ret);
-      }
-
-      if (try_spawner()) {
-        if (auto ret = spawn_daemon(); !ret.has_value()) {
-          master_->slots_free();
-          log_shm_.shm_free();
-          initialized_.store(false, std::memory_order_relaxed);
-          utrace_return(ret);
-        }
-      }
-
-      if (auto ret = wait_for_daemon(); !ret.has_value()) {
-        master_->slots_free();
-        log_shm_.shm_free();
-        initialized_.store(false, std::memory_order_relaxed);
-        utrace_return(ret);
-      }
+    try {
+      auto lock = u_log::GMutex::instance().lock_guard();
+      auto ret = log_shm_.shm_alloc(u_log::MasterType::kNative)
+                   .and_then([&](auto var) {
+                     master_ = std::move(var);
+                     return master_->slots_alloc();
+                   })
+                   .transform_error([&](UTrace &&e) {
+                     log_shm_.shm_free();
+                     initialized_.store(false, std::memory_order_seq_cst);
+                     utrace_transform_error(e);
+                   });
+      if (!ret.has_value())
+        return ret;
+    } catch (const std::exception &e) {
+      return std::unexpected(UTrace(std::move(e.what())));
     }
 
-    return {};
+    try {
+      return try_spawner()
+        .and_then([&](auto) { return wait_for_daemon(); })
+        .transform_error([&](UTrace &&e) {
+          auto lock = u_log::GMutex::instance().lock_guard();
+          master_->slots_free();
+          log_shm_.shm_free();
+          initialized_.store(false, std::memory_order_seq_cst);
+          utrace_transform_error(e);
+        });
+    } catch (const std::exception &e) {
+      return std::unexpected(UTrace(std::move(e.what())));
+    }
   }
 
   void deinit() {
-    if (!initialized_.exchange(false, std::memory_order_relaxed))
+    if (!initialized_.exchange(false, std::memory_order_seq_cst))
       return;
 
-    {
-      u_log::GMutex::LockGuard();
+    try {
+      auto lock = u_log::GMutex::instance().lock_guard();
       master_->slots_free();
       master_.reset();
       log_shm_.shm_free();
+    } catch (const std::exception &e) {
+      io_ln_warnsp("{0}", e.what());
     }
   }
 
   void produce_shared(void *src, size_t size) {
     auto spawn = [&]() -> bool {
-      return try_spawner() ? spawn_daemon().has_value() : false;
+      auto ret = try_spawner();
+      if (!ret.has_value()) {
+        io_ln_warnsp("{0}", ret.error().message());
+      }
+      return ret.has_value();
     };
 
-    if (!shared_valid()) [[unlikely]] {
-      if (!spawn())
-        return native_write(static_cast<u_log::ShmBuf *>(src));
-    }
+    if (!shared_valid() && !spawn())
+      return native_write(static_cast<u_log::ShmBuf *>(src));
 
     uint64_t cur_write_idx = master_->get_shm_header()->write_index.fetch_add(
       1, std::memory_order_acq_rel);
@@ -218,27 +222,24 @@ class SharedManager {
    *
    * - (2) This function prohibited from being guarded by the process mutex.
    */
-  bool try_spawner() {
+  auto try_spawner() -> std::expected<bool, UTrace> {
     const auto cur_ts = utils::time::get_monotonic_steady_ms();
-
-    if (auto ret = u_log::GMutex::instance().lock(); !ret.has_value()) {
-      return false;
-    }
-
-    if (master_->daemon_state() == u_log::Shm::Master::DaemonState::kAlive) {
-      (void)u_log::GMutex::instance().unlock();
-      return false;
-    }
-
-    auto &pre_ts = master_->get_shm_header()->spawner_timestamp;
-    if (cur_ts - pre_ts > kWaitDaemonTimeoutMs) {
+    try {
+      auto lock = u_log::GMutex::instance().lock_guard();
+      if (master_->daemon_state() == u_log::Shm::Master::DaemonState::kAlive) {
+        return false;
+      }
+      auto &pre_ts = master_->get_shm_header()->spawner_timestamp;
+      if (cur_ts - pre_ts < kWaitDaemonTimeoutMs)
+        return false;
       pre_ts = cur_ts;
-      (void)u_log::GMutex::instance().unlock();
-      return true;
+    } catch (const std::exception &e) {
+      return std::unexpected(UTrace(std::move(e.what())));
     }
 
-    (void)u_log::GMutex::instance().unlock();
-    return false;
+    return spawn_daemon()
+      .and_then([]() -> std::expected<bool, UTrace> { return true; })
+      .utrace_transform_error_default();
   }
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -437,7 +438,7 @@ inline bool shared_initialization_check() {
   if (g_shared_initialized.load(std::memory_order_relaxed))
     return true;
 
-  std::lock_guard lock(g_shared_mutex);
+  auto lock = std::lock_guard(g_shared_mutex);
 
   if (g_shared_try_times > 1) {
     if (utils::time::get_monotonic_steady_ms() - g_shared_try_timestamp_ms <

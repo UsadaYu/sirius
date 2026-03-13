@@ -1,3 +1,7 @@
+// clang-format off
+#include "utils/decls.h"
+// clang-format on
+
 #include "sirius/thread/thread.h"
 
 #include "lib/foundation/initializer.h"
@@ -215,7 +219,8 @@ sirius_api LPVOID sirius_foundation_thread_tls_get_value(DWORD *dw_err) {
   return ret;
 }
 #else
-void destructor_foundation_thread() {}
+void destructor_foundation_thread() {
+}
 
 bool constructor_foundation_thread() {
   return true;
