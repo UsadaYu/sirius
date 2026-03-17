@@ -1,5 +1,7 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include "utils/io.hpp"
 #include "utils/ns.hpp"
@@ -25,11 +27,11 @@ class Inner {
 
 #if defined(_WIN32) || defined(_WIN64)
   static std::string c_error(const DWORD err_code, std::string_view fn_str) {
-    return Io::win_err(err_code, fn_str, "{}", line_pid());
+    return io::Fmt::win_err(err_code, fn_str, "{}", line_pid());
   }
 #else
   static std::string c_error(const int err_code, std::string_view fn_str) {
-    return Io::errno_err(err_code, fn_str, "{}", line_pid());
+    return io::Fmt::errno_err(err_code, fn_str, "{}", line_pid());
   }
 #endif
 };
@@ -191,7 +193,7 @@ class FMutex {
           "\nThe process (PID: {0}) that previously held the lock may have "
           "crashed{1}",
           header.owner_pid, Inner::line_pid());
-        io_ln_warnsp("{}", es);
+        logln_warnsp("{}", es);
       }
     }
 
@@ -325,7 +327,7 @@ class GMutex {
     if (!is_creator)
       return GMutex(mutex);
 
-    pthread_mutexattr_t attr;
+    pthread_mutexattr_t attr {};
     if (int ret = pthread_mutexattr_init(&attr); ret) {
       return std::unexpected(
         UTrace(Inner::c_error(ret, "pthread_mutexattr_init")));
@@ -443,7 +445,7 @@ class GMutex {
     auto es = std::format(
       "\nThe process that previously held the lock may have crashed{0}",
       Inner::line_pid());
-    io_ln_warnsp("{}", es);
+    logln_warnsp("{}", es);
     return LockState::kOwnerDead;
   }
 };

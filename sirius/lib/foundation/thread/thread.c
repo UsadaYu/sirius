@@ -1,6 +1,6 @@
-// clang-format off
+/* clang-format off */
 #include "utils/decls.h"
-// clang-format on
+/* clang-format on */
 
 #include "sirius/thread/thread.h"
 
@@ -180,21 +180,21 @@ sirius_api uint64_t _sirius_get_tid() {
 }
 
 #if defined(_WIN32) || defined(_WIN64)
-static DWORD g_thread_tls_index = TLS_OUT_OF_INDEXES;
+static DWORD g_tls_index = TLS_OUT_OF_INDEXES;
 
 void destructor_foundation_thread() {
-  if (g_thread_tls_index != TLS_OUT_OF_INDEXES) {
-    if (!TlsFree(g_thread_tls_index)) {
+  if (g_tls_index != TLS_OUT_OF_INDEXES) {
+    if (!TlsFree(g_tls_index)) {
       OutputDebugStringA("Error `TlsFree`\n");
     }
-    g_thread_tls_index = TLS_OUT_OF_INDEXES;
+    g_tls_index = TLS_OUT_OF_INDEXES;
   }
 }
 
 bool constructor_foundation_thread() {
-  if (g_thread_tls_index == TLS_OUT_OF_INDEXES) {
-    g_thread_tls_index = TlsAlloc();
-    if (g_thread_tls_index == TLS_OUT_OF_INDEXES) {
+  if (g_tls_index == TLS_OUT_OF_INDEXES) {
+    g_tls_index = TlsAlloc();
+    if (g_tls_index == TLS_OUT_OF_INDEXES) {
       OutputDebugStringA("Error `TlsAlloc`\n");
       return false;
     }
@@ -202,17 +202,16 @@ bool constructor_foundation_thread() {
   return true;
 }
 
-sirius_api BOOL sirius_foundation_thread_tls_set_value(LPVOID lpTlsValue,
-                                                       DWORD *dw_err) {
-  BOOL ret = TlsSetValue(g_thread_tls_index, lpTlsValue);
+sirius_api BOOL inner_thread_tls_set_value(LPVOID lpTlsValue, DWORD *dw_err) {
+  BOOL ret = TlsSetValue(g_tls_index, lpTlsValue);
   if (dw_err) {
     *dw_err = GetLastError();
   }
   return ret;
 }
 
-sirius_api LPVOID sirius_foundation_thread_tls_get_value(DWORD *dw_err) {
-  LPVOID ret = TlsGetValue(g_thread_tls_index);
+sirius_api LPVOID inner_thread_tls_get_value(DWORD *dw_err) {
+  LPVOID ret = TlsGetValue(g_tls_index);
   if (dw_err) {
     *dw_err = GetLastError();
   }

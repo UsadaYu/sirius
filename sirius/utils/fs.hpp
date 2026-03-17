@@ -1,6 +1,7 @@
-// clang-format off
+#pragma once
+/* clang-format off */
 #include "utils/decls.h"
-// clang-format on
+/* clang-format on */
 
 #include "sirius/c/fs.h"
 
@@ -9,8 +10,11 @@
 #  include <share.h>
 #endif
 
+namespace sirius {
+namespace utils {
+namespace fs {
 #if defined(_WIN32) || defined(_WIN64)
-static int win_map_flags(int flags) {
+inline int win_map_flags(int flags) {
   int os_flags = 0;
 
   os_flags |= _O_BINARY;
@@ -40,7 +44,7 @@ static int win_map_flags(int flags) {
   return os_flags;
 }
 
-static int win_map_mode(int mode) {
+inline int win_map_mode(int mode) {
   int os_mode = 0;
 
   if (mode & 0200) {
@@ -53,7 +57,7 @@ static int win_map_mode(int mode) {
   return os_mode;
 }
 
-sirius_api int sirius_open(const char *path, int flags, int mode) {
+inline int fs_open_impl(const char *path, int flags, int mode) {
   int fd = -1;
   int os_flags = win_map_flags(flags);
   int os_mode = win_map_mode(mode);
@@ -63,22 +67,17 @@ sirius_api int sirius_open(const char *path, int flags, int mode) {
    */
   errno_t err = _sopen_s(&fd, path, os_flags, _SH_DENYNO, os_mode);
   if (err != 0) {
-    /**
-     * @note When `_sopen_s` fails, it will set `errno`, but also return an
-     * error code. Here it make sure `errno` is set correctly for external
-     * inspection.
-     */
     errno = err;
     return -1;
   }
   return fd;
 }
 
-sirius_api int sirius_close(int fd) {
+inline int fs_close_impl(int fd) {
   return _close(fd);
 }
 #else
-static int posix_map_flags(int flags) {
+inline int posix_map_flags(int flags) {
   int os_flags = 0;
 
   if (flags & kSIRIUS_O_RDONLY) {
@@ -110,15 +109,17 @@ static int posix_map_flags(int flags) {
    * On Windows, it needs to be set up through the dedicated API.
    */
   os_flags |= O_CLOEXEC;
-
   return os_flags;
 }
 
-sirius_api int sirius_open(const char *path, int flags, int mode) {
+inline int fs_open_impl(const char *path, int flags, int mode) {
   return open(path, posix_map_flags(flags), (mode_t)mode);
 }
 
-sirius_api int sirius_close(int fd) {
+inline int fs_close_impl(int fd) {
   return close(fd);
 }
 #endif
+} // namespace fs
+} // namespace utils
+} // namespace sirius

@@ -1,7 +1,7 @@
-#include "utils/decls.h"
 #pragma once
-
-#include <mutex>
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include "utils/args.hpp"
 #include "utils/env.h"
@@ -143,7 +143,7 @@ class Exe {
            exe_install,
          }) {
       if (!path.empty() && std::filesystem::exists(path)) {
-        io_ln_infosp("\nThe daemon executable file: {0}", path.string());
+        logln_infosp("\nThe daemon executable file: {0}", path.string());
         return path;
       }
     }
@@ -183,15 +183,15 @@ class Exe {
                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                             (LPCWSTR)&current_shared_dir, &modele)) {
       const DWORD dw_err = GetLastError();
-      io_ln_error("{}",
-                  Io::win_err(dw_err, "GetModuleHandleExW", utils_pretty_fn));
+      logln_error(
+        "{}", io::Fmt::win_err(dw_err, "GetModuleHandleExW", utils_pretty_fn));
       return {};
     }
     DWORD length = GetModuleFileNameW(modele, path, MAX_PATH);
     if (length == 0) {
       const DWORD dw_err = GetLastError();
-      io_ln_error("{}",
-                  Io::win_err(dw_err, "GetModuleFileNameW", utils_pretty_fn));
+      logln_error(
+        "{}", io::Fmt::win_err(dw_err, "GetModuleFileNameW", utils_pretty_fn));
       return {};
     }
     auto bin_dir = std::filesystem::path(path).parent_path();

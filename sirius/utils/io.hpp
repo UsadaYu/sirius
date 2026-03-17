@@ -1,35 +1,19 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
-#include "sirius/foundation/log.h"
+#include <mutex>
+
 #include "sirius/foundation/thread.h"
 #include "utils/attributes.h"
+#include "utils/config.h"
+#include "utils/fs.hpp"
 #include "utils/io.h"
 
 namespace sirius {
 namespace utils {
-inline void io_ln_fd(int fd, std::string_view msg) {
-#if defined(_WIN32) || defined(_WIN64)
-  auto imsg = std::format("{0}\n", msg);
-  utils_write(fd, imsg.c_str(), imsg.size());
-#else
-  struct iovec iov[2];
-  iov[0].iov_base = const_cast<char *>(msg.data());
-  iov[0].iov_len = msg.size();
-  iov[1].iov_base = const_cast<char *>("\n");
-  iov[1].iov_len = 1;
-  writev(fd, iov, 2);
-#endif
-}
-
-// clang-format off
-inline void io_msg_outln(std::string_view msg) { io_ln_fd(STDOUT_FILENO, msg); }
-inline void io_msg_errln(std::string_view msg) { io_ln_fd(STDERR_FILENO, msg); }
-inline void io_msg_out(std::string_view msg) { utils_write(STDOUT_FILENO, msg.data(), msg.size()); }
-inline void io_msg_err(std::string_view msg) { utils_write(STDERR_FILENO, msg.data(), msg.size()); }
-// clang-format on
-
-// --- utils_strerror ---
+namespace io {
 #if defined(_WIN32) || defined(_WIN64)
 inline int utils_strerror(int err_code, char *buffer, size_t buffer_size) {
   return strerror_s(buffer, buffer_size, err_code);
@@ -59,23 +43,26 @@ inline int utils_strerror(int err_code, char *buffer, size_t buffer_size) {
 }
 #endif
 
-class Io {
+/**
+ * @implements Singleton pattern.
+ */
+class Fmt {
  public:
   static inline constexpr size_t kPrefixLength = 55;
 
  private:
-  Io() = default;
+  Fmt() = default;
 
-  ~Io() = default;
+  ~Fmt() = default;
 
  public:
-  Io(const Io &) = delete;
-  Io &operator=(const Io &) = delete;
-  Io(Io &&) = delete;
-  Io &operator=(Io &&) = delete;
+  Fmt(const Fmt &) = delete;
+  Fmt &operator=(const Fmt &) = delete;
+  Fmt(Fmt &&) = delete;
+  Fmt &operator=(Fmt &&) = delete;
 
-  static Io &instance() {
-    static Io instance;
+  static Fmt &instance() {
+    static Fmt instance;
     return instance;
   }
 
@@ -146,10 +133,10 @@ class Io {
   }
 
   // clang-format off
-  std::string s_error(std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Error", f, l, LOG_RED, err_ansi_enable_, m); }
-  std::string s_warn (std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Warn", f, l, LOG_YELLOW, err_ansi_enable_, m); }
-  std::string s_info (std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Info", f, l, LOG_GREEN, out_ansi_enable_, m); }
-  std::string s_debug(std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Debug", f, l, LOG_COLOR_NONE, out_ansi_enable_, m); }
+  std::string s_error(std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Error", f, l, ANSI_RED, err_ansi_enable_, m); }
+  std::string s_warn (std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Warn", f, l, ANSI_YELLOW, err_ansi_enable_, m); }
+  std::string s_info (std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Info", f, l, ANSI_GREEN, out_ansi_enable_, m); }
+  std::string s_debug(std::string_view f, int l = 0, std::string_view m = _SIRIUS_LOG_MODULE_NAME) { return s_gen("Debug", f, l, ANSI_NONE, out_ansi_enable_, m); }
   // clang-format on
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -168,7 +155,7 @@ class Io {
       return {};
 
     std::string err_msg;
-    err_msg.resize(size_needed);
+    err_msg.resize(size_needed + 4);
     int byte_count =
       WideCharToMultiByte(CP_UTF8, 0, wbuffer, static_cast<int>(ret),
                           &err_msg[0], size_needed, nullptr, nullptr);
@@ -211,9 +198,23 @@ class Io {
                     std::forward<Args>(args)...);
   }
 
-  void ansi_enable(bool out_enable, bool err_enable) {
-    out_ansi_enable_.store(out_enable, std::memory_order_relaxed);
-    err_ansi_enable_.store(err_enable, std::memory_order_relaxed);
+  enum class AnsiState : int { kRemain, kEnable, kDisable };
+  void ansi_enable(enum AnsiState out_state, enum AnsiState err_state) {
+    auto ansi_switch = [](enum AnsiState state, std::atomic<bool> &enable) {
+      switch (state) {
+      case AnsiState::kEnable:
+        enable.store(true, std::memory_order_relaxed);
+        break;
+      case AnsiState::kDisable:
+        enable.store(false, std::memory_order_relaxed);
+        break;
+      default:
+        break;
+      }
+    };
+
+    ansi_switch(out_state, out_ansi_enable_);
+    ansi_switch(err_state, err_ansi_enable_);
   }
 
  private:
@@ -231,10 +232,10 @@ class Io {
   template <typename T, typename FnPtr>
   static std::string err_impl(T err_code, std::string_view fn_str,
                               FnPtr fn_ptr) {
-    std::string pre = std::format("`{0}` (error code: {1})", fn_str, err_code);
+    std::string pre = std::format("`{0}` (err: {1})", fn_str, err_code);
     std::string err_msg = fn_ptr(err_code);
     if (!err_msg.empty()) {
-      err_msg.insert(err_msg.begin(), '\n');
+      err_msg.insert(0, " -> ", sizeof(" -> ") - 1);
     }
     return pre.append(err_msg);
   }
@@ -247,10 +248,10 @@ class Io {
     if (!usr_msg.empty() && !usr_msg.starts_with('\n')) {
       usr_msg.insert(usr_msg.begin(), '\n');
     }
-    std::string pre = std::format("`{0}` (error code: {1})", fn_str, err_code);
+    std::string pre = std::format("`{0}` (err: {1})", fn_str, err_code);
     std::string err_msg = fn_ptr(err_code);
     if (!err_msg.empty()) {
-      err_msg.insert(err_msg.begin(), '\n');
+      err_msg.insert(0, " -> ", sizeof(" -> ") - 1);
     }
     return pre.append(err_msg).append(usr_msg);
   }
@@ -261,10 +262,10 @@ class Io {
                            std::string_view module) {
     std::string result;
     if (ansi_enable.load(std::memory_order_relaxed)) {
-      result.reserve(kPrefixLength + 16 + sizeof(LOG_COLOR_NONE));
-      result = std::string(color)
-                 .append(s_pre(prefix, module, file, line))
-                 .append(LOG_COLOR_NONE);
+      result.reserve(kPrefixLength + 16 + sizeof(ANSI_NONE));
+      result.append(color)
+        .append(s_pre(prefix, module, file, line))
+        .append(ANSI_NONE);
     } else {
       result.reserve(kPrefixLength + 8);
       result = s_pre(prefix, module, file, line);
@@ -272,23 +273,172 @@ class Io {
     return result;
   }
 };
+
+enum class PutType : int {
+  kIn = 0,
+  kOut = 1,
+  kErr = 2,
+};
+
+/**
+ * @implements Singleton pattern.
+ */
+class Native {
+ private:
+  Native() = default;
+
+  ~Native() {
+    fd_close(fd_out_);
+    fd_close(fd_err_);
+  }
+
+ public:
+  Native(const Native &) = delete;
+  Native &operator=(const Native &) = delete;
+  Native(Native &&) = delete;
+  Native &operator=(Native &&) = delete;
+
+  static Native &instance() {
+    static Native instance;
+    return instance;
+  }
+
+  void log_write(int level, const void *buffer, size_t size) {
+    auto lock = std::lock_guard(mutex_);
+    int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
+    utils_write(fd, buffer, size);
+  }
+
+  void out_write(const void *buffer, size_t size) {
+    auto lock = std::lock_guard(mutex_);
+    utils_write(fd_out_, buffer, size);
+  }
+
+  void err_write(const void *buffer, size_t size) {
+    auto lock = std::lock_guard(mutex_);
+    utils_write(fd_err_, buffer, size);
+  }
+
+  auto fs_configure(PutType put_type, const std::filesystem::path &path,
+                    int flags, int mode, bool ansi_disable)
+    -> std::expected<void, UTrace> {
+    auto fn_standard = [&](int new_fd,
+                           int &old_fd) -> std::expected<void, UTrace> {
+      fd_close(old_fd);
+      old_fd = new_fd;
+      return {};
+    };
+
+    auto fn_file = [&](int &old_fd) -> std::expected<void, UTrace> {
+      int new_fd = fs::fs_open_impl(path.string().c_str(), flags, mode);
+      if (new_fd == -1) {
+        const int errno_err = errno;
+        auto es = Fmt::errno_err(errno_err, "fs_open_impl");
+        return std::unexpected(UTrace(std::move(es)));
+      }
+      fd_close(old_fd);
+      old_fd = new_fd;
+      return {};
+    };
+
+#define E_PUT(fd_default, fd) \
+  do { \
+    auto ret = path.empty() ? fn_standard(fd_default, fd) : fn_file(fd); \
+    if (ret.has_value()) { \
+      E_ANSI(fd > 2 ? Fmt::AnsiState::kDisable \
+                    : (ansi_disable ? Fmt::AnsiState::kDisable \
+                                    : Fmt::AnsiState::kEnable), \
+             Fmt::AnsiState::kRemain); \
+      return {}; \
+    } else { \
+      utrace_return(ret); \
+    } \
+  } while (0)
+
+    auto lock = std::lock_guard(mutex_);
+    if (put_type == PutType::kOut) {
+#define E_ANSI(out, err) Fmt::instance().ansi_enable(out, err)
+      E_PUT(STDOUT_FILENO, fd_out_);
+#undef E_ANSI
+    } else if (put_type == PutType::kErr) {
+#define E_ANSI(out, err) Fmt::instance().ansi_enable(err, out)
+      E_PUT(STDOUT_FILENO, fd_err_);
+#undef E_ANSI
+    }
+    return std::unexpected(UTrace("Invalid argument. `put_type`"));
+#undef E_PUT
+  }
+
+#if defined(_WIN32) || defined(_WIN64)
+#  define PRINTLN_IMPL(fd, msg) \
+    do { \
+      auto imsg = std::format("{0}\n", msg); \
+      LOCK_EXPR; \
+      utils_write(fd, imsg.c_str(), imsg.size()); \
+    } while (0)
+#else
+#  define PRINTLN_IMPL(fd, msg) \
+    do { \
+      struct iovec iov[2]; \
+      iov[0].iov_base = const_cast<char *>(msg.data()); \
+      iov[0].iov_len = msg.size(); \
+      iov[1].iov_base = const_cast<char *>("\n"); \
+      iov[1].iov_len = 1; \
+      LOCK_EXPR; \
+      writev(fd, iov, 2); \
+    } while (0)
+#endif
+  // clang-format off
+#define LOCK_EXPR auto lock = std::lock_guard(mutex_)
+  void println_out(std::string_view msg) { PRINTLN_IMPL(fd_out_, msg); }
+  void println_err(std::string_view msg) { PRINTLN_IMPL(fd_err_, msg); }
+  void print_out(std::string_view msg) { out_write(msg.data(), msg.size()); }
+  void print_err(std::string_view msg) { err_write(msg.data(), msg.size()); }
+#undef LOCK_EXPR
+#define LOCK_EXPR (void)0
+  static void fs_println(int fd, std::string_view msg) { PRINTLN_IMPL(fd, msg); }
+  static void fs_print(int fd, std::string_view msg) { utils_write(fd, msg.data(), msg.size()); }
+#undef LOCK_EXPR
+#undef PRINTLN_IMPL
+  // clang-format on
+
+ private:
+  std::mutex mutex_ {};
+  int fd_out_ = STDOUT_FILENO;
+  int fd_err_ = STDERR_FILENO;
+
+  void fd_close(int &fd) {
+    if (fd > 2) {
+      (void)fs::fs_close_impl(fd);
+      fd = -1;
+    }
+  }
+};
+
+// clang-format off
+inline void println_out(std::string_view msg) { Native::instance().println_out(msg); }
+inline void println_err(std::string_view msg) { Native::instance().println_err(msg); }
+inline void print_out(std::string_view msg) { Native::instance().print_out(msg); }
+inline void print_err(std::string_view msg) { Native::instance().print_err(msg); }
+// clang-format on
+} // namespace io
 } // namespace utils
 } // namespace sirius
 
-#define io_str_error(fmt, ...) \
-  (::sirius::utils::Io::instance() \
+#define log_error_str(fmt, ...) \
+  (::sirius::utils::io::Fmt::instance() \
      .s_error(SIRIUS_FILE_NAME, __LINE__) \
-     .append(::sirius::utils::Io::row_gs(fmt, ##__VA_ARGS__)))
-#define io_str_warnsp(fmt, ...) \
-  (::sirius::utils::Io::instance().s_warn("").append( \
-    ::sirius::utils::Io::row_gs(fmt, ##__VA_ARGS__)))
-#define io_str_infosp(fmt, ...) \
-  (::sirius::utils::Io::instance().s_info("").append( \
-    ::sirius::utils::Io::row_gs(fmt, ##__VA_ARGS__)))
+     .append(::sirius::utils::io::Fmt::row_gs(fmt, ##__VA_ARGS__)))
+#define log_warnsp_str(fmt, ...) \
+  (::sirius::utils::io::Fmt::instance().s_warn("").append( \
+    ::sirius::utils::io::Fmt::row_gs(fmt, ##__VA_ARGS__)))
+#define io_infosp_str(fmt, ...) \
+  (::sirius::utils::io::Fmt::instance().s_info("").append( \
+    ::sirius::utils::io::Fmt::row_gs(fmt, ##__VA_ARGS__)))
 
-#define io_ln_error(fmt, ...) \
-  ::sirius::utils::io_msg_errln(io_str_error(fmt, ##__VA_ARGS__))
-#define io_ln_warnsp(fmt, ...) \
-  ::sirius::utils::io_msg_errln(io_str_warnsp(fmt, ##__VA_ARGS__))
-#define io_ln_infosp(fmt, ...) \
-  ::sirius::utils::io_msg_outln(io_str_infosp(fmt, ##__VA_ARGS__))
+#define logln_error(fmt, ...) \
+  ::sirius::utils::io::println_err(log_error_str(fmt, ##__VA_ARGS__))
+#define logln_warnsp(fmt, ...) \
+  ::sirius::utils::io::println_err(log_warnsp_str(fmt, ##__VA_ARGS__))
+#define logln_infosp(fmt, ...) \
+  ::sirius::utils::io::println_out(io_infosp_str(fmt, ##__VA_ARGS__))

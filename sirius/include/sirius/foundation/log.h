@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sirius/attributes.h"
+#include "sirius/c/fs.h"
 #include "sirius/config.h"
 #include "sirius/file.h"
 #include "sirius/thread/macro.h"
@@ -21,45 +22,19 @@
 #  define SIRIUS_LOG_LEVEL_DEBUG (4)
 #endif
 
-/**
- * @brief ANSI Colors.
- */
-#ifndef LOG_COLOR_NONE
-#  define LOG_COLOR_NONE "\033[m"
-#endif
-#ifndef LOG_RED
-#  define LOG_RED "\033[0;32;31m"
-#endif
-#ifndef LOG_GREEN
-#  define LOG_GREEN "\033[0;32;32m"
-#endif
-#ifndef LOG_BLUE
-#  define LOG_BLUE "\033[0;32;34m"
-#endif
-#ifndef LOG_GRAY
-#  define LOG_GRAY "\033[1;30m"
-#endif
-#ifndef LOG_CYAN
-#  define LOG_CYAN "\033[0;36m"
-#endif
-#ifndef LOG_PURPLE
-#  define LOG_PURPLE "\033[0;35m"
-#endif
-#ifndef LOG_BROWN
-#  define LOG_BROWN "\033[0;33m"
-#endif
-#ifndef LOG_YELLOW
-#  define LOG_YELLOW "\033[1;33m"
-#endif
-#ifndef LOG_WHITE
-#  define LOG_WHITE "\033[1;37m"
-#endif
-
 typedef struct {
   /**
    * @note Set to default `stdout` / `stderr` when `nullptr`.
    */
   const char *log_path;
+
+  /**
+   * @ref `SiriusOFlags`;
+   */
+  int flags;
+  int mode;
+
+  int ansi_disable;
 
   /**
    * @note Default: `SiriusThreadProcess::kSiriusThreadProcessShared`.
@@ -68,11 +43,6 @@ typedef struct {
 } sirius_log_fs_t;
 
 typedef struct {
-  /**
-   * @note Not yet.
-   */
-  int disable_color;
-
   sirius_log_fs_t out;
   sirius_log_fs_t err;
 } sirius_log_config_t;

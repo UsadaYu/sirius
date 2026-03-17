@@ -8,7 +8,7 @@ set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
 # --- sirius::c ---
 set(sources "")
-list(APPEND sources "fcntl/fs.c")
+list(APPEND sources "fcntl/fs.cpp")
 list(APPEND sources "time.c")
 
 add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})

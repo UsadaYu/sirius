@@ -32,12 +32,11 @@ static void print_sched(sirius_thread_t thread) {
 
   ret = sirius_thread_getschedparam(thread, &sched_param);
   if (ret) {
-    es =
-      std::format(LOG_RED
-                  "\n"
-                  "  Main-Detach\n"
-                  "  `sirius_thread_getschedparam` error: {}\n" LOG_COLOR_NONE,
-                  ret);
+    es = std::format(
+      "\n"
+      "  Main-Detach\n"
+      "  `sirius_thread_getschedparam` error: {}\n",
+      ret);
     throw std::runtime_error(es);
   }
   sirius_infosp(
@@ -70,11 +69,11 @@ int main() {
 
   ret = sirius_thread_create(&thread, &attr, foo, nullptr);
   if (ret) {
-    es = std::format(LOG_RED
-                     "\n"
-                     "  Main-Detach\n"
-                     "  `sirius_thread_create` error: {}\n" LOG_COLOR_NONE,
-                     ret);
+    es = std::format(
+      "\n"
+      "  Main-Detach\n"
+      "  `sirius_thread_create` error: {}\n",
+      ret);
     throw std::runtime_error(es);
   }
 
@@ -94,12 +93,11 @@ int main() {
   sched_param.priority = 36;
   ret = sirius_thread_setschedparam(thread, &sched_param);
   if (ret) {
-    es =
-      std::format(LOG_RED
-                  "\n"
-                  "  Main-Detach\n"
-                  "  `sirius_thread_setschedparam` error: {}\n" LOG_COLOR_NONE,
-                  ret);
+    es = std::format(
+      "\n"
+      "  Main-Detach\n"
+      "  `sirius_thread_setschedparam` error: {}\n",
+      ret);
     throw std::runtime_error(es);
   } else {
     sirius_infosp(

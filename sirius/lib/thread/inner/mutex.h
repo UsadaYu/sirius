@@ -1,5 +1,7 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include "sirius/thread/mutex.h"
 #include "utils/attributes.h"

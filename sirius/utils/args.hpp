@@ -1,5 +1,7 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include <algorithm>
 #include <unordered_map>
@@ -211,7 +213,7 @@ class Parser {
   }
 
   void print_usage(std::string_view prog_name) const {
-    io_msg_outln(std::string("Usage: ").append(prog_name).append(
+    io::println_out(std::string("Usage: ").append(prog_name).append(
       " [options]\n\nOptions:"));
     for (auto const &[option, spec] : specs_) {
       std::string line = std::string("  --").append(option);
@@ -232,7 +234,7 @@ class Parser {
       if (spec.multiple) {
         line.append(" [multiple]");
       }
-      io_msg_outln(line);
+      io::println_out(line);
     }
   }
 

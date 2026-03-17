@@ -1,5 +1,7 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include "lib/foundation/log/log.h"
 #include "sirius/thread/spinlock.h"

@@ -1,8 +1,7 @@
-// clang-format-off
+/* clang-format off */
 #include "bin/debug.hpp"
-// clang-format-on
-
-#include <print>
+#include "utils/decls.h"
+/* clang-format on */
 
 #include "bin/log/daemon.hpp"
 #include "sirius/version.h"
@@ -33,7 +32,7 @@ class Parser {
   auto arg_version() -> std::expected<void, UTrace> {
     auto msg = std::format("`{0}` version: {1}", _SIRIUS_LOG_MODULE_NAME,
                            SIRIUS_VERSION);
-    utils::io_msg_outln(msg);
+    utils::io::println_out(msg);
     return {};
   }
 
@@ -108,22 +107,22 @@ int main(int argc, char **argv) {
   try {
     main = std::make_unique<sirius::bin::log::Main>(argc, argv);
   } catch (const std::exception &e) {
-    io_ln_error("{0}", e.what());
+    logln_error("{0}", e.what());
     return -1;
   } catch (...) {
-    io_ln_error("exception: unknow");
+    logln_error("`exception`: unknow");
     return -1;
   }
 
   if (argc == 1) {
     if (auto ret = main->main_usage(); !ret.has_value()) {
-      io_ln_error("{0}", ret.error().join_self_all());
+      logln_error("{0}", ret.error().join_self_all());
       return -1;
     }
     return 0;
   } else {
     if (auto ret = main->main_arg(argc, argv); !ret.has_value()) {
-      io_ln_error("{0}", ret.error().join_self_all());
+      logln_error("{0}", ret.error().join_self_all());
       return -1;
     }
     return 0;

@@ -156,9 +156,13 @@ static inline bool test_multi_thread_contention() {
 
   double elapsed = (double)(end - start) / 1000 / 1000;
   sirius_infosp("Total time consumption: %.3f s\n", elapsed);
-  sirius_infosp("Operation " LOG_PURPLE "%.0f" LOG_COLOR_NONE
-                " times per second\n",
-                expected / elapsed);
+  sirius_infosp(
+    "Operation "
+    "\033[0;35m"
+    "%.0f"
+    "\033[m"
+    " times per second\n",
+    expected / elapsed);
 
   lock_destroy(g_counter_lock);
 
@@ -259,10 +263,14 @@ static void *thread_func_fairness(void *arg) {
     }
   }
 
-  sirius_infosp("The thread executed " LOG_PURPLE "%d" LOG_COLOR_NONE
-                " times. "
-                "Thread index: %d; TID: %" PRIu64 "\n",
-                count, thread_index, SIRIUS_THREAD_ID);
+  sirius_infosp(
+    "The thread executed "
+    "\033[0;35m"
+    "%d"
+    "\033[m"
+    " times. "
+    "Thread index: %d; TID: %" PRIu64 "\n",
+    count, thread_index, SIRIUS_THREAD_ID);
   return nullptr;
 }
 

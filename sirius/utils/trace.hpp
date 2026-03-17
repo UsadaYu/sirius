@@ -1,5 +1,7 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include <vector>
 
@@ -20,10 +22,11 @@ class UTrace {
   explicit UTrace(std::string message,
                   std::source_location loc = std::source_location::current())
       : message_(std::move(message)) {
-    add_context(loc);
+    add_location(loc);
   }
 
-  void add_context(std::source_location loc = std::source_location::current()) {
+  void
+  add_location(std::source_location loc = std::source_location::current()) {
     std::filesystem::path path(loc.file_name());
     trace_.push_back(
       {loc.function_name(), path.filename().string(), loc.line()});
@@ -44,7 +47,7 @@ class UTrace {
 
   std::string
   join_self_all(std::source_location loc = std::source_location::current()) {
-    add_context(loc);
+    add_location(loc);
     return join_all();
   }
 
@@ -69,7 +72,7 @@ class UTrace {
 
  private:
   std::string message_;
-  std::vector<UTraceContext> trace_;
+  std::vector<UTraceContext> trace_ {};
 };
 
 class UTraceException : public std::runtime_error {
@@ -85,7 +88,7 @@ class UTraceException : public std::runtime_error {
   UTrace utrace_;
 
   static std::string make_message(UTrace &utrace, std::source_location loc) {
-    utrace.add_context(loc);
+    utrace.add_location(loc);
     return utrace.join_all();
   }
 };
@@ -93,13 +96,13 @@ class UTraceException : public std::runtime_error {
 
 #define utrace_return(ret) \
   do { \
-    ret.error().add_context(); \
+    ret.error().add_location(); \
     return std::unexpected(std::move(ret.error())); \
   } while (0)
 
 #define utrace_transform_error(e) \
   do { \
-    e.add_context(); \
+    e.add_location(); \
     return std::move(e); \
   } while (0)
 

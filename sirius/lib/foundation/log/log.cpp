@@ -1,6 +1,6 @@
-// clang-format off
+/* clang-format off */
 #include "utils/decls.h"
-// clang-format on
+/* clang-format on */
 
 #include "sirius/foundation/log.h"
 
@@ -15,71 +15,9 @@
 #endif
 
 namespace sirius {
-using u_io = utils::Io;
+namespace u_io = utils::io;
+using ui_fmt = u_io::Fmt;
 namespace u_log = utils::log;
-
-namespace {
-enum class PutType : int {
-  kIn = 0,
-  kOut = 1,
-  kErr = 2,
-};
-
-inline bool put_type_check(utils::utils::IntegralOrEnum auto type) {
-  int index = static_cast<int>(type);
-  if (index < static_cast<int>(PutType::kIn) ||
-      index > static_cast<int>(PutType::kErr)) [[unlikely]] {
-    return false;
-  }
-  return true;
-}
-} // namespace
-
-// ------------------------------------------------------------
-/**
- * @note
- * ------------------------------
- * Subsequently, this class will be moved to the `io.hpp` header file and
- * implemented in a singleton pattern.
- * ------------------------------
- */
-class PrivateManager {
- public:
-  PrivateManager() = default;
-
-  ~PrivateManager() = default;
-
-  void log_write(int level, const void *buffer, size_t size) {
-    auto lock = std::lock_guard(mutex_);
-    int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
-    utils_write(fd, buffer, size);
-  }
-
-  bool fs_configure(const char *log_path, size_t path_size, PutType put_type) {
-    if (path_size != 0) {
-      (void)log_path;
-      /* ----------------------------------------- */
-      /* ---------------- Not Yet ---------------- */
-      /* ----------------------------------------- */
-    } else {
-      auto lock = std::lock_guard(mutex_);
-      if (put_type == PutType::kOut) {
-        fd_out_ = STDOUT_FILENO;
-      } else {
-        fd_err_ = STDERR_FILENO;
-      }
-    }
-    return true;
-  }
-
- private:
-  std::mutex mutex_ {};
-  int fd_out_ = STDOUT_FILENO;
-  int fd_err_ = STDERR_FILENO;
-};
-
-static PrivateManager g_private_manager;
-// ------------------------------------------------------------
 
 class SharedManager {
  public:
@@ -134,7 +72,7 @@ class SharedManager {
       master_.reset();
       log_shm_.shm_free();
     } catch (const std::exception &e) {
-      io_ln_warnsp("{0}", e.what());
+      logln_warnsp("{0}", e.what());
     }
   }
 
@@ -142,7 +80,7 @@ class SharedManager {
     auto spawn = [&]() -> bool {
       auto ret = try_spawner();
       if (!ret.has_value()) {
-        io_ln_warnsp("{0}", ret.error().message());
+        logln_warnsp("{0}", ret.error().message());
       }
       return ret.has_value();
     };
@@ -184,27 +122,47 @@ class SharedManager {
       initialized_.load(std::memory_order_relaxed);
   }
 
-  bool fs_configure(const char *log_path, size_t path_size, PutType put_type) {
+  auto fs_configure(u_io::PutType put_type, const std::filesystem::path &path,
+                    int flags, int mode, bool ansi_disable)
+    -> std::expected<void, UTrace> {
     if (!shared_valid())
-      return false;
+      return std::unexpected(UTrace("Uninitialized"));
+
+    size_t path_size = 0;
+    if (!path.empty()) {
+      path_size = utils_strnlen_s(path.string().c_str(), u_log::kLogPathMax);
+      if (path_size <= 0 || path_size >= u_log::kLogPathMax) {
+        return std::unexpected(UTrace("Invalid argument. `path`"));
+      }
+    }
 
     u_log::ShmBuf buffer {};
     auto &data = buffer.data.fs;
     buffer.type = u_log::ShmBufDataType::kConfig;
-    buffer.level = put_type == PutType::kOut ? SIRIUS_LOG_LEVEL_DEBUG
-                                             : SIRIUS_LOG_LEVEL_ERROR;
-    if (path_size) {
-      std::memcpy(data.path, log_path, path_size);
+    buffer.level = put_type == u_io::PutType::kOut ? SIRIUS_LOG_LEVEL_DEBUG
+                                                   : SIRIUS_LOG_LEVEL_ERROR;
+    if (path_size > 0) {
+      std::memcpy(data.path, path.string().c_str(), path_size);
+      data.type = u_log::ShmBufDataFsType::kFile;
       data.path[path_size] = '\0';
       path_size += 1;
-      data.type = u_log::ShmBufDataFsType::kFile;
+      data.flags = flags;
+      data.mode = mode;
     } else {
       data.type = u_log::ShmBufDataFsType::kStd;
     }
 
     produce_shared(&buffer,
                    sizeof(u_log::ShmBuf) - u_log::kLogPathMax + path_size);
-    return true;
+    return {};
+  }
+
+  void native_write(u_log::ShmBuf *buffer) {
+    if (buffer->type == u_log::ShmBufDataType::kLog) {
+      u_io::Native::instance().log_write(
+        buffer->level, static_cast<void *>(buffer->data.log.buf),
+        buffer->data.log.buf_size);
+    }
   }
 
  private:
@@ -246,8 +204,8 @@ class SharedManager {
   auto spawn_daemon() -> std::expected<void, UTrace> {
     std::filesystem::path daemon_exe;
     if (auto ret = u_log::exe::Exe::instance().get_path(); !ret.has_value()) {
-      auto es =
-        std::format("{0}", u_io::errno_err(ret.error(), "get_path (log exe)"));
+      auto es = std::format(
+        "{0}", ui_fmt::errno_err(ret.error(), "get_path (log exe)"));
       return std::unexpected(UTrace(std::move(es)));
     } else {
       daemon_exe = ret.value();
@@ -258,7 +216,7 @@ class SharedManager {
       cmd_line.append(std::format("\"{0}\" ", cmd));
     }
 
-    io_ln_infosp("Try to start the daemon");
+    logln_infosp("Try to start the daemon");
     STARTUPINFOA si {};
     si.cb = sizeof(STARTUPINFOA);
     PROCESS_INFORMATION pi {};
@@ -269,7 +227,7 @@ class SharedManager {
                               nullptr, nullptr, &si, &pi);
     if (!ret) {
       const DWORD dw_err = GetLastError();
-      auto es = std::format("{0}", u_io::win_err(dw_err, "CreateProcessA"));
+      auto es = std::format("{0}", ui_fmt::win_err(dw_err, "CreateProcessA"));
       return std::unexpected(UTrace(std::move(es)));
     }
     CloseHandle(pi.hThread);
@@ -289,8 +247,8 @@ class SharedManager {
 
     std::filesystem::path daemon_exe;
     if (auto ret = u_log::exe::Exe::instance().get_path(); !ret.has_value()) {
-      auto es =
-        std::format("{0}", u_io::errno_err(ret.error(), "get_path (log exe)"));
+      auto es = std::format(
+        "{0}", ui_fmt::errno_err(ret.error(), "get_path (log exe)"));
       return std::unexpected(UTrace(std::move(es)));
     } else {
       daemon_exe = ret.value();
@@ -305,12 +263,12 @@ class SharedManager {
     }
     argv.push_back(nullptr);
 
-    io_ln_infosp("Try to start the daemon");
+    logln_infosp("Try to start the daemon");
 
     pid_t pid1 = fork();
     if (pid1 < 0) {
       const int errno_err = errno;
-      auto es = std::format("{0}", u_io::errno_err(errno_err, "fork (pid1)"));
+      auto es = std::format("{0}", ui_fmt::errno_err(errno_err, "fork (pid1)"));
       return std::unexpected(UTrace(std::move(es)));
     }
 
@@ -323,7 +281,7 @@ class SharedManager {
         const int errno_err = errno;
         if (errno_err != ECHILD) {
           const int errno_err = errno;
-          auto es = std::format("{0}", u_io::errno_err(errno_err, "waitpid"));
+          auto es = std::format("{0}", ui_fmt::errno_err(errno_err, "waitpid"));
           return std::unexpected(UTrace(std::move(es)));
         }
       }
@@ -342,18 +300,19 @@ class SharedManager {
      */
     if (setsid() < 0) {
       const int errno_err = errno;
-      es = io_str_error(
-        "{}", u_io::errno_err(errno_err, "setsid", "{}", utils_pretty_fn));
-      utils::io_ln_fd(STDERR_FILENO, es);
+      es = log_error_str(
+        "{}", ui_fmt::errno_err(errno_err, "setsid", "{}", utils_pretty_fn));
+      utils::io::Native::fs_println(STDERR_FILENO, es);
       _exit(kNormalExitStatus + 1);
     }
 
     pid_t pid2 = fork();
     if (pid2 < 0) {
       const int errno_err = errno;
-      es = io_str_error(
-        "{}", u_io::errno_err(errno_err, "fork (pid2)", "{}", utils_pretty_fn));
-      utils::io_ln_fd(STDERR_FILENO, es);
+      es = log_error_str(
+        "{}",
+        ui_fmt::errno_err(errno_err, "fork (pid2)", "{}", utils_pretty_fn));
+      utils::io::Native::fs_println(STDERR_FILENO, es);
       _exit(kNormalExitStatus + 2);
     }
     if (pid2 > 0) {
@@ -363,9 +322,9 @@ class SharedManager {
     umask(0);
     if (chdir("/") < 0) {
       const int errno_err = errno;
-      es = io_str_error(
-        "{}", u_io::errno_err(errno_err, "chdir", "{}", utils_pretty_fn));
-      utils::io_ln_fd(STDERR_FILENO, es);
+      es = log_error_str(
+        "{}", ui_fmt::errno_err(errno_err, "chdir", "{}", utils_pretty_fn));
+      utils::io::Native::fs_println(STDERR_FILENO, es);
       _exit(errno_err);
     }
 
@@ -383,9 +342,9 @@ class SharedManager {
 
     execvp(argv[0], argv.data());
     const int errno_err = errno;
-    es = io_str_error(
-      "{}", u_io::errno_err(errno_err, "execvp", "{}", utils_pretty_fn));
-    utils::io_ln_fd(STDERR_FILENO, es);
+    es = log_error_str(
+      "{}", ui_fmt::errno_err(errno_err, "execvp", "{}", utils_pretty_fn));
+    utils::io::Native::fs_println(STDERR_FILENO, es);
     _exit(errno_err);
     return {};
   }
@@ -402,7 +361,7 @@ class SharedManager {
         return std::unexpected(UTrace("No daemon was found"));
       }
       if (retries % (kRetryTimes / 5) == 0) {
-        io_ln_infosp(
+        logln_infosp(
           "\nTrying to acquire daemon. "
           "Total attempts: {0}; Attempted times: {1}",
           kRetryTimes, retries);
@@ -410,14 +369,6 @@ class SharedManager {
       std::this_thread::sleep_for(std::chrono::milliseconds(kOnceSleepMs));
     }
     return {};
-  }
-
-  void native_write(u_log::ShmBuf *buffer) {
-    if (buffer->type == u_log::ShmBufDataType::kLog) {
-      g_private_manager.log_write(buffer->level,
-                                  static_cast<void *>(buffer->data.log.buf),
-                                  buffer->data.log.buf_size);
-    }
   }
 };
 
@@ -453,7 +404,7 @@ inline bool shared_initialization_check() {
   if (!g_shared_initialized.load(std::memory_order_relaxed)) {
     auto log_manager = std::make_unique<SharedManager>();
     if (auto ret = log_manager->init(); !ret.has_value()) {
-      io_ln_error("{0}", ret.error().join_self_all());
+      logln_error("{0}", ret.error().join_self_all());
     } else {
       g_shared_initialized.store(true, std::memory_order_relaxed);
       g_shared_manager = std::move(log_manager);
@@ -480,40 +431,42 @@ class FsManager {
    * At this point, it is necessary to ensure that the "native" file descriptor
    * is valid.
    */
-  void fs_configure(const sirius_log_fs_t &config, PutType put_type) {
-    if (!put_type_check(put_type)) [[unlikely]]
-      return;
-
-    size_t path_size = 0;
-    if (config.log_path) {
-      path_size = utils_strnlen_s(config.log_path, u_log::kLogPathMax);
-      if (path_size <= 0 || path_size >= u_log::kLogPathMax) {
-        io_ln_warnsp("Invalid argument. `log_path`");
-        return;
-      }
-    }
+  auto fs_configure(const sirius_log_fs_t &config, u_io::PutType put_type)
+    -> std::expected<void, UTrace> {
+    const std::filesystem::path path =
+      config.log_path ? std::filesystem::path(config.log_path) : "";
+    std::function<std::expected<void, UTrace>(
+      u_io::PutType, const std::filesystem::path &, int, int)>
+      fn_configure;
 
     bool to_shared_state;
-    std::function<bool(const char *, size_t, PutType)> fs_configure_fn;
     if (config.shared == SiriusThreadProcess::kSiriusThreadProcessPrivate) {
       to_shared_state = false;
-      fs_configure_fn = [&](const char *c, size_t s, PutType p) {
-        return g_private_manager.fs_configure(c, s, p);
+      fn_configure = [&](u_io::PutType pt, const std::filesystem::path &p,
+                         int f, int m) {
+        return u_io::Native::instance()
+          .fs_configure(pt, p, f, m, config.ansi_disable)
+          .utrace_transform_error_default();
       };
     } else {
       if (!shared_initialization_check())
-        return;
-
+        return std::unexpected(UTrace("Uninitialized"));
       to_shared_state = true;
-      fs_configure_fn = [&](const char *c, size_t s, PutType p) {
-        return g_shared_manager->fs_configure(c, s, p);
+      fn_configure = [&](u_io::PutType pt, const std::filesystem::path &p,
+                         int f, int m) {
+        return g_shared_manager->fs_configure(pt, p, f, m, config.ansi_disable)
+          .utrace_transform_error_default();
       };
     }
 
-    auto &to_shared = put_type == PutType::kOut ? out_to_shared : err_to_shared;
-    if (fs_configure_fn(config.log_path, path_size, put_type)) {
-      to_shared.store(to_shared_state, std::memory_order_relaxed);
-    }
+    auto &to_shared =
+      put_type == u_io::PutType::kOut ? out_to_shared : err_to_shared;
+    return fn_configure(put_type, path, config.flags, config.mode)
+      .and_then([&]() -> std::expected<void, UTrace> {
+        to_shared.store(to_shared_state, std::memory_order_relaxed);
+        return {};
+      })
+      .utrace_transform_error_default();
   }
 };
 
@@ -544,15 +497,15 @@ inline void win_enable_ansi() {
 #endif
 
 inline void error_log_lost() {
-  io_ln_error("\nLog length exceeds the buffer, log will be lost");
+  logln_error("\nLog length exceeds the buffer, log will be lost");
 }
 
 inline void error_lib_func(std::string_view fn_str) {
-  io_ln_error("\n`{0}` error", fn_str);
+  logln_error("\n`{0}` error", fn_str);
 }
 
 inline void error_log_truncated() {
-  io_ln_warnsp("\nLog length exceeds the buffer, log will be truncated");
+  logln_warnsp("\nLog length exceeds the buffer, log will be truncated");
 }
 
 inline void log_write(u_log::ShmBuf &buffer, size_t data_len) {
@@ -566,8 +519,7 @@ inline void log_write(u_log::ShmBuf &buffer, size_t data_len) {
     g_shared_manager->produce_shared(
       &buffer, sizeof(u_log::ShmBuf) - u_log::kLogBufferSize + data_len);
   } else {
-    g_private_manager.log_write(buffer.level, (void *)buffer.data.log.buf,
-                                buffer.data.log.buf_size);
+    g_shared_manager->native_write(&buffer);
   }
 }
 
@@ -575,19 +527,19 @@ inline void level_prefix(int level, std::string &usr_prefix, const char *module,
                          const char *file, int line) {
   switch (level) {
   case SIRIUS_LOG_LEVEL_ERROR:
-    usr_prefix = u_io::instance().s_error(file, line, module);
+    usr_prefix = ui_fmt::instance().s_error(file, line, module);
     break;
   case SIRIUS_LOG_LEVEL_WARN:
-    usr_prefix = u_io::instance().s_warn(file, line, module);
+    usr_prefix = ui_fmt::instance().s_warn(file, line, module);
     break;
   case SIRIUS_LOG_LEVEL_INFO:
-    usr_prefix = u_io::instance().s_info(file, line, module);
+    usr_prefix = ui_fmt::instance().s_info(file, line, module);
     break;
   case SIRIUS_LOG_LEVEL_DEBUG:
-    usr_prefix = u_io::instance().s_debug(file, line, module);
+    usr_prefix = ui_fmt::instance().s_debug(file, line, module);
     break;
   default:
-    usr_prefix = u_io::s_pre("Print", _SIRIUS_LOG_MODULE_NAME, file, line);
+    usr_prefix = ui_fmt::s_pre("Print", _SIRIUS_LOG_MODULE_NAME, file, line);
     break;
   }
 }
@@ -630,8 +582,15 @@ extern "C" sirius_api void
 sirius_log_configure(const sirius_log_config_t *config) {
   if (!config)
     return;
-  g_fs_manager.fs_configure(config->out, PutType::kOut);
-  g_fs_manager.fs_configure(config->err, PutType::kErr);
+
+  if (auto ret = g_fs_manager.fs_configure(config->out, u_io::PutType::kOut);
+      !ret.has_value()) {
+    logln_warnsp("{0}", ret.error().join_self_all());
+  }
+  if (auto ret = g_fs_manager.fs_configure(config->err, u_io::PutType::kErr);
+      !ret.has_value()) {
+    logln_warnsp("{0}", ret.error().join_self_all());
+  }
 }
 
 extern "C" sirius_api void sirius_log_impl(int level, const char *module,
@@ -644,7 +603,7 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *module,
 
   std::string usr_prefix;
   size_t usr_prefix_size = 0;
-  usr_prefix.reserve(u_io::kPrefixLength + 16);
+  usr_prefix.reserve(ui_fmt::kPrefixLength + 16);
   level_prefix(level, usr_prefix, module, file, line);
   usr_prefix_size = strlen(usr_prefix.c_str());
   if (usr_prefix_size >= u_log::kLogBufferSize) [[unlikely]]
@@ -667,7 +626,7 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *module,
 
   std::string usr_data;
   usr_data.reserve(usr_vdata_size + 32);
-  usr_data = u_io::row_gs("{0}", usr_vdata)
+  usr_data = ui_fmt::row_gs("{0}", usr_vdata)
                .append(count_trailing_new_lines(usr_vdata), '\n');
   size_t usr_data_size = strlen(usr_data.c_str());
   if (usr_data_size >= usr_vdata_max) [[unlikely]] {
@@ -690,7 +649,7 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *module,
 
   std::string usr_prefix;
   size_t usr_prefix_size = 0;
-  usr_prefix.reserve(u_io::kPrefixLength + 16);
+  usr_prefix.reserve(ui_fmt::kPrefixLength + 16);
   level_prefix(level, usr_prefix, module, "", 0);
   usr_prefix_size = strlen(usr_prefix.c_str());
   if (usr_prefix_size >= u_log::kLogBufferSize) [[unlikely]]
@@ -713,7 +672,7 @@ extern "C" sirius_api void sirius_logsp_impl(int level, const char *module,
 
   std::string usr_data;
   usr_data.reserve(usr_vdata_size + 32);
-  usr_data = u_io::row_gs("{0}", usr_vdata)
+  usr_data = ui_fmt::row_gs("{0}", usr_vdata)
                .append(count_trailing_new_lines(usr_vdata), '\n');
   size_t usr_data_size = strlen(usr_data.c_str());
   if (usr_data_size >= usr_vdata_max) [[unlikely]] {

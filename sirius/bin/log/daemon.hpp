@@ -1,4 +1,7 @@
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include <functional>
 
@@ -9,7 +12,6 @@
 namespace sirius {
 namespace bin {
 namespace log {
-using u_io = utils::Io;
 namespace u_log = utils::log;
 namespace u_prcs = utils::process;
 
@@ -68,7 +70,7 @@ class Daemon {
    public:
     MainStructor(Daemon &parent)
         : parent_(parent), master_(*parent.master_.get()) {
-      io_ln_infosp("Daemon startup (PID: {0})", u_prcs::pid());
+      logln_infosp("Daemon startup (PID: {0})", u_prcs::pid());
 
       thread_crash_ =
         std::jthread([this](std::stop_token st) { parent_.thread_crash(st); });
@@ -99,7 +101,7 @@ class Daemon {
         thread_crash_.join();
       }
 
-      io_ln_infosp("Daemon teardown (PID: {0})", u_prcs::pid());
+      logln_infosp("Daemon teardown (PID: {0})", u_prcs::pid());
     }
 
    private:
@@ -144,14 +146,14 @@ class Daemon {
 
   void thread_crash(std::stop_token stop_token) {
     if (auto ret = master_->mutex_crash_lock(); !ret.has_value()) {
-      io_ln_error("{}", ret.error().join_self_all());
+      logln_error("{}", ret.error().join_self_all());
       return;
     }
 
     for (uint64_t i = 0; !stop_token.stop_requested();
          std::this_thread::sleep_for(std::chrono::milliseconds(1500))) {
       if (++i % 60 == 0) {
-        io_ln_infosp("Daemon is alive (PID: {0})", u_prcs::pid());
+        logln_infosp("Daemon is alive (PID: {0})", u_prcs::pid());
       }
     }
 
@@ -217,12 +219,12 @@ class Daemon {
         if (s == u_log::ShmSlotState::kWaiting) {
           uint64_t ts = slots[i].timestamp_ms.load(std::memory_order_relaxed);
           if (now - ts > u_log::kShmSlotResetTimeoutMs) {
-            io_ln_warnsp("Recovering stuck slot: {0}", i);
+            logln_warnsp("Recovering stuck slot: {0}", i);
 
             /**
              * @note Construct a forged log indicating data loss.
              */
-            auto es = io_str_warnsp("Slot recovered/skipped due to timeout");
+            auto es = log_warnsp_str("Slot recovered/skipped due to timeout");
             slots[i].buffer.type = u_log::ShmBufDataType::kLog;
             slots[i].buffer.level = SIRIUS_LOG_LEVEL_ERROR;
             auto &log = slots[i].buffer.data.log;
@@ -251,7 +253,7 @@ class Daemon {
            u_log::ShmSlotState::kReady) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       if (++retries > retry_times) {
-        io_ln_warnsp("Skip corrupted slot index: {0}", read_index);
+        logln_warnsp("Skip corrupted slot index: {0}", read_index);
         return std::nullopt;
       }
     }

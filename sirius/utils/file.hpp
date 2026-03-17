@@ -1,5 +1,7 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include "utils/io.hpp"
 
@@ -55,10 +57,10 @@ class File {
       std::filesystem::permissions(path, perm, options);
       return {};
     } catch (const std::exception &e) {
-      auto es = std::format("\nexception: {0}", e.what());
+      auto es = std::format("`exception`: {0}", e.what());
       return std::unexpected(UTrace(std::move(es)));
     } catch (...) {
-      return std::unexpected(UTrace("exception: unknow"));
+      return std::unexpected(UTrace("`exception`: unknow"));
     }
   }
 

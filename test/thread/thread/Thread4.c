@@ -78,10 +78,8 @@ int main() {
 
   sirius_warnsp("--------------------------------\n");
   sirius_warnsp("- Try to join the thread detached during initialization\n");
-  sirius_logsp_impl(
-    SIRIUS_LOG_LEVEL_WARN, _SIRIUS_LOG_MODULE_NAME,
-    LOG_PURPLE "- This is unsafe. Tools like asan may abort here" LOG_COLOR_NONE
-               "\n");
+  sirius_logsp_impl(SIRIUS_LOG_LEVEL_ERROR, _SIRIUS_LOG_MODULE_NAME,
+                    "- This is unsafe. Tools like asan may abort here\n");
   sirius_warnsp("- sirius_thread_join: %d\n",
                 sirius_thread_join(threads[index], nullptr));
   sirius_warnsp("- sirius_thread_join: %d\n",
@@ -109,10 +107,8 @@ int main() {
 
   sirius_warnsp("--------------------------------\n");
   sirius_warnsp("- Try to join the thread manually detached\n");
-  sirius_logsp_impl(
-    SIRIUS_LOG_LEVEL_WARN, _SIRIUS_LOG_MODULE_NAME,
-    LOG_PURPLE "- This is unsafe. Tools like asan may abort here" LOG_COLOR_NONE
-               "\n");
+  sirius_logsp_impl(SIRIUS_LOG_LEVEL_ERROR, _SIRIUS_LOG_MODULE_NAME,
+                    "- This is unsafe. Tools like asan may abort here\n");
   sirius_warnsp("- sirius_thread_join: %d\n",
                 sirius_thread_join(threads[index], nullptr));
   sirius_warnsp("- sirius_thread_join: %d\n",

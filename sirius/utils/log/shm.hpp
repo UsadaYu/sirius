@@ -1,5 +1,7 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include "utils/log/utils.hpp"
 #include "utils/process/mutex.hpp"
@@ -48,8 +50,16 @@ struct ShmBuf {
     } log;
 
     struct {
-      char path[kLogPathMax];
       ShmBufDataFsType type;
+      char path[kLogPathMax];
+      int flags;
+      int mode;
+#ifdef _MSC_VER
+#  pragma message("--- Add Ansi ---")
+#else
+#  warning "--- Add Ansi ---"
+#endif
+      int ansi_disable;
     } fs;
   } data;
 
@@ -159,11 +169,7 @@ class Shm {
  public:
   class Master {
    public:
-    enum class DaemonState {
-      kAlive,
-      kPerfectDead,
-      kOwnerDead,
-    };
+    enum class DaemonState { kAlive, kPerfectDead, kOwnerDead };
 
    public:
     Master(MasterToken, Shm &parent, enum MasterType master_type)
@@ -240,14 +246,14 @@ class Shm {
         (void)mutex_crash_unlock();
         header_->is_daemon_ready.store(false, std::memory_order_relaxed);
       } else {
-        io_ln_error("{0}", ret.error().join_self_all());
+        logln_error("{0}", ret.error().join_self_all());
       }
 
       {
         auto lock = lock_guard();
         for (size_t i = 0; i < kProcessMax; ++i) {
           if (header_->slot_master_type[i] == MasterType::kDaemon) {
-            io_ln_infosp("Reset the old daemon slot");
+            logln_infosp("Reset the old daemon slot");
             slot_reset(i);
             break;
           }
@@ -265,7 +271,7 @@ class Shm {
     std::atomic<bool> thread_guard_ready_ = false;
 
     auto master_alloc() -> std::expected<void, UTrace> {
-      io_ln_infosp("Master: {0}. Alloc", static_cast<int>(master_type_));
+      logln_infosp("Master: {0}. Alloc", static_cast<int>(master_type_));
 
       switch (master_type_) {
       case MasterType::kDaemon:
@@ -287,7 +293,7 @@ class Shm {
         break;
       }
 
-      io_ln_infosp("Master: {0}. Free", static_cast<int>(master_type_));
+      logln_infosp("Master: {0}. Free", static_cast<int>(master_type_));
     }
 
     bool slot_check(size_t index) const {
@@ -321,7 +327,7 @@ class Shm {
       }
 
       if (!found) {
-        io_ln_warnsp("No valid pid was matched{0}", line_pid());
+        logln_warnsp("No valid pid was matched{0}", line_pid());
       }
     }
 
@@ -423,7 +429,7 @@ class Shm {
         auto lock = lock_guard();
         for (; !slot_check(index); ++index) {
           if (index == kProcessMax - 1) {
-            io_ln_error("No valid pid was matched");
+            logln_error("No valid pid was matched");
             return;
           }
         }
@@ -439,7 +445,7 @@ class Shm {
           if (slot_check(index)) [[likely]] {
             header_->slot_map[index].timestamp_ms = timestamp_ms;
           } else {
-            io_ln_error("\nInvalid argument. `{0}` exit", __func__);
+            logln_error("\nInvalid argument. `{0}` exit", __func__);
             return;
           }
         }
@@ -513,11 +519,11 @@ class Shm {
 
 #if defined(_WIN32) || defined(_WIN64)
   static std::string c_error(const DWORD err_code, std::string_view fn_str) {
-    return Io::win_err(err_code, fn_str, "{}", line_pid());
+    return io::Fmt::win_err(err_code, fn_str, "{}", line_pid());
   }
 #else
   static std::string c_error(const int err_code, std::string_view fn_str) {
-    return Io::errno_err(err_code, fn_str, "{}", line_pid());
+    return io::Fmt::errno_err(err_code, fn_str, "{}", line_pid());
   }
 #endif
 
@@ -615,7 +621,7 @@ class Shm {
     }
 
     if (destructor_counter_ == 0) {
-      io_ln_infosp("Unlink the share memory");
+      logln_infosp("Unlink the share memory");
       shm_unlink(shm_name_.c_str());
     }
   }
@@ -780,7 +786,7 @@ class GMutex {
     ~LockGuard() noexcept {
       owns_ = false;
       if (auto ret = mutex_.unlock(); !ret.has_value()) {
-        io_ln_error("{0}", ret.error().join_self_all());
+        logln_error("{0}", ret.error().join_self_all());
       }
     }
 

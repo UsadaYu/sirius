@@ -31,31 +31,61 @@ int main() {
   auto init = utils::Init();
 
   sirius_log_config_t cfg = {};
-
-  cfg.out.log_path = GEN_FILE_NAME;
-  cfg.out.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
-  cfg.err.log_path = GEN_FILE_NAME;
-  cfg.err.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
-  sirius_log_configure(&cfg);
+  cfg.out.flags = kSIRIUS_O_RDWR | kSIRIUS_O_CREAT | kSIRIUS_O_APPEND;
+  cfg.out.mode = SIRIUS_PERM_RW;
 
   std::jthread threads[NB_THREADS];
   for (auto &t : threads) {
     t = std::jthread(thread_foo);
   }
 
+  // --- Shared ---
+  cfg.out.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
+  cfg.out.ansi_disable = 0;
+  cfg.err = cfg.out;
+  cfg.out.log_path = GEN_FILE_NAME;
+  cfg.err.log_path = GEN_FILE_NAME;
+  sirius_log_configure(&cfg);
+
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.out.log_path = nullptr;
-  cfg.out.shared = SiriusThreadProcess::kSiriusThreadProcessPrivate;
   sirius_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.err.log_path = nullptr;
-  cfg.err.shared = SiriusThreadProcess::kSiriusThreadProcessPrivate;
   sirius_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
+  cfg.err.ansi_disable = 1;
+  sirius_log_configure(&cfg);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(600));
+  cfg.out.ansi_disable = 1;
+  sirius_log_configure(&cfg);
+
+  // --- Private ---
+  std::this_thread::sleep_for(std::chrono::milliseconds(600));
+  cfg.out.shared = SiriusThreadProcess::kSiriusThreadProcessPrivate;
+  cfg.out.ansi_disable = 0;
+  cfg.err = cfg.out;
   cfg.out.log_path = GEN_FILE_NAME;
   cfg.err.log_path = GEN_FILE_NAME;
+  sirius_log_configure(&cfg);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(600));
+  cfg.out.log_path = nullptr;
+  sirius_log_configure(&cfg);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(600));
+  cfg.err.log_path = nullptr;
+  sirius_log_configure(&cfg);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(600));
+  cfg.err.ansi_disable = 1;
+  sirius_log_configure(&cfg);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(600));
+  cfg.out.ansi_disable = 1;
   sirius_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));

@@ -1,5 +1,7 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #if defined(_WIN32) || defined(_WIN64)
 static inline int utils_winerr_to_errno(const DWORD err_code) {

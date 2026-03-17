@@ -1,7 +1,10 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include "sirius/foundation/log.h"
+#include "utils/config.h"
 #include "utils/io.h"
 
 #if defined(_WIN32) || defined(_WIN64)

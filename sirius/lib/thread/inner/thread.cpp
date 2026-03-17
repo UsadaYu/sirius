@@ -1,6 +1,6 @@
-// clang-format off
+/* clang-format off */
 #include "utils/decls.h"
-// clang-format on
+/* clang-format on */
 
 #include "lib/thread/inner/thread.h"
 
@@ -114,7 +114,7 @@ inline bool has_been_destructed() {
   if (once_print.exchange(true, std::memory_order_relaxed))
     return true;
 
-  io_ln_warnsp(
+  logln_warnsp(
     "\n---------- Fatal Error ----------"
     "\nThe thread manager has been destructed"
     "\nThe `main` function may have already ended"
@@ -137,7 +137,7 @@ extern "C" unsigned __stdcall win_thread_wrapper(void *pv) {
 
   DWORD dw_err = 0;
   sirius_thread_t thr = warg.thr;
-  if (!sirius_foundation_thread_tls_set_value(thr, &dw_err)) {
+  if (!inner_thread_tls_set_value(thr, &dw_err)) {
     if (has_been_destructed()) {
       /**
        * @note Here it will not return an error unless it's necessary after the
@@ -186,7 +186,7 @@ extern "C" sirius_api void sirius_thread_exit(void *retval) _sirius_throw_spec {
 }
 
 extern "C" sirius_api sirius_thread_t sirius_thread_self() {
-  return (sirius_thread_t)sirius_foundation_thread_tls_get_value(nullptr);
+  return (sirius_thread_t)inner_thread_tls_get_value(nullptr);
 }
 
 extern "C" sirius_api int sirius_thread_detach(sirius_thread_t thread) {

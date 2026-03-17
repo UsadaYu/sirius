@@ -1,11 +1,11 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #include <algorithm>
 #include <map>
-#include <mutex>
 
-#include "utils/config.h"
 #include "utils/env.h"
 #include "utils/file.hpp"
 
@@ -49,14 +49,14 @@ inline std::string sanitize_name(std::string_view s) {
 
 inline std::string
 generate_namespace_prefix(std::string_view runtime_salt = "") {
-  static std::string_view base = std::string(_SIRIUS_NAMESPACE)
-                                   .append("|")
-                                   .append(_SIRIUS_POSIX_FILE_MODE)
-                                   .append("|")
-                                   .append(_SIRIUS_USER_KEY);
-  std::string s;
+  static const std::string base = std::string(_SIRIUS_NAMESPACE)
+                                    .append("|")
+                                    .append(_SIRIUS_POSIX_FILE_MODE)
+                                    .append("|")
+                                    .append(_SIRIUS_USER_KEY);
+  std::string s = base;
   if (!runtime_salt.empty()) {
-    s = std::string(base).append("|").append(runtime_salt);
+    s.append("|").append(runtime_salt);
   }
   std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) -> char {
     return static_cast<char>(std::tolower(c));
@@ -72,20 +72,17 @@ inline std::string generate_name(std::string_view name,
                                  bool is_global /* Windows */ = false) {
 #if defined(_WIN32) || defined(_WIN64)
   std::string scope = is_global ? "Global\\" : "Local\\";
-  std::string prefix = scope.append(_SIRIUS_NAMESPACE)
-                         .append("_")
-                         .append(generate_namespace_prefix());
-  std::string nm =
-    prefix.append("_").append(sanitize_name(name)).append(kSuffixShm);
-  return nm;
+  std::string prefix = std::move(scope.append(_SIRIUS_NAMESPACE)
+                                   .append("_")
+                                   .append(generate_namespace_prefix()));
 #else
   std::string prefix = std::string(_SIRIUS_NAMESPACE)
                          .append("_")
                          .append(generate_namespace_prefix());
-  std::string nm =
-    prefix.append("_").append(sanitize_name(name)).append(kSuffixShm);
-  return nm;
 #endif
+
+  return std::move(
+    prefix.append("_").append(sanitize_name(name)).append(kSuffixShm));
 }
 } // namespace shm
 
@@ -116,9 +113,8 @@ class Mutex {
     std::string prefix = scope.append(_SIRIUS_NAMESPACE)
                            .append("_")
                            .append(generate_namespace_prefix());
-    std::string nm =
-      prefix.append("_").append(sanitize_name(name)).append(kSuffixMutex);
-    return nm;
+    return std::move(
+      prefix.append("_").append(sanitize_name(name)).append(kSuffixMutex));
   }
 #endif
 
@@ -163,11 +159,11 @@ class Mutex {
 #endif
         break;
       } catch (const std::filesystem::filesystem_error &e) {
-        err_msg = std::format("\nexception (filesystem_error): {0}", e.what());
+        err_msg = std::format("\n`exception filesystem_error`: {0}", e.what());
       } catch (const std::exception &e) {
-        err_msg = std::format("exception: {0}", e.what());
+        err_msg = std::format("`exception`: {0}", e.what());
       } catch (...) {
-        err_msg = "exception: unknow";
+        err_msg = "`exception`: unknow";
       }
       return std::unexpected(UTrace(std::move(err_msg)));
     }
@@ -181,12 +177,12 @@ class Mutex {
                           .append(".lock");
     lock_path = base / fname;
     map_.insert(std::pair(m_name, lock_path));
-    return lock_path;
+    return std::move(lock_path);
   }
 
  private:
-  std::mutex mutex_map_;
-  std::map<std::string, std::filesystem::path> map_;
+  std::mutex mutex_map_ {};
+  std::map<std::string, std::filesystem::path> map_ {};
 };
 } // namespace ns
 } // namespace utils

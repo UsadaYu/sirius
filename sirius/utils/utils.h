@@ -1,5 +1,7 @@
-#include "utils/decls.h"
 #pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
 
 #ifdef __cplusplus
 #  include "utils/trace.hpp"
@@ -8,12 +10,10 @@ namespace sirius {
 #endif
 
 // --- max / min ---
-#ifndef UTILS_MIN
-#  define UTILS_MIN(x, y) ((x) < (y) ? (x) : (y))
-#endif
-#ifndef UTILS_MAX
-#  define UTILS_MAX(x, y) ((x) > (y) ? (x) : (y))
-#endif
+#undef UTILS_MIN
+#define UTILS_MIN(x, y) ((x) < (y) ? (x) : (y))
+#undef UTILS_MAX
+#define UTILS_MAX(x, y) ((x) > (y) ? (x) : (y))
 
 // --- utils_localtime_r ---
 static inline void utils_localtime_r(const time_t *__restrict timer,

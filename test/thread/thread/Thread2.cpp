@@ -45,13 +45,13 @@ void *foo(void *arg) {
       index);
   } else {
     std::string es;
-    es = std::format(LOG_RED
-                     "\n"
-                     "  Sub-thread (TID: {0})\n"
-                     "  Fail to verifiy the `argument`:\n"
-                     "    Actual string:   {1}\n"
-                     "    Expected string: {2}\n" LOG_COLOR_NONE,
-                     SIRIUS_THREAD_ID, content->string, hash1);
+    es = std::format(
+      "\n"
+      "  Sub-thread (TID: {0})\n"
+      "  Fail to verifiy the `argument`:\n"
+      "    Actual string:   {1}\n"
+      "    Expected string: {2}\n",
+      SIRIUS_THREAD_ID, content->string, hash1);
     throw std::runtime_error(es);
   }
 
@@ -80,11 +80,11 @@ int main() {
     args[i].string = kHashes[i].first;
     ret = sirius_thread_create(threads + i, &attr, foo, (void *)(args + i));
     if (ret) {
-      es = std::format(LOG_RED
-                       "\n"
-                       "  Main-Join (creating the index: {0})\n"
-                       "  `sirius_thread_create` error: {1}\n" LOG_COLOR_NONE,
-                       i, ret);
+      es = std::format(
+        "\n"
+        "  Main-Join (creating the index: {0})\n"
+        "  `sirius_thread_create` error: {1}\n",
+        i, ret);
       throw std::runtime_error(es);
     }
   }
@@ -93,11 +93,11 @@ int main() {
   for (int i = 0; i < kNbThreads; ++i) {
     ret = sirius_thread_join(threads[i], (void **)&retval);
     if (ret) {
-      es = std::format(LOG_RED
-                       "\n"
-                       "  Main-Join (joining the index: {0})\n"
-                       "  `sirius_thread_join` error: {1}\n" LOG_COLOR_NONE,
-                       i, ret);
+      es = std::format(
+        "\n"
+        "  Main-Join (joining the index: {0})\n"
+        "  `sirius_thread_join` error: {1}\n",
+        i, ret);
       throw std::runtime_error(es);
     }
 
@@ -108,13 +108,13 @@ int main() {
         "verified\n",
         i);
     } else {
-      es = std::format(LOG_RED
-                       "\n"
-                       "  Main-Join (joining the index: {0})\n"
-                       "  Fail to verifiy the `retval`:\n"
-                       "    Actual string:   {1}\n"
-                       "    Expected string: {2}\n" LOG_COLOR_NONE,
-                       i, retval, hash2);
+      es = std::format(
+        "\n"
+        "  Main-Join (joining the index: {0})\n"
+        "  Fail to verifiy the `retval`:\n"
+        "    Actual string:   {1}\n"
+        "    Expected string: {2}\n",
+        i, retval, hash2);
       throw std::runtime_error(es);
     }
 
