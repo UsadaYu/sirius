@@ -4,7 +4,7 @@
 
 #include "sirius/foundation/log.h"
 
-#include "lib/foundation/initializer.h"
+#include "lib/foundation/structor.h"
 #include "sirius/foundation/thread.h"
 #include "utils/log/exe.hpp"
 #include "utils/log/shm.hpp"
@@ -139,8 +139,8 @@ class SharedManager {
     u_log::ShmBuf buffer {};
     auto &data = buffer.data.fs;
     buffer.type = u_log::ShmBufDataType::kConfig;
-    buffer.level = put_type == u_io::PutType::kOut ? SIRIUS_LOG_LEVEL_DEBUG
-                                                   : SIRIUS_LOG_LEVEL_ERROR;
+    buffer.level =
+      put_type == u_io::PutType::kOut ? SS_LOG_LEVEL_DEBUG : SS_LOG_LEVEL_ERROR;
     if (path_size > 0) {
       std::memcpy(data.path, path.string().c_str(), path_size);
       data.type = u_log::ShmBufDataFsType::kFile;
@@ -148,6 +148,7 @@ class SharedManager {
       path_size += 1;
       data.flags = flags;
       data.mode = mode;
+      data.ansi_disable = static_cast<int>(ansi_disable);
     } else {
       data.type = u_log::ShmBufDataFsType::kStd;
     }
@@ -227,7 +228,7 @@ class SharedManager {
                               nullptr, nullptr, &si, &pi);
     if (!ret) {
       const DWORD dw_err = GetLastError();
-      auto es = std::format("{0}", ui_fmt::win_err(dw_err, "CreateProcessA"));
+      auto es = ui_fmt::win_err(dw_err, "CreateProcessA");
       return std::unexpected(UTrace(std::move(es)));
     }
     CloseHandle(pi.hThread);
@@ -408,7 +409,11 @@ inline bool shared_initialization_check() {
     } else {
       g_shared_initialized.store(true, std::memory_order_relaxed);
       g_shared_manager = std::move(log_manager);
-      std::atexit(g_shared_log_manager_deinit);
+
+      structor_destructor_register_t dr {};
+      dr.priority = 0;
+      dr.fn_destructor = g_shared_log_manager_deinit;
+      structor_destructor_register(&dr);
     }
   }
 
@@ -431,7 +436,7 @@ class FsManager {
    * At this point, it is necessary to ensure that the "native" file descriptor
    * is valid.
    */
-  auto fs_configure(const sirius_log_fs_t &config, u_io::PutType put_type)
+  auto fs_configure(const ss_log_fs_t &config, u_io::PutType put_type)
     -> std::expected<void, UTrace> {
     const std::filesystem::path path =
       config.log_path ? std::filesystem::path(config.log_path) : "";
@@ -440,7 +445,7 @@ class FsManager {
       fn_configure;
 
     bool to_shared_state;
-    if (config.shared == SiriusThreadProcess::kSiriusThreadProcessPrivate) {
+    if (config.shared == SsThreadProcess::kSsThreadProcessPrivate) {
       to_shared_state = false;
       fn_configure = [&](u_io::PutType pt, const std::filesystem::path &p,
                          int f, int m) {
@@ -509,7 +514,7 @@ inline void error_log_truncated() {
 }
 
 inline void log_write(u_log::ShmBuf &buffer, size_t data_len) {
-  auto &fs_to_shared = buffer.level <= SIRIUS_LOG_LEVEL_WARN
+  auto &fs_to_shared = buffer.level <= SS_LOG_LEVEL_WARN
     ? g_fs_manager.err_to_shared
     : g_fs_manager.out_to_shared;
   bool to_shared = fs_to_shared.load(std::memory_order_relaxed) &&
@@ -526,16 +531,16 @@ inline void log_write(u_log::ShmBuf &buffer, size_t data_len) {
 inline void level_prefix(int level, std::string &usr_prefix, const char *module,
                          const char *file, int line) {
   switch (level) {
-  case SIRIUS_LOG_LEVEL_ERROR:
+  case SS_LOG_LEVEL_ERROR:
     usr_prefix = ui_fmt::instance().s_error(file, line, module);
     break;
-  case SIRIUS_LOG_LEVEL_WARN:
+  case SS_LOG_LEVEL_WARN:
     usr_prefix = ui_fmt::instance().s_warn(file, line, module);
     break;
-  case SIRIUS_LOG_LEVEL_INFO:
+  case SS_LOG_LEVEL_INFO:
     usr_prefix = ui_fmt::instance().s_info(file, line, module);
     break;
-  case SIRIUS_LOG_LEVEL_DEBUG:
+  case SS_LOG_LEVEL_DEBUG:
     usr_prefix = ui_fmt::instance().s_debug(file, line, module);
     break;
   default:
@@ -567,19 +572,15 @@ extern "C" bool constructor_foundation_log() {
   return true;
 }
 
-extern "C" void destructor_foundation_log() {
-}
-
-extern "C" sirius_api int sirius_log_set_exe_path(const char *path) {
+extern "C" sirius_api int ss_log_set_exe_path(const char *path) {
   if (g_shared_initialized.load(std::memory_order_relaxed)) {
-    sirius_error("The Daemon has started, it is too late to configure\n");
+    ss_log_error("The Daemon has started, it is too late to configure\n");
     return EBUSY;
   }
   return u_log::exe::Exe::instance().set_path(path);
 }
 
-extern "C" sirius_api void
-sirius_log_configure(const sirius_log_config_t *config) {
+extern "C" sirius_api void ss_log_configure(const ss_log_config_t *config) {
   if (!config)
     return;
 
@@ -593,9 +594,9 @@ sirius_log_configure(const sirius_log_config_t *config) {
   }
 }
 
-extern "C" sirius_api void sirius_log_impl(int level, const char *module,
-                                           const char *file, int line,
-                                           const char *fmt, ...) {
+extern "C" sirius_api void ss_log_impl(int level, const char *module,
+                                       const char *file, int line,
+                                       const char *fmt, ...) {
   u_log::ShmBuf buffer {};
   auto &data = buffer.data.log;
   buffer.type = u_log::ShmBufDataType::kLog;
@@ -640,8 +641,8 @@ extern "C" sirius_api void sirius_log_impl(int level, const char *module,
   log_write(buffer, data.buf_size);
 }
 
-extern "C" sirius_api void sirius_logsp_impl(int level, const char *module,
-                                             const char *fmt, ...) {
+extern "C" sirius_api void ss_logsp_impl(int level, const char *module,
+                                         const char *fmt, ...) {
   u_log::ShmBuf buffer {};
   auto &data = buffer.data.log;
   buffer.type = u_log::ShmBufDataType::kLog;

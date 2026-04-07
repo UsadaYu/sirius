@@ -65,9 +65,9 @@ struct ShmBuf {
 
   /**
    * @note
-   * - (1) level <= SIRIUS_LOG_LEVEL_WARN: stderr.
+   * - (1) level <= SS_LOG_LEVEL_WARN: stderr.
    *
-   * - (2) level > SIRIUS_LOG_LEVEL_WARN: stdout.
+   * - (2) level > SS_LOG_LEVEL_WARN: stdout.
    */
   int level;
 };
@@ -231,19 +231,15 @@ class Shm {
       if (!header_->is_daemon_ready.load(std::memory_order_relaxed))
         return DaemonState::kPerfectDead;
 
-      DaemonState state = DaemonState::kPerfectDead;
       if (auto ret = mutex_crash_trylock(); ret.has_value()) {
-        switch (ret.value()) {
-        case process::LockState::kBusy:
+        if (ret.value() == process::LockState::kSuccess) {
+          (void)mutex_crash_unlock();
           return DaemonState::kAlive;
-        case process::LockState::kOwnerDead:
-          state = DaemonState::kOwnerDead;
-          break;
-        default:
-          state = DaemonState::kPerfectDead;
-          break;
+        } else if (ret.value() == process::LockState::kBusy) {
+          return DaemonState::kAlive;
+        } else if (ret.value() == process::LockState::kOwnerDead) {
+          (void)mutex_crash_unlock();
         }
-        (void)mutex_crash_unlock();
         header_->is_daemon_ready.store(false, std::memory_order_relaxed);
       } else {
         logln_error("{0}", ret.error().join_self_all());
@@ -260,7 +256,7 @@ class Shm {
         }
       }
 
-      return state;
+      return DaemonState::kOwnerDead;
     }
 
    private:

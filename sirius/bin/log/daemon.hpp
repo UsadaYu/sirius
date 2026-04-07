@@ -55,7 +55,7 @@ class Daemon {
   }
 
   void log_write(int level, const void *buffer, size_t size) {
-    int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
+    int fd = level <= SS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
     utils_write(fd, buffer, size);
   }
 
@@ -226,7 +226,7 @@ class Daemon {
              */
             auto es = log_warnsp_str("Slot recovered/skipped due to timeout");
             slots[i].buffer.type = u_log::ShmBufDataType::kLog;
-            slots[i].buffer.level = SIRIUS_LOG_LEVEL_ERROR;
+            slots[i].buffer.level = SS_LOG_LEVEL_ERROR;
             auto &log = slots[i].buffer.data.log;
             log.buf_size = es.size();
             std::memcpy(log.buf, es.c_str(), log.buf_size + 1);

@@ -6,12 +6,13 @@
 
 #include "inner/utils.h"
 
-static constexpr int kNbThreads = 6;
+namespace {
+inline constexpr int kNbThreads = 6;
 
 using HashPair = std::pair<std::string_view, std::string_view>;
 using IndexToHash = std::array<HashPair, kNbThreads>;
 
-static const IndexToHash kHashes = {
+inline const IndexToHash kHashes = {
   {
    {"97ce467c-534d-408c-a4c6-4548e5f0fbf0",
      "36ad79d2-94e3-4172-9421-092a52f7ef98"},
@@ -33,77 +34,74 @@ struct Arg {
   std::string_view string;
 };
 
-void *foo(void *arg) {
+inline void *foo(void *arg) {
   auto *content = (Arg *)arg;
   int index = content->index;
   auto hash1 = kHashes[index].first;
   auto hash2 = kHashes[index].second;
 
   if (content->string == hash1) {
-    sirius_infosp(
+    ss_log_infosp(
       "Sub-thread (index: %d). The `argument` was successfully verified\n",
       index);
   } else {
-    std::string es;
-    es = std::format(
+    auto es = std::format(
       "\n"
       "  Sub-thread (TID: {0})\n"
       "  Fail to verifiy the `argument`:\n"
       "    Actual string:   {1}\n"
-      "    Expected string: {2}\n",
-      SIRIUS_THREAD_ID, content->string, hash1);
-    throw std::runtime_error(es);
+      "    Expected string: {2}",
+      SS_THREAD_ID, content->string, hash1);
+    throw std::runtime_error(std::move(es));
   }
 
-  sirius_thread_exit((void *)hash2.data());
+  ss_thread_exit((void *)hash2.data());
 
   return nullptr;
 }
 
-int main() {
-  auto init = utils::Init();
-
+inline int main_impl() {
   int ret;
   std::string es;
-  sirius_thread_attr_t attr {};
-  sirius_thread_t threads[kNbThreads];
+  ss_thread_attr_t attr {};
+  ss_thread_t threads[kNbThreads];
   Arg args[kNbThreads] {};
   void *stackaddr = nullptr;
 
-  attr.inherit_sched = kSiriusThreadExplicitSched;
-  attr.scope = kSiriusThreadScopeSystem;
+  attr.inherit_sched = kSsThreadExplicitSched;
+  attr.scope = kSsThreadScopeSystem;
   attr.stackaddr = stackaddr;
   attr.guardsize = 4096;
 
   for (int i = 0; i < kNbThreads; ++i) {
     args[i].index = i;
     args[i].string = kHashes[i].first;
-    ret = sirius_thread_create(threads + i, &attr, foo, (void *)(args + i));
+    ret = ss_thread_create(threads + i, &attr, foo, (void *)(args + i));
     if (ret) {
       es = std::format(
         "\n"
         "  Main-Join (creating the index: {0})\n"
-        "  `sirius_thread_create` error: {1}\n",
+        "  `ss_thread_create` error: {1}",
         i, ret);
-      throw std::runtime_error(es);
+      throw std::runtime_error(std::move(es));
     }
   }
 
   const char *retval = nullptr;
   for (int i = 0; i < kNbThreads; ++i) {
-    ret = sirius_thread_join(threads[i], (void **)&retval);
+    ret = ss_thread_join(threads[i], (void **)&retval);
     if (ret) {
       es = std::format(
         "\n"
         "  Main-Join (joining the index: {0})\n"
-        "  `sirius_thread_join` error: {1}\n",
+        "  `ss_thread_join` error: {1}",
         i, ret);
-      throw std::runtime_error(es);
+      throw std::runtime_error(std::move(es));
     }
 
     auto hash2 = kHashes[i].second;
     if (retval == hash2.data()) {
-      sirius_infosp(
+      ss_log_infosp(
         "Main-Join (joining the index: %d). The `retval` was successfully "
         "verified\n",
         i);
@@ -113,13 +111,28 @@ int main() {
         "  Main-Join (joining the index: {0})\n"
         "  Fail to verifiy the `retval`:\n"
         "    Actual string:   {1}\n"
-        "    Expected string: {2}\n",
+        "    Expected string: {2}",
         i, retval, hash2);
-      throw std::runtime_error(es);
+      throw std::runtime_error(std::move(es));
     }
 
     retval = nullptr;
   }
 
   return 0;
+}
+} // namespace
+
+int main() {
+  auto init = utils::Init();
+
+  try {
+    return main_impl();
+  } catch (const std::exception &e) {
+    ss_log_error("%s\n", e.what());
+    return -1;
+  } catch (...) {
+    ss_log_error("`exception`: unknow\n");
+    return -1;
+  }
 }

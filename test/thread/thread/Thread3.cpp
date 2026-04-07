@@ -10,10 +10,11 @@
  */
 #define PERMISSION (0)
 
-static std::atomic<bool> g_thread_flag1 = false;
-static std::atomic<bool> g_thread_flag2 = false;
+namespace {
+inline std::atomic<bool> g_thread_flag1 = false;
+inline std::atomic<bool> g_thread_flag2 = false;
 
-static void *foo(void *arg) {
+inline void *foo(void *arg) {
   (void)arg;
 
   while (!g_thread_flag1.load()) {
@@ -25,82 +26,80 @@ static void *foo(void *arg) {
   return nullptr;
 }
 
-static void print_sched(sirius_thread_t thread) {
+inline void print_sched(ss_thread_t thread) {
   int ret;
   std::string es;
-  sirius_thread_sched_args_t sched_param {};
+  ss_thread_sched_args_t sched_param {};
 
-  ret = sirius_thread_getschedparam(thread, &sched_param);
+  ret = ss_thread_getschedparam(thread, &sched_param);
   if (ret) {
     es = std::format(
       "\n"
       "  Main-Detach\n"
-      "  `sirius_thread_getschedparam` error: {}\n",
+      "  `ss_thread_getschedparam` error: {}",
       ret);
-    throw std::runtime_error(es);
+    throw std::runtime_error(std::move(es));
   }
-  sirius_infosp(
+  ss_log_infosp(
     "\n"
     "Main-Detach. Successfully get the sub thread scheduling policy\n"
     "Scheduling policy: %d; Priority: %d\n",
     sched_param.sched_policy, sched_param.priority);
 }
 
-int main() {
-  auto init = utils::Init();
-
+inline int main_impl() {
   int ret;
   std::string es;
-  sirius_thread_attr_t attr {};
-  sirius_thread_t thread;
+  ss_thread_attr_t attr {};
+  ss_thread_t thread;
 
-  attr.detach_state = kSiriusThreadCreateDetached;
+  attr.detach_state = kSsThreadCreateDetached;
 
   // POSIX
 #if PERMISSION
-  attr.sched_param.sched_policy = kSiriusThreadSchedFifo;
+  attr.sched_param.sched_policy = kSsThreadSchedFifo;
 #endif
 
 #if defined(_WIN32) || defined(_WIN64) || PERMISSION
   attr.sched_param.priority = 2;
-  sirius_infosp("Main-Detach. Thread initial priority: %d\n",
+  ss_log_infosp("Main-Detach. Thread initial priority: %d\n",
                 attr.sched_param.priority);
 #endif
 
-  ret = sirius_thread_create(&thread, &attr, foo, nullptr);
+  ret = ss_thread_create(&thread, &attr, foo, nullptr);
   if (ret) {
     es = std::format(
       "\n"
       "  Main-Detach\n"
-      "  `sirius_thread_create` error: {}\n",
+      "  `ss_thread_create` error: {}",
       ret);
-    throw std::runtime_error(es);
+    throw std::runtime_error(std::move(es));
   }
 
   print_sched(thread);
 
   int priority;
-  sirius_thread_get_priority_max(thread, &priority);
-  sirius_infosp("Main-Detach. Gets the max priority of the sub thread: %d\n",
+  ss_thread_get_priority_max(thread, &priority);
+  ss_log_infosp("Main-Detach. Gets the max priority of the sub thread: %d\n",
                 priority);
-  sirius_thread_get_priority_min(thread, &priority);
-  sirius_infosp("Main-Detach. Gets the min priority of the sub thread: %d\n",
+  ss_thread_get_priority_min(thread, &priority);
+  ss_log_infosp("Main-Detach. Gets the min priority of the sub thread: %d\n",
                 priority);
 
 #if defined(_WIN32) || defined(_WIN64) || PERMISSION
-  sirius_thread_sched_args_t sched_param {};
-  sched_param.sched_policy = kSiriusThreadSchedRR;
+  ss_thread_sched_args_t sched_param {};
+  sched_param.sched_policy = kSsThreadSchedRR;
   sched_param.priority = 36;
-  ret = sirius_thread_setschedparam(thread, &sched_param);
+  ret = ss_thread_setschedparam(thread, &sched_param);
   if (ret) {
     es = std::format(
       "\n"
       "  Main-Detach\n"
-      "  `sirius_thread_setschedparam` error: {}\n",
+      "  `ss_thread_setschedparam` error: {}",
       ret);
-    throw std::runtime_error(es);
+    throw std::runtime_error(std::move(es));
   } else {
-    sirius_infosp(
+    ss_log_infosp(
       "\n"
       "Main-Detach. Successfully set the sub thread scheduling policy\n"
       "Scheduling policy: %d; Priority: %d\n",
@@ -118,4 +117,19 @@ int main() {
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
   return 0;
+}
+} // namespace
+
+int main() {
+  auto init = utils::Init();
+
+  try {
+    return main_impl();
+  } catch (const std::exception &e) {
+    ss_log_error("%s\n", e.what());
+    return -1;
+  } catch (...) {
+    ss_log_error("`exception`: unknow\n");
+    return -1;
+  }
 }

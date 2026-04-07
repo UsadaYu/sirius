@@ -49,6 +49,16 @@ namespace utils {
 template <typename T>
 concept IntegralOrEnum = std::integral<T> || std::is_enum_v<T>;
 
+template <typename Fn>
+struct Defer {
+  Fn fn;
+  ~Defer() { fn(); }
+};
+
+#  define UTILS_DEFER(expr) \
+    ::sirius::utils::utils::Defer _utils_defer_counter_##__COUNTER__( \
+      [&]() { expr; })
+
 constexpr size_t next_power_of_2(size_t n);
 } // namespace utils
 } // namespace utils

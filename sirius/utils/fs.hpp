@@ -18,26 +18,26 @@ inline int win_map_flags(int flags) {
   int os_flags = 0;
 
   os_flags |= _O_BINARY;
-  if (flags & kSIRIUS_O_RDONLY) {
+  if (flags & kSS_O_RDONLY) {
     os_flags |= _O_RDONLY;
   }
-  if (flags & kSIRIUS_O_WRONLY) {
+  if (flags & kSS_O_WRONLY) {
     os_flags |= _O_WRONLY;
   }
-  if (flags & kSIRIUS_O_RDWR) {
+  if (flags & kSS_O_RDWR) {
     os_flags |= _O_RDWR;
   }
 
-  if (flags & kSIRIUS_O_CREAT) {
+  if (flags & kSS_O_CREAT) {
     os_flags |= _O_CREAT;
   }
-  if (flags & kSIRIUS_O_TRUNC) {
+  if (flags & kSS_O_TRUNC) {
     os_flags |= _O_TRUNC;
   }
-  if (flags & kSIRIUS_O_APPEND) {
+  if (flags & kSS_O_APPEND) {
     os_flags |= _O_APPEND;
   }
-  if (flags & kSIRIUS_O_EXCL) {
+  if (flags & kSS_O_EXCL) {
     os_flags |= _O_EXCL;
   }
 
@@ -80,26 +80,26 @@ inline int fs_close_impl(int fd) {
 inline int posix_map_flags(int flags) {
   int os_flags = 0;
 
-  if (flags & kSIRIUS_O_RDONLY) {
+  if (flags & kSS_O_RDONLY) {
     os_flags |= O_RDONLY;
   }
-  if (flags & kSIRIUS_O_WRONLY) {
+  if (flags & kSS_O_WRONLY) {
     os_flags |= O_WRONLY;
   }
-  if (flags & kSIRIUS_O_RDWR) {
+  if (flags & kSS_O_RDWR) {
     os_flags |= O_RDWR;
   }
 
-  if (flags & kSIRIUS_O_CREAT) {
+  if (flags & kSS_O_CREAT) {
     os_flags |= O_CREAT;
   }
-  if (flags & kSIRIUS_O_TRUNC) {
+  if (flags & kSS_O_TRUNC) {
     os_flags |= O_TRUNC;
   }
-  if (flags & kSIRIUS_O_APPEND) {
+  if (flags & kSS_O_APPEND) {
     os_flags |= O_APPEND;
   }
-  if (flags & kSIRIUS_O_EXCL) {
+  if (flags & kSS_O_EXCL) {
     os_flags |= O_EXCL;
   }
 

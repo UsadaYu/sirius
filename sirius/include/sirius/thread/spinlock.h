@@ -1,6 +1,6 @@
 /**
  * @note
- * - (1) `enum SiriusThreadProcess`: Inter-process sharing is not supported.
+ * - (1) `enum SsThreadProcess`: Inter-process sharing is not supported.
  */
 
 #pragma once
@@ -13,34 +13,34 @@ extern "C" {
 #endif
 
 #if defined(_MSC_VER)
-typedef volatile long sirius_spinlock_t;
+typedef volatile long ss_spinlock_t;
 extern long _InterlockedCompareExchange(long volatile *, long, long);
 extern long _InterlockedExchange(long volatile *, long);
 
-static inline int sirius_spin_init(sirius_spinlock_t *lock,
-                                   enum SiriusThreadProcess pshared) {
+static inline int ss_spin_init(ss_spinlock_t *lock,
+                               enum SsThreadProcess pshared) {
   (void)pshared;
   *lock = 0;
   return 0;
 }
 
-static inline int sirius_spin_destroy(sirius_spinlock_t *lock) {
+static inline int ss_spin_destroy(ss_spinlock_t *lock) {
   *lock = 0;
   return 0;
 }
 
-static inline int sirius_spin_lock(sirius_spinlock_t *lock) {
+static inline int ss_spin_lock(ss_spinlock_t *lock) {
   if (!_InterlockedCompareExchange(lock, 1, 0))
     return 0;
   do {
     while (*lock) {
-      sirius_cpu_pause();
+      ss_cpu_pause();
     }
   } while (_InterlockedCompareExchange(lock, 1, 0));
   return 0;
 }
 
-static inline int sirius_spin_unlock(sirius_spinlock_t *lock) {
+static inline int ss_spin_unlock(ss_spinlock_t *lock) {
   _InterlockedExchange(lock, 0);
   return 0;
 }
@@ -52,62 +52,62 @@ static inline int sirius_spin_unlock(sirius_spinlock_t *lock) {
 #    include <stdbool.h>
 #  endif
 
-typedef _Atomic bool sirius_spinlock_t;
+typedef _Atomic bool ss_spinlock_t;
 
-static inline int sirius_spin_init(sirius_spinlock_t *lock,
-                                   enum SiriusThreadProcess pshared) {
+static inline int ss_spin_init(ss_spinlock_t *lock,
+                               enum SsThreadProcess pshared) {
   (void)pshared;
   atomic_store_explicit(lock, false, memory_order_release);
   return 0;
 }
 
-static inline int sirius_spin_destroy(sirius_spinlock_t *lock) {
+static inline int ss_spin_destroy(ss_spinlock_t *lock) {
   (void)lock;
   return 0;
 }
 
-static inline int sirius_spin_lock(sirius_spinlock_t *lock) {
+static inline int ss_spin_lock(ss_spinlock_t *lock) {
   if (!atomic_exchange_explicit(lock, true, memory_order_acquire))
     return 0;
   do {
     while (atomic_load_explicit(lock, memory_order_relaxed)) {
-      sirius_cpu_pause();
+      ss_cpu_pause();
     }
   } while (atomic_exchange_explicit(lock, true, memory_order_acquire));
   return 0;
 }
 
-static inline int sirius_spin_unlock(sirius_spinlock_t *lock) {
+static inline int ss_spin_unlock(ss_spinlock_t *lock) {
   atomic_store_explicit(lock, false, memory_order_release);
   return 0;
 }
 #elif defined(__GNUC__) || defined(__clang__)
-typedef volatile int sirius_spinlock_t;
+typedef volatile int ss_spinlock_t;
 
-static inline int sirius_spin_init(sirius_spinlock_t *lock,
-                                   enum SiriusThreadProcess pshared) {
+static inline int ss_spin_init(ss_spinlock_t *lock,
+                               enum SsThreadProcess pshared) {
   (void)pshared;
   *lock = 0;
   return 0;
 }
 
-static inline int sirius_spin_destroy(sirius_spinlock_t *lock) {
+static inline int ss_spin_destroy(ss_spinlock_t *lock) {
   (void)lock;
   return 0;
 }
 
-static inline int sirius_spin_lock(sirius_spinlock_t *lock) {
+static inline int ss_spin_lock(ss_spinlock_t *lock) {
   if (!__sync_lock_test_and_set(lock, 1))
     return 0;
   do {
     while (*lock) {
-      sirius_cpu_pause();
+      ss_cpu_pause();
     }
   } while (__sync_lock_test_and_set(lock, 1));
   return 0;
 }
 
-static inline int sirius_spin_unlock(sirius_spinlock_t *lock) {
+static inline int ss_spin_unlock(ss_spinlock_t *lock) {
   __sync_lock_release(lock);
   return 0;
 }

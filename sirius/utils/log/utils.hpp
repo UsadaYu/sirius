@@ -16,10 +16,10 @@ inline constexpr std::string_view kMutexProcessKey =
   UTILS_LOG_KEY "_mutex_process";
 inline constexpr std::string_view kMutexShmKey = UTILS_LOG_KEY "_mutex_shm";
 inline constexpr std::string_view kMutexCrashKey = UTILS_LOG_KEY "_mutex_crash";
-sirius_static_assert(kMutexProcessKey != kMutexShmKey &&
-                       kMutexProcessKey != kMutexCrashKey &&
-                       kMutexShmKey != kMutexCrashKey,
-                     "The mutex name must be unique");
+ss_static_assert(kMutexProcessKey != kMutexShmKey &&
+                   kMutexProcessKey != kMutexCrashKey &&
+                   kMutexShmKey != kMutexCrashKey,
+                 "The mutex name must be unique");
 
 inline constexpr size_t kLogBufferSize = 4096;
 inline constexpr size_t kLogPathMax = 4096;
@@ -27,7 +27,7 @@ inline constexpr size_t kProcessMax = 128;
 inline constexpr size_t kProcessNbDaemon = 1;
 inline constexpr uint64_t kProcessFeedGuardMs = 2000;
 inline constexpr uint64_t kProcessGuardTimeoutMs = 8000;
-sirius_static_assert(kProcessFeedGuardMs <= kProcessGuardTimeoutMs);
+ss_static_assert(kProcessFeedGuardMs <= kProcessGuardTimeoutMs);
 inline constexpr uint64_t kShmSlotResetTimeoutMs = 5000;
 inline constexpr size_t kShmCapacity =
   utils::next_power_of_2(_SIRIUS_LOG_SHM_CAPACITY);

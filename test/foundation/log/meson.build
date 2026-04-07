@@ -16,7 +16,7 @@ foreach group : groups
         'compile_args': [
             std['std'],
             '-D_SIRIUS_LOG_MODULE_NAME="@0@"'.format(target),
-            '-DGEN_FILE_NAME="@0@"'.format(gen),
+            '-D_GEN_FILE_NAME="@0@"'.format(gen),
         ],
         'sources': group['sources'],
         'subdir': fs.name(meson.current_source_dir()),

@@ -1,23 +1,23 @@
 #pragma once
 
 #if defined(__GNUC__)
-#  define _sirius_gcc_version_check_at_least(x, y) \
+#  define _SS_INNER_GCC_VERSION_CHECK_AT_LEAST(x, y) \
     (__GNUC__ > (x) || __GNUC__ == (x) && __GNUC_MINOR__ >= (y))
-#  define _sirius_gcc_version_check_at_most(x, y) \
+#  define _SS_INNER_GCC_VERSION_CHECK_AT_MOST(x, y) \
     (__GNUC__ < (x) || __GNUC__ == (x) && __GNUC_MINOR__ <= (y))
 #else
-#  define _sirius_gcc_version_check_at_least(x, y) 0
-#  define _sirius_gcc_version_check_at_most(x, y) 0
+#  define _SS_INNER_GCC_VERSION_CHECK_AT_LEAST(x, y) 0
+#  define _SS_INNER_GCC_VERSION_CHECK_AT_MOST(x, y) 0
 #endif
 
 #if defined(__clang__)
-#  define _sirius_clang_version_check_at_least(x, y) \
+#  define _SS_INNER_CLANG_VERSION_CHECK_AT_LEAST(x, y) \
     (__clang_major__ > (x) || __clang_major__ == (x) && __clang_minor__ >= (y))
-#  define _sirius_clang_version_check_at_most(x, y) \
+#  define _SS_INNER_CLANG_VERSION_CHECK_AT_MOST(x, y) \
     (__clang_major__ < (x) || __clang_major__ == (x) && __clang_minor__ <= (y))
 #else
-#  define _sirius_clang_version_check_at_least(x, y) 0
-#  define _sirius_clang_version_check_at_most(x, y) 0
+#  define _SS_INNER_CLANG_VERSION_CHECK_AT_LEAST(x, y) 0
+#  define _SS_INNER_CLANG_VERSION_CHECK_AT_MOST(x, y) 0
 #endif
 
 // --- sirius_api ---
@@ -39,7 +39,7 @@
 #  endif
 #else
 #  ifndef sirius_api
-#    if _sirius_gcc_version_check_at_least(4, 0) || defined(__clang__)
+#    if _SS_INNER_GCC_VERSION_CHECK_AT_LEAST(4, 0) || defined(__clang__)
 #      define sirius_api __attribute__((visibility("default")))
 #    else
 #      define sirius_api

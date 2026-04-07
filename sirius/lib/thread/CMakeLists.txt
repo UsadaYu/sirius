@@ -8,8 +8,12 @@ set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
 # --- sirius::thread ---
 set(sources "")
-list(APPEND sources "inner/thread.cpp")
-list(APPEND sources "cond.c" "mutex.c" "sem.c" "thread.c")
+list(APPEND sources "cond.c" "mutex.c" "sem.c")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  list(APPEND sources "windows/thread.cpp")
+else()
+  list(APPEND sources "posix/thread.c")
+endif()
 
 add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})
 add_library(${SIRIUS_NAMESPACE}::${LIB_TARGET} ALIAS ${LIB_TARGET})

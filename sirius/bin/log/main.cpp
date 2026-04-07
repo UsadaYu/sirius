@@ -4,6 +4,7 @@
 /* clang-format on */
 
 #include "bin/log/daemon.hpp"
+#include "sirius/foundation/structor.h"
 #include "sirius/version.h"
 #include "utils/log/exe.hpp"
 
@@ -100,31 +101,24 @@ class Main {
 } // namespace bin
 } // namespace sirius
 
+using namespace sirius;
+
 int main(int argc, char **argv) {
   auto debug = Debug();
-  std::unique_ptr<sirius::bin::log::Main> main;
+  UTILS_DEFER(ss_global_destruct());
 
   try {
-    main = std::make_unique<sirius::bin::log::Main>(argc, argv);
+    auto mcls = std::make_unique<bin::log::Main>(argc, argv);
+    auto ret = argc == 1 ? mcls->main_usage() : mcls->main_arg(argc, argv);
+    if (ret.has_value())
+      return 0;
+    logln_error("{0}", ret.error().join_self_all());
+    return -1;
   } catch (const std::exception &e) {
     logln_error("{0}", e.what());
     return -1;
   } catch (...) {
     logln_error("`exception`: unknow");
     return -1;
-  }
-
-  if (argc == 1) {
-    if (auto ret = main->main_usage(); !ret.has_value()) {
-      logln_error("{0}", ret.error().join_self_all());
-      return -1;
-    }
-    return 0;
-  } else {
-    if (auto ret = main->main_arg(argc, argv); !ret.has_value()) {
-      logln_error("{0}", ret.error().join_self_all());
-      return -1;
-    }
-    return 0;
   }
 }

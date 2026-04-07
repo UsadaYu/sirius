@@ -14,16 +14,15 @@
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-utils_check_sizeof(sirius_sem_t, HANDLE);
-utils_check_alignof(sirius_sem_t, HANDLE);
+utils_check_sizeof(ss_sem_t, HANDLE);
+utils_check_alignof(ss_sem_t, HANDLE);
 #else
-utils_check_sizeof(sirius_sem_t, sem_t);
-utils_check_alignof(sirius_sem_t, sem_t);
+utils_check_sizeof(ss_sem_t, sem_t);
+utils_check_alignof(ss_sem_t, sem_t);
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-sirius_api int sirius_sem_init(sirius_sem_t *sem, int pshared,
-                               unsigned int value) {
+sirius_api int ss_sem_init(ss_sem_t *sem, int pshared, unsigned int value) {
   (void)pshared;
 
   /**
@@ -41,7 +40,7 @@ sirius_api int sirius_sem_init(sirius_sem_t *sem, int pshared,
   return 0;
 }
 
-sirius_api int sirius_sem_destroy(sirius_sem_t *sem) {
+sirius_api int ss_sem_destroy(ss_sem_t *sem) {
   if (!sem || !*((HANDLE *)sem))
     return EINVAL;
 
@@ -52,7 +51,7 @@ sirius_api int sirius_sem_destroy(sirius_sem_t *sem) {
   return 0;
 }
 
-sirius_api int sirius_sem_wait(sirius_sem_t *sem) {
+sirius_api int ss_sem_wait(ss_sem_t *sem) {
   DWORD wait_ret = WaitForSingleObject(*((HANDLE *)sem), INFINITE);
   switch (wait_ret) {
   case WAIT_OBJECT_0:
@@ -66,7 +65,7 @@ sirius_api int sirius_sem_wait(sirius_sem_t *sem) {
   }
 }
 
-sirius_api int sirius_sem_trywait(sirius_sem_t *sem) {
+sirius_api int ss_sem_trywait(ss_sem_t *sem) {
   DWORD wait_ret = WaitForSingleObject(*((HANDLE *)sem), 0);
   switch (wait_ret) {
   case WAIT_OBJECT_0:
@@ -85,7 +84,7 @@ sirius_api int sirius_sem_trywait(sirius_sem_t *sem) {
   }
 }
 
-sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
+sirius_api int ss_sem_timedwait(ss_sem_t *sem, uint64_t milliseconds) {
   DWORD timeout_ms;
   uint64_t tm_prev, tm_cur, tm_elapsed;
   tm_prev = GetTickCount64();
@@ -116,7 +115,7 @@ sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
   return ETIMEDOUT;
 }
 
-sirius_api int sirius_sem_post(sirius_sem_t *sem) {
+sirius_api int ss_sem_post(ss_sem_t *sem) {
   BOOL ok = ReleaseSemaphore(*((HANDLE *)sem), 1, nullptr);
   if (!ok)
     return utils_winerr_to_errno(GetLastError());
@@ -128,16 +127,15 @@ sirius_api int sirius_sem_post(sirius_sem_t *sem) {
  * `errno` set.
  */
 
-sirius_api int sirius_sem_init(sirius_sem_t *sem, int pshared,
-                               unsigned int value) {
+sirius_api int ss_sem_init(ss_sem_t *sem, int pshared, unsigned int value) {
   return sem_init((sem_t *)sem, pshared, value) == 0 ? 0 : errno;
 }
 
-sirius_api int sirius_sem_destroy(sirius_sem_t *sem) {
+sirius_api int ss_sem_destroy(ss_sem_t *sem) {
   return sem_destroy((sem_t *)sem) == 0 ? 0 : errno;
 }
 
-sirius_api int sirius_sem_wait(sirius_sem_t *sem) {
+sirius_api int ss_sem_wait(ss_sem_t *sem) {
   int ret;
 
   /**
@@ -149,11 +147,11 @@ sirius_api int sirius_sem_wait(sirius_sem_t *sem) {
   return ret == 0 ? 0 : errno;
 }
 
-sirius_api int sirius_sem_trywait(sirius_sem_t *sem) {
+sirius_api int ss_sem_trywait(ss_sem_t *sem) {
   return sem_trywait((sem_t *)sem) == 0 ? 0 : errno;
 }
 
-sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
+sirius_api int ss_sem_timedwait(ss_sem_t *sem, uint64_t milliseconds) {
   struct timespec ts;
   if (clock_gettime(CLOCK_REALTIME, &ts))
     return errno;
@@ -172,12 +170,11 @@ sirius_api int sirius_sem_timedwait(sirius_sem_t *sem, uint64_t milliseconds) {
   return ret == 0 ? 0 : errno;
 }
 
-sirius_api int sirius_sem_post(sirius_sem_t *sem) {
+sirius_api int ss_sem_post(ss_sem_t *sem) {
   return sem_post((sem_t *)sem) == 0 ? 0 : errno;
 }
 
-sirius_api int sirius_sem_getvalue(sirius_sem_t *__restrict sem,
-                                   int *__restrict sval) {
+sirius_api int ss_sem_getvalue(ss_sem_t *__restrict sem, int *__restrict sval) {
   return sem_getvalue((sem_t *)sem, sval) == 0 ? 0 : errno;
 }
 #endif

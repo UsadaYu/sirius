@@ -4,9 +4,9 @@
 extern "C" {
 #endif
 
-enum SiriusThreadProcess {
-  kSiriusThreadProcessPrivate = 0,
-  kSiriusThreadProcessShared = 1,
+enum SsThreadProcess {
+  kSsThreadProcessPrivate = 0,
+  kSsThreadProcessShared = 1,
 };
 
 #ifdef __cplusplus

@@ -187,7 +187,7 @@ class Parser {
   }
 
   /**
-   * @return Return the first value (an null string if none).
+   * @return Return the first value (a `Null` string if none).
    */
   std::string get(const std::string &option,
                   const std::string &def = "") const {

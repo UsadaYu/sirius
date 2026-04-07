@@ -1,12 +1,12 @@
 #pragma once
 
-// --- SIRIUS_ENV_LOG_EXE_PATH ---
-#undef SIRIUS_ENV_LOG_EXE_PATH
+// --- _SIRIUS_ENV_LOG_EXE_PATH ---
+#undef _SIRIUS_ENV_LOG_EXE_PATH
 
 /**
  * @brief The path of the log executables.
  */
-#define SIRIUS_ENV_LOG_EXE_PATH "SIRIUS_ENV_LOG_EXE_PATH"
+#define _SIRIUS_ENV_LOG_EXE_PATH "SIRIUS_ENV_LOG_EXE_PATH"
 
 /**
  * @brief Custom log module name.

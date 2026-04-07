@@ -8,7 +8,7 @@
 #include "sirius/thread/cond.h"
 #include "sirius/thread/mutex.h"
 
-struct sirius_queue_t {
+struct ss_queue_t {
   /**
    * @brief Queue elements.
    */
@@ -31,29 +31,29 @@ struct sirius_queue_t {
   /**
    * @brief Mechanism in the queue.
    *
-   * @see `enum SiriusQueueType`.
+   * @see `enum SsQueueType`.
    */
-  enum SiriusQueueType type;
+  enum SsQueueType type;
 
   /**
-   * @brief A mutex which is used when `type` is set to `kSiriusQueueTypeMutex`.
+   * @brief A mutex which is used when `type` is set to `kSsQueueTypeMutex`.
    */
-  sirius_mutex_t mutex;
+  ss_mutex_t mutex;
 
-  sirius_cond_t cond_non_empty, cond_non_full;
+  ss_cond_t cond_non_empty, cond_non_full;
 };
 
-static force_inline void queue_mutex_lock(enum SiriusQueueType type,
-                                          sirius_mutex_t *mutex) {
-  if (kSiriusQueueTypeMutex == type) {
-    sirius_mutex_lock(mutex);
+static ss_force_inline void queue_mutex_lock(enum SsQueueType type,
+                                             ss_mutex_t *mutex) {
+  if (kSsQueueTypeMutex == type) {
+    ss_mutex_lock(mutex);
   }
 }
 
-static force_inline void queue_mutex_unlock(enum SiriusQueueType type,
-                                            sirius_mutex_t *mutex) {
-  if (kSiriusQueueTypeMutex == type) {
-    sirius_mutex_unlock(mutex);
+static ss_force_inline void queue_mutex_unlock(enum SsQueueType type,
+                                               ss_mutex_t *mutex) {
+  if (kSsQueueTypeMutex == type) {
+    ss_mutex_unlock(mutex);
   }
 }
 
@@ -61,25 +61,25 @@ static inline bool is_power_of_2(size_t n) {
   return n > 0 && (n & (n - 1)) == 0;
 }
 
-sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
-                                  const sirius_queue_args_t *__restrict args) {
-  if (unlikely(!queue || !args)) {
-    sirius_error("Null pointer\n");
+sirius_api int ss_queue_alloc(ss_queue_t **__restrict queue,
+                              const ss_queue_args_t *__restrict args) {
+  if (ss_unlikely(!queue || !args)) {
+    ss_log_error("Null pointer\n");
     return EINVAL;
   }
 
   int ret;
-  sirius_queue_t *q = (sirius_queue_t *)calloc(1, sizeof(sirius_queue_t));
+  ss_queue_t *q = (ss_queue_t *)calloc(1, sizeof(ss_queue_t));
   if (!q) {
     const int errno_err = errno;
-    sirius_error("calloc\n");
+    ss_log_error("calloc\n");
     return errno_err;
   }
 
   size_t requested_capacity = args->elem_count;
   if (!is_power_of_2(requested_capacity)) {
     q->capacity = utils_next_power_of_2(requested_capacity);
-    sirius_debugsp("Queue capacity adjusted from `%zu` to `%zu`\n",
+    ss_log_debugsp("Queue capacity adjusted from `%zu` to `%zu`\n",
                    requested_capacity, q->capacity);
   } else {
     q->capacity = requested_capacity;
@@ -95,17 +95,17 @@ sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
   q->elements = (size_t *)calloc(q->capacity, sizeof(size_t));
   if (!q->elements) {
     const int errno_err = errno;
-    sirius_error("calloc\n");
+    ss_log_error("calloc\n");
     ret = errno_err;
     goto label_free1;
   }
 
-  if (q->type == kSiriusQueueTypeMutex) {
-    if ((ret = sirius_mutex_init(&q->mutex, nullptr)) != 0)
+  if (q->type == kSsQueueTypeMutex) {
+    if ((ret = ss_mutex_init(&q->mutex, nullptr)) != 0)
       goto label_free2;
-    if ((ret = sirius_cond_init(&q->cond_non_empty, nullptr)) != 0)
+    if ((ret = ss_cond_init(&q->cond_non_empty, nullptr)) != 0)
       goto label_free3;
-    if ((ret = sirius_cond_init(&q->cond_non_full, nullptr)) != 0)
+    if ((ret = ss_cond_init(&q->cond_non_full, nullptr)) != 0)
       goto label_free4;
   }
 
@@ -113,9 +113,9 @@ sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
   return 0;
 
 label_free4:
-  sirius_cond_destroy(&q->cond_non_empty);
+  ss_cond_destroy(&q->cond_non_empty);
 label_free3:
-  sirius_mutex_destroy(&q->mutex);
+  ss_mutex_destroy(&q->mutex);
 label_free2:
   free(q->elements);
 label_free1:
@@ -123,16 +123,16 @@ label_free1:
   return ret;
 }
 
-sirius_api int sirius_queue_free(sirius_queue_t *queue) {
-  if (unlikely(!queue)) {
-    sirius_error("Null pointer\n");
+sirius_api int ss_queue_free(ss_queue_t *queue) {
+  if (ss_unlikely(!queue)) {
+    ss_log_error("Null pointer\n");
     return EINVAL;
   }
 
-  if (queue->type == kSiriusQueueTypeMutex) {
-    sirius_cond_destroy(&queue->cond_non_full);
-    sirius_cond_destroy(&queue->cond_non_empty);
-    sirius_mutex_destroy(&queue->mutex);
+  if (queue->type == kSsQueueTypeMutex) {
+    ss_cond_destroy(&queue->cond_non_full);
+    ss_cond_destroy(&queue->cond_non_empty);
+    ss_mutex_destroy(&queue->mutex);
   }
   if (queue->elements) {
     free(queue->elements);
@@ -148,16 +148,16 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue) {
     ret = 0; \
     if (wait_nr == que->elem_count) { \
       switch (milliseconds) { \
-      case SIRIUS_TIMEOUT_NO_WAITING: \
+      case kSsTimeoutNoWaiting: \
         ret = ETIMEDOUT; \
         break; \
-      case SIRIUS_TIMEOUT_INFINITE: \
+      case kSsTimeoutInfinite: \
         while (!ret && wait_nr == que->elem_count) { \
-          ret = sirius_cond_wait(&cond, &que->mutex); \
+          ret = ss_cond_wait(&cond, &que->mutex); \
         } \
         break; \
       default: \
-        ret = sirius_cond_timedwait(&cond, &que->mutex, milliseconds); \
+        ret = ss_cond_timedwait(&cond, &que->mutex, milliseconds); \
         ret = !ret && wait_nr == que->elem_count ? ETIMEDOUT : ret; \
         break; \
       } \
@@ -166,7 +166,7 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue) {
 
 /**
  * @param[out] ret Return code.
- * @param[in] type Queue type, refer to `enum SiriusQueueType`.
+ * @param[in] type Queue type, refer to `enum SsQueueType`.
  * @param[in] mutex Mutex handle.
  * @param[in] cond Condition handle.
  */
@@ -174,26 +174,26 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue) {
   do { \
     ret = 0; \
     switch (type) { \
-    case kSiriusQueueTypeMutex: \
-      sirius_mutex_lock(&mutex); \
+    case kSsQueueTypeMutex: \
+      ss_mutex_lock(&mutex); \
       G if (!ret) { \
-        E sirius_cond_signal(&cond); \
+        E ss_cond_signal(&cond); \
       } \
-      sirius_mutex_unlock(&mutex); \
+      ss_mutex_unlock(&mutex); \
       break; \
-    case kSiriusQueueTypeNoMutex: \
+    case kSsQueueTypeNoMutex: \
       F E break; \
     default: \
-      sirius_error("Invalid argument. Queue type: %d\n", (int)type); \
+      ss_log_error("Invalid argument. Queue type: %d\n", (int)type); \
       ret = EINVAL; \
       break; \
     } \
   } while (0)
 
-sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
-                                uint64_t milliseconds) {
-  if (unlikely(!queue || !ptr)) {
-    sirius_error("Null pointer\n");
+sirius_api int ss_queue_get(ss_queue_t *queue, size_t *ptr,
+                            uint64_t milliseconds) {
+  if (ss_unlikely(!queue || !ptr)) {
+    ss_log_error("Null pointer\n");
     return EINVAL;
   }
 
@@ -215,10 +215,10 @@ sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
 #undef E
 }
 
-sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
-                                uint64_t milliseconds) {
-  if (unlikely(!queue)) {
-    sirius_error("Null pointer\n");
+sirius_api int ss_queue_put(ss_queue_t *queue, size_t ptr,
+                            uint64_t milliseconds) {
+  if (ss_unlikely(!queue)) {
+    ss_log_error("Null pointer\n");
     return EINVAL;
   }
 
@@ -226,7 +226,7 @@ sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
 #define E \
   queue->elements[queue->rear] = ptr; \
   queue->rear = (queue->rear + 1) & queue->capacity_mask; \
-  queue->elem_count++;
+  ++queue->elem_count;
 #define F \
   if (queue->elem_count == queue->capacity) { \
     return EAGAIN; \
@@ -241,9 +241,9 @@ sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
 #undef E
 }
 
-sirius_api int sirius_queue_reset(sirius_queue_t *queue) {
-  if (unlikely(!queue)) {
-    sirius_error("Null pointer\n");
+sirius_api int ss_queue_reset(ss_queue_t *queue) {
+  if (ss_unlikely(!queue)) {
+    ss_log_error("Null pointer\n");
     return EINVAL;
   }
 
@@ -256,9 +256,9 @@ sirius_api int sirius_queue_reset(sirius_queue_t *queue) {
   return 0;
 }
 
-sirius_api int sirius_queue_nb_cache(sirius_queue_t *queue, size_t *num) {
-  if (unlikely(!queue || !num)) {
-    sirius_error("Null pointer\n");
+sirius_api int ss_queue_nb_cache(ss_queue_t *queue, size_t *num) {
+  if (ss_unlikely(!queue || !num)) {
+    ss_log_error("Null pointer\n");
     return EINVAL;
   }
 

@@ -4,89 +4,90 @@
 
 #include "inner/utils.h"
 
-#define NB_THREADS (4)
-#ifndef GEN_FILE_NAME
-#  define GEN_FILE_NAME "./_gen_log.txt"
+#ifndef _GEN_FILE_NAME
+#  define _GEN_FILE_NAME "./_gen_log.txt"
 #endif
 
-static std::atomic<bool> g_exit_flag = false;
+namespace {
+inline constexpr size_t kNbThreads = 4;
+inline constexpr const char *kGenFileName = _GEN_FILE_NAME;
 
-static void thread_foo() {
+inline std::atomic<bool> g_exit_flag = false;
+
+inline void thread_foo() {
   while (!g_exit_flag.load(std::memory_order_relaxed)) {
-    sirius_error("--------------------------------\n");
-    sirius_debug("[TID: %llu]\n", sirius_thread_id());
-    sirius_info("[TID: %llu]\n", sirius_thread_id());
-    sirius_warn("[TID: %llu]\n", sirius_thread_id());
+    ss_log_error("--------------------------------\n");
+    ss_log_debug("[TID: %llu]\n", ss_thread_id());
+    ss_log_info("[TID: %llu]\n", ss_thread_id());
+    ss_log_warn("[TID: %llu]\n", ss_thread_id());
 
-    sirius_debugsp("[TID: %llu]\n", sirius_thread_id());
-    sirius_infosp("[TID: %llu]\n", sirius_thread_id());
-    sirius_warnsp("[TID: %llu]\n", sirius_thread_id());
-    sirius_error("--------------------------------\n\n");
+    ss_log_debugsp("[TID: %llu]\n", ss_thread_id());
+    ss_log_infosp("[TID: %llu]\n", ss_thread_id());
+    ss_log_warnsp("[TID: %llu]\n", ss_thread_id());
+    ss_log_error("--------------------------------\n\n");
 
     std::this_thread::sleep_for(std::chrono::milliseconds(150));
   }
 }
 
-int main() {
-  auto init = utils::Init();
+inline int main_impl() {
+  ss_log_config_t cfg {};
+  cfg.out.flags = kSS_O_RDWR | kSS_O_CREAT | kSS_O_APPEND;
+  cfg.out.mode = SS_FS_PERM_RW;
 
-  sirius_log_config_t cfg = {};
-  cfg.out.flags = kSIRIUS_O_RDWR | kSIRIUS_O_CREAT | kSIRIUS_O_APPEND;
-  cfg.out.mode = SIRIUS_PERM_RW;
-
-  std::jthread threads[NB_THREADS];
+  std::jthread threads[kNbThreads];
   for (auto &t : threads) {
     t = std::jthread(thread_foo);
   }
 
   // --- Shared ---
-  cfg.out.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
+  cfg.out.shared = SsThreadProcess::kSsThreadProcessShared;
   cfg.out.ansi_disable = 0;
   cfg.err = cfg.out;
-  cfg.out.log_path = GEN_FILE_NAME;
-  cfg.err.log_path = GEN_FILE_NAME;
-  sirius_log_configure(&cfg);
+  cfg.out.log_path = kGenFileName;
+  cfg.err.log_path = kGenFileName;
+  ss_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.out.log_path = nullptr;
-  sirius_log_configure(&cfg);
+  ss_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.err.log_path = nullptr;
-  sirius_log_configure(&cfg);
+  ss_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.err.ansi_disable = 1;
-  sirius_log_configure(&cfg);
+  ss_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.out.ansi_disable = 1;
-  sirius_log_configure(&cfg);
+  ss_log_configure(&cfg);
 
   // --- Private ---
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
-  cfg.out.shared = SiriusThreadProcess::kSiriusThreadProcessPrivate;
+  cfg.out.shared = SsThreadProcess::kSsThreadProcessPrivate;
   cfg.out.ansi_disable = 0;
   cfg.err = cfg.out;
-  cfg.out.log_path = GEN_FILE_NAME;
-  cfg.err.log_path = GEN_FILE_NAME;
-  sirius_log_configure(&cfg);
+  cfg.out.log_path = kGenFileName;
+  cfg.err.log_path = kGenFileName;
+  ss_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.out.log_path = nullptr;
-  sirius_log_configure(&cfg);
+  ss_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.err.log_path = nullptr;
-  sirius_log_configure(&cfg);
+  ss_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.err.ansi_disable = 1;
-  sirius_log_configure(&cfg);
+  ss_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   cfg.out.ansi_disable = 1;
-  sirius_log_configure(&cfg);
+  ss_log_configure(&cfg);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(600));
   g_exit_flag.store(true, std::memory_order_relaxed);
@@ -102,20 +103,35 @@ int main() {
    * Ultra-long log printing test.
    */
   cfg.out.log_path = nullptr;
-  cfg.out.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
+  cfg.out.shared = SsThreadProcess::kSsThreadProcessShared;
   cfg.err.log_path = nullptr;
-  cfg.err.shared = SiriusThreadProcess::kSiriusThreadProcessShared;
-  sirius_log_configure(&cfg);
-  sirius_warnsp("--------------------------------\n");
-  sirius_warnsp("- Ultra-long log printing test\n");
+  cfg.err.shared = SsThreadProcess::kSsThreadProcessShared;
+  ss_log_configure(&cfg);
+  ss_log_warnsp("--------------------------------\n");
+  ss_log_warnsp("- Ultra-long log printing test\n");
   char ultra_long_string[40960];
   std::memset(ultra_long_string, 'Q', sizeof(ultra_long_string));
   ultra_long_string[sizeof(ultra_long_string) - 1] = '\0';
-  sirius_warnsp("- The length of the string to be printed: %zu\n",
+  ss_log_warnsp("- The length of the string to be printed: %zu\n",
                 std::strlen(ultra_long_string));
-  sirius_logsp_impl(SIRIUS_LOG_LEVEL_INFO, _SIRIUS_LOG_MODULE_NAME, "- %s\n",
-                    ultra_long_string);
-  sirius_warnsp("--------------------------------\n");
+  ss_logsp_impl(SS_LOG_LEVEL_INFO, _SIRIUS_LOG_MODULE_NAME, "- %s\n",
+                ultra_long_string);
+  ss_log_warnsp("--------------------------------\n");
 
   return 0;
+}
+} // namespace
+
+int main() {
+  auto init = utils::Init();
+
+  try {
+    return main_impl();
+  } catch (const std::exception &e) {
+    ss_log_error("%s\n", e.what());
+    return -1;
+  } catch (...) {
+    ss_log_error("`exception`: unknow\n");
+    return -1;
+  }
 }

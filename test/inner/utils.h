@@ -88,12 +88,13 @@ static inline int utils_dprintf(int fd, const char *__restrict format, ...) {
 
 // --- sirius ---
 #include <sirius/foundation/log.h>
+#include <sirius/foundation/structor.h>
 #include <sirius/foundation/sync.h>
 
 #define UTILS_ASSERT(expr) \
   do { \
-    if (unlikely(!(expr))) { \
-      sirius_error("Assert: %s\n", #expr); \
+    if (ss_unlikely(!(expr))) { \
+      ss_log_error("Assert: %s\n", #expr); \
       abort(); \
     } \
   } while (0)
@@ -112,12 +113,14 @@ static inline void _utils_xinit(const char *content) {
     bar_buf[i] = '-';
   }
 
-  sirius_logsp_impl(0, _SIRIUS_LOG_MODULE_NAME, "\n%s\n%s\n%s\n\n", bar_buf,
-                    buf, bar_buf);
+  ss_logsp_impl(0, _SIRIUS_LOG_MODULE_NAME, "\n%s\n%s\n%s\n\n", bar_buf, buf,
+                bar_buf);
 }
 
 static inline void utils_deinit() {
-  _utils_xinit("test ended");
+  _utils_xinit("Test Ended");
+
+  ss_global_destruct();
 }
 
 static inline void utils_init() {
@@ -125,7 +128,6 @@ static inline void utils_init() {
   _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
   _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
   _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDOUT);
-  // _CrtSetBreakAlloc(516);
 #endif
 
 #ifdef _TEST_LOG_EXE_PATH
@@ -136,16 +138,16 @@ static inline void utils_init() {
       env_buf != nullptr) {
     free(env_buf);
   } else {
-    _putenv_s(SIRIUS_ENV_LOG_EXE_PATH, _TEST_LOG_EXE_PATH);
+    _putenv_s(_SIRIUS_ENV_LOG_EXE_PATH, _TEST_LOG_EXE_PATH);
   }
 #  else
-  if (getenv(SIRIUS_ENV_LOG_EXE_PATH) == nullptr) {
-    sirius_log_set_exe_path(_TEST_LOG_EXE_PATH);
+  if (getenv(_SIRIUS_ENV_LOG_EXE_PATH) == nullptr) {
+    ss_log_set_exe_path(_TEST_LOG_EXE_PATH);
   }
 #  endif
 #endif
 
-  _utils_xinit("test begins");
+  _utils_xinit("Test Begins");
 }
 
 #ifdef __cplusplus
@@ -156,13 +158,9 @@ static inline void utils_init() {
 namespace utils {
 class Init {
  public:
-  Init() {
-    utils_init();
-  }
+  Init() { utils_init(); }
 
-  ~Init() {
-    utils_deinit();
-  }
+  ~Init() { utils_deinit(); }
 };
 } // namespace utils
 #endif

@@ -2,9 +2,9 @@ name: CMake Build and Test
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -18,8 +18,8 @@ jobs:
         os:
           - { env: "Linux-x64", label: "ubuntu-latest" }
           - { env: "Windows-x64", label: "windows-latest" }
-        compiler: [gcc, clang, clang-cl, msvc]
-        build_type: [Release, Debug]
+        compiler: [ gcc, clang, clang-cl, msvc ]
+        build_type: [ Release, Debug ]
         lib_config:
           - { type: "shared", flag: "ON" }
           - { type: "static", flag: "OFF" }

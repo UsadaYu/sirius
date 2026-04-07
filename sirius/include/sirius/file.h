@@ -4,22 +4,22 @@
   (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L) || \
   (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L)
 #  if defined(__FILE_NAME__)
-#    define SIRIUS_FILE_NAME (__FILE_NAME__)
+#    define SS_FILE_NAME (__FILE_NAME__)
 #  endif
 #endif
 
-#ifndef SIRIUS_FILE_NAME
+#ifndef SS_FILE_NAME
 #  if defined(__has_builtin)
 #    if __has_builtin(__builtin_FILE_NAME)
-#      define SIRIUS_FILE_NAME (__builtin_FILE_NAME())
+#      define SS_FILE_NAME (__builtin_FILE_NAME())
 #    endif
 #  endif
 #endif
 
-#ifndef SIRIUS_FILE_NAME
+#ifndef SS_FILE_NAME
 #  include <string.h>
 
-static inline const char *_sirius_basename(const char *path) {
+static inline const char *_ss_inner_basename(const char *path) {
   const char *p = path;
   const char *last = path;
   while (*p) {
@@ -30,10 +30,10 @@ static inline const char *_sirius_basename(const char *path) {
     ) {
       last = p + 1;
     }
-    p++;
+    ++p;
   }
   return last;
 }
 
-#  define SIRIUS_FILE_NAME (_sirius_basename(__FILE__))
+#  define SS_FILE_NAME (_ss_inner_basename(__FILE__))
 #endif

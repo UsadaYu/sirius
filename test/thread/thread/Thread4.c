@@ -12,16 +12,16 @@
 #define INDEX_INIT (-1)
 
 static int g_index = INDEX_INIT;
-static sirius_spinlock_t g_spin;
+static ss_spinlock_t g_spin;
 
 static void *foo(void *arg) {
   const char *string = (const char *)arg;
 
-  sirius_infosp("[%s] Thread id: %" PRIu64 "\n", string, SIRIUS_THREAD_ID);
+  ss_log_infosp("[%s] Thread id: %" PRIu64 "\n", string, SS_THREAD_ID);
 
-  sirius_spin_lock(&g_spin);
-  g_index++;
-  sirius_spin_unlock(&g_spin);
+  ss_spin_lock(&g_spin);
+  ++g_index;
+  ss_spin_unlock(&g_spin);
 
   return nullptr;
 }
@@ -30,105 +30,107 @@ int main() {
   utils_init();
 
   int ret;
-  sirius_thread_attr_t attr;
+  ss_thread_attr_t attr;
   int index = INDEX_INIT;
-  sirius_thread_t threads[NB_GROUPS];
+  ss_thread_t threads[NB_GROUPS];
   const char *args[NB_GROUPS];
 
-  sirius_spin_init(&g_spin, kSiriusThreadProcessPrivate);
+  ss_spin_init(&g_spin, kSsThreadProcessPrivate);
 
   // --- 01 ---
-  sirius_infosp("[Main-thread 01] Thread id: %" PRIu64 "\n", SIRIUS_THREAD_ID);
-  index++;
-  memset(&attr, 0, sizeof(sirius_thread_attr_t));
+  ss_log_infosp("[Main-thread 01] Thread id: %" PRIu64 "\n", SS_THREAD_ID);
+  ++index;
+  memset(&attr, 0, sizeof(ss_thread_attr_t));
 
-  attr.detach_state = kSiriusThreadCreateDetached;
+  attr.detach_state = kSsThreadCreateDetached;
 
   args[index] = "Sub-thread  01";
 
-  ret = sirius_thread_create(threads + index, &attr, foo, (void *)args[index]);
+  ret = ss_thread_create(threads + index, &attr, foo, (void *)args[index]);
   if (ret) {
-    sirius_error("sirius_thread_create: %d\n", ret);
-    return -1;
+    ss_log_error("ss_thread_create: %d\n", ret);
+    goto label_error;
   }
 
-  sirius_warnsp("--------------------------------\n");
-  sirius_warnsp("- Try to detached the already detached thread\n");
-  sirius_warnsp("- sirius_thread_detach: %d\n",
-                sirius_thread_detach(threads[index]));
-  sirius_warnsp("- sirius_thread_detach: %d\n",
-                sirius_thread_detach(threads[index]));
-  sirius_warnsp("--------------------------------\n");
+  ss_log_warnsp("--------------------------------\n");
+  ss_log_warnsp("- Try to detached the already detached thread\n");
+  ss_log_warnsp("- ss_thread_detach: %d\n", ss_thread_detach(threads[index]));
+  ss_log_warnsp("- ss_thread_detach: %d\n", ss_thread_detach(threads[index]));
+  ss_log_warnsp("--------------------------------\n");
 
   utils_dprintf(1, "\n");
   // --- 02 ---
-  sirius_infosp("[Main-thread 02] Thread id: %" PRIu64 "\n", SIRIUS_THREAD_ID);
-  index++;
-  memset(&attr, 0, sizeof(sirius_thread_attr_t));
+  ss_log_infosp("[Main-thread 02] Thread id: %" PRIu64 "\n", SS_THREAD_ID);
+  ++index;
+  memset(&attr, 0, sizeof(ss_thread_attr_t));
 
-  attr.detach_state = kSiriusThreadCreateDetached;
+  attr.detach_state = kSsThreadCreateDetached;
 
   args[index] = "Sub-thread  02";
 
-  ret = sirius_thread_create(threads + index, &attr, foo, (void *)args[index]);
+  ret = ss_thread_create(threads + index, &attr, foo, (void *)args[index]);
   if (ret) {
-    sirius_error("sirius_thread_create: %d\n", ret);
-    return -1;
+    ss_log_error("ss_thread_create: %d\n", ret);
+    goto label_error;
   }
 
-  sirius_warnsp("--------------------------------\n");
-  sirius_warnsp("- Try to join the thread detached during initialization\n");
-  sirius_logsp_impl(SIRIUS_LOG_LEVEL_ERROR, _SIRIUS_LOG_MODULE_NAME,
-                    "- This is unsafe. Tools like asan may abort here\n");
-  sirius_warnsp("- sirius_thread_join: %d\n",
-                sirius_thread_join(threads[index], nullptr));
-  sirius_warnsp("- sirius_thread_join: %d\n",
-                sirius_thread_join(threads[index], nullptr));
-  sirius_warnsp("--------------------------------\n");
+  ss_log_warnsp("--------------------------------\n");
+  ss_log_warnsp("- Try to join the thread detached during initialization\n");
+  ss_logsp_impl(SS_LOG_LEVEL_ERROR, _SIRIUS_LOG_MODULE_NAME,
+                "- This is unsafe. Tools like asan may abort here\n");
+  ss_log_warnsp("- ss_thread_join: %d\n",
+                ss_thread_join(threads[index], nullptr));
+  ss_log_warnsp("- ss_thread_join: %d\n",
+                ss_thread_join(threads[index], nullptr));
+  ss_log_warnsp("--------------------------------\n");
 
   utils_dprintf(1, "\n");
   // --- 03 ---
   utils_dprintf(1, "\n");
-  sirius_infosp("[Main-thread 03] Thread id: %" PRIu64 "\n", SIRIUS_THREAD_ID);
-  index++;
-  memset(&attr, 0, sizeof(sirius_thread_attr_t));
+  ss_log_infosp("[Main-thread 03] Thread id: %" PRIu64 "\n", SS_THREAD_ID);
+  ++index;
+  memset(&attr, 0, sizeof(ss_thread_attr_t));
 
-  attr.detach_state = kSiriusThreadCreateJoinable;
+  attr.detach_state = kSsThreadCreateJoinable;
 
   args[index] = "Sub-thread  03";
 
-  ret = sirius_thread_create(threads + index, &attr, foo, (void *)args[index]);
+  ret = ss_thread_create(threads + index, &attr, foo, (void *)args[index]);
   if (ret) {
-    sirius_error("sirius_thread_create: %d\n", ret);
-    return -1;
+    ss_log_error("ss_thread_create: %d\n", ret);
+    goto label_error;
   }
 
-  sirius_thread_detach(threads[index]);
+  ss_thread_detach(threads[index]);
 
-  sirius_warnsp("--------------------------------\n");
-  sirius_warnsp("- Try to join the thread manually detached\n");
-  sirius_logsp_impl(SIRIUS_LOG_LEVEL_ERROR, _SIRIUS_LOG_MODULE_NAME,
-                    "- This is unsafe. Tools like asan may abort here\n");
-  sirius_warnsp("- sirius_thread_join: %d\n",
-                sirius_thread_join(threads[index], nullptr));
-  sirius_warnsp("- sirius_thread_join: %d\n",
-                sirius_thread_join(threads[index], nullptr));
-  sirius_warnsp("--------------------------------\n");
+  ss_log_warnsp("--------------------------------\n");
+  ss_log_warnsp("- Try to join the thread manually detached\n");
+  ss_logsp_impl(SS_LOG_LEVEL_ERROR, _SIRIUS_LOG_MODULE_NAME,
+                "- This is unsafe. Tools like asan may abort here\n");
+  ss_log_warnsp("- ss_thread_join: %d\n",
+                ss_thread_join(threads[index], nullptr));
+  ss_log_warnsp("- ss_thread_join: %d\n",
+                ss_thread_join(threads[index], nullptr));
+  ss_log_warnsp("--------------------------------\n");
 
   // ---
   while (true) {
-    sirius_spin_lock(&g_spin);
+    ss_spin_lock(&g_spin);
     if (g_index < index) {
-      sirius_spin_unlock(&g_spin);
+      ss_spin_unlock(&g_spin);
       continue;
     }
-    sirius_spin_unlock(&g_spin);
+    ss_spin_unlock(&g_spin);
     break;
   }
 
-  sirius_spin_destroy(&g_spin);
+  ss_spin_destroy(&g_spin);
 
   utils_deinit();
 
   return 0;
+
+label_error:
+  utils_deinit();
+  return -1;
 }

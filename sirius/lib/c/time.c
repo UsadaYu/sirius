@@ -11,7 +11,7 @@
 #  include <timeapi.h>
 #endif
 
-sirius_api void sirius_usleep(uint64_t usec) {
+sirius_api void ss_usleep(uint64_t usec) {
   if (usec == 0)
     return;
 
@@ -47,7 +47,7 @@ sirius_api void sirius_usleep(uint64_t usec) {
       QueryPerformanceCounter(&end);
       if (end.QuadPart >= target)
         break;
-      sirius_os_yield();
+      ss_os_yield();
     } while (1);
   }
 
@@ -69,7 +69,7 @@ sirius_api void sirius_usleep(uint64_t usec) {
 #endif
 }
 
-sirius_api void sirius_nsleep(uint64_t nsec) {
+sirius_api void ss_nsleep(uint64_t nsec) {
   if (nsec == 0)
     return;
 
@@ -104,7 +104,7 @@ sirius_api void sirius_nsleep(uint64_t nsec) {
       if (end.QuadPart >= target)
         break;
 
-      sirius_os_yield();
+      ss_os_yield();
     } while (1);
   }
 
@@ -126,16 +126,16 @@ sirius_api void sirius_nsleep(uint64_t nsec) {
 #endif
 }
 
-sirius_api uint64_t sirius_get_clock_monotonic_us() {
+sirius_api uint64_t ss_get_clock_monotonic_us() {
 #if defined(_WIN32) || defined(_WIN64)
   static LARGE_INTEGER qpc_frequency_us = {0};
   LARGE_INTEGER counter;
-  if (unlikely(qpc_frequency_us.QuadPart == 0)) {
-    if (unlikely(!QueryPerformanceFrequency(&qpc_frequency_us))) {
+  if (ss_unlikely(qpc_frequency_us.QuadPart == 0)) {
+    if (ss_unlikely(!QueryPerformanceFrequency(&qpc_frequency_us))) {
       return 0;
     }
   }
-  if (unlikely(!QueryPerformanceCounter(&counter)))
+  if (ss_unlikely(!QueryPerformanceCounter(&counter)))
     return 0;
 
   uint64_t whole_seconds = counter.QuadPart / qpc_frequency_us.QuadPart;
@@ -145,7 +145,7 @@ sirius_api uint64_t sirius_get_clock_monotonic_us() {
   return microseconds;
 #else
   struct timespec ts;
-  if (likely(clock_gettime(CLOCK_MONOTONIC, &ts) == 0)) {
+  if (ss_likely(clock_gettime(CLOCK_MONOTONIC, &ts) == 0)) {
     return (uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)ts.tv_nsec / 1000ULL;
   } else {
     return 0;
@@ -153,15 +153,15 @@ sirius_api uint64_t sirius_get_clock_monotonic_us() {
 #endif
 }
 
-sirius_api uint64_t sirius_get_clock_monotonic_ns() {
+sirius_api uint64_t ss_get_clock_monotonic_ns() {
 #if defined(_WIN32) || defined(_WIN64)
   static LARGE_INTEGER frequency = {0};
   LARGE_INTEGER counter;
-  if (unlikely(frequency.QuadPart == 0)) {
-    if (unlikely(!QueryPerformanceFrequency(&frequency)))
+  if (ss_unlikely(frequency.QuadPart == 0)) {
+    if (ss_unlikely(!QueryPerformanceFrequency(&frequency)))
       return 0;
   }
-  if (unlikely(!QueryPerformanceCounter(&counter)))
+  if (ss_unlikely(!QueryPerformanceCounter(&counter)))
     return 0;
 
   uint64_t whole_seconds = counter.QuadPart / frequency.QuadPart;
@@ -171,7 +171,7 @@ sirius_api uint64_t sirius_get_clock_monotonic_ns() {
   return nanoseconds;
 #else
   struct timespec ts;
-  if (likely(clock_gettime(CLOCK_MONOTONIC, &ts) == 0)) {
+  if (ss_likely(clock_gettime(CLOCK_MONOTONIC, &ts) == 0)) {
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
   } else {
     return 0;

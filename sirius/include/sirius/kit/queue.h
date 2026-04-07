@@ -8,18 +8,18 @@
 extern "C" {
 #endif
 
-typedef struct sirius_queue_t sirius_queue_t;
+typedef struct ss_queue_t ss_queue_t;
 
-enum SiriusQueueType {
+enum SsQueueType {
   /**
    * @brief Queue with mutex, default.
    */
-  kSiriusQueueTypeMutex = 0,
+  kSsQueueTypeMutex = 0,
 
   /**
    * @brief Queue without mutex.
    */
-  kSiriusQueueTypeNoMutex = 1,
+  kSsQueueTypeNoMutex = 1,
 };
 
 typedef struct {
@@ -29,22 +29,22 @@ typedef struct {
   size_t elem_count;
 
   /**
-   * @brief Mechanism in the queue, refer to `enum SiriusQueueType`.
+   * @brief Mechanism in the queue, refer to `enum SsQueueType`.
    */
-  enum SiriusQueueType queue_type;
-} sirius_queue_args_t;
+  enum SsQueueType queue_type;
+} ss_queue_args_t;
 
 /**
  * @brief Allocate a queue handle, the resulting handle must be deleted using
- * `sirius_queue_free`.
+ * `ss_queue_free`.
  *
  * @param[out] queue Queue handle.
  * @param[in] args Queue creation parameters.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
-                                  const sirius_queue_args_t *__restrict args);
+sirius_api int ss_queue_alloc(ss_queue_t **__restrict queue,
+                              const ss_queue_args_t *__restrict args);
 
 /**
  * @brief Free the queue handle.
@@ -53,7 +53,7 @@ sirius_api int sirius_queue_alloc(sirius_queue_t **__restrict queue,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_queue_free(sirius_queue_t *queue);
+sirius_api int ss_queue_free(ss_queue_t *queue);
 
 /**
  * @brief Get an element from the queue.
@@ -61,8 +61,8 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue);
  * @param[in] queue Queue handle.
  * @param[out] ptr An obtained queue element.
  * @param[in] milliseconds Timeout duration, unit: ms. Takes effect only when
- * the queue with mutex. Setting the value to `SIRIUS_TIMEOUT_NO_WAITING` means
- * no wait, and setting it to `SIRIUS_TIMEOUT_INFINITE` means infinite wait.
+ * the queue with mutex. Setting the value to `kSsTimeoutNoWaiting` means no
+ * wait, and setting it to `kSsTimeoutInfinite` means infinite wait.
  *
  * @return
  * - (1) 0 on success;
@@ -71,8 +71,8 @@ sirius_api int sirius_queue_free(sirius_queue_t *queue);
  *
  * - (3) error code otherwise.
  */
-sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
-                                uint64_t milliseconds);
+sirius_api int ss_queue_get(ss_queue_t *queue, size_t *ptr,
+                            uint64_t milliseconds);
 
 /**
  * @brief Put an element into the queue.
@@ -80,9 +80,9 @@ sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
  * @param[in] queue Queue handle.
  * @param[out] ptr The element which will be added to the queue.
  * @param[in] milliseconds Timeout duration, unit: ms. Takes effect only when
- * the queue with mutex. Setting the value to `SIRIUS_TIMEOUT_NO_WAITING` (0)
- * means no wait, and setting it to `SIRIUS_TIMEOUT_INFINITE` (UINT64_MAX) means
- * infinite wait.
+ * the queue with mutex. Setting the value to `kSsTimeoutNoWaiting` (0) means no
+ * wait, and setting it to `kSsTimeoutInfinite` (UINT64_MAX) means infinite
+ * wait.
  *
  * @return
  * - (1) 0 on success;
@@ -91,8 +91,8 @@ sirius_api int sirius_queue_get(sirius_queue_t *queue, size_t *ptr,
  *
  * - (3) error code otherwise.
  */
-sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
-                                uint64_t milliseconds);
+sirius_api int ss_queue_put(ss_queue_t *queue, size_t ptr,
+                            uint64_t milliseconds);
 
 /**
  * @brief Reset the queue, empty the cached elements.
@@ -101,7 +101,7 @@ sirius_api int sirius_queue_put(sirius_queue_t *queue, size_t ptr,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_queue_reset(sirius_queue_t *queue);
+sirius_api int ss_queue_reset(ss_queue_t *queue);
 
 /**
  * @brief Get the number of members of the current queue
@@ -112,7 +112,7 @@ sirius_api int sirius_queue_reset(sirius_queue_t *queue);
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int sirius_queue_nb_cache(sirius_queue_t *queue, size_t *num);
+sirius_api int ss_queue_nb_cache(ss_queue_t *queue, size_t *num);
 
 #ifdef __cplusplus
 }

@@ -48,7 +48,7 @@ inline int utils_strerror(int err_code, char *buffer, size_t buffer_size) {
  */
 class Fmt {
  public:
-  static inline constexpr size_t kPrefixLength = 55;
+  static inline constexpr size_t kPrefixLength = 56;
 
  private:
   Fmt() = default;
@@ -126,7 +126,7 @@ class Fmt {
       f_str.empty() ? "" : std::format("{0}:{1} ", f_str, line);
     inner = std::format("{0:5} [{1:02d}:{2:02d}:{3:02d} {4} {5}] {6}", prefix,
                         tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, module,
-                        sirius_thread_id(), f_pos);
+                        ss_thread_id(), f_pos);
     result =
       std::vformat("{0:-<{1}}", std::make_format_args(inner, kPrefixLength));
     return result;
@@ -305,7 +305,7 @@ class Native {
 
   void log_write(int level, const void *buffer, size_t size) {
     auto lock = std::lock_guard(mutex_);
-    int fd = level <= SIRIUS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
+    int fd = level <= SS_LOG_LEVEL_WARN ? fd_err_ : fd_out_;
     utils_write(fd, buffer, size);
   }
 
@@ -427,7 +427,7 @@ inline void print_err(std::string_view msg) { Native::instance().print_err(msg);
 
 #define log_error_str(fmt, ...) \
   (::sirius::utils::io::Fmt::instance() \
-     .s_error(SIRIUS_FILE_NAME, __LINE__) \
+     .s_error(SS_FILE_NAME, __LINE__) \
      .append(::sirius::utils::io::Fmt::row_gs(fmt, ##__VA_ARGS__)))
 #define log_warnsp_str(fmt, ...) \
   (::sirius::utils::io::Fmt::instance().s_warn("").append( \

@@ -5,11 +5,11 @@
 // clang-format off
 
 #define utils_check_sizeof(sirius, platform) \
-  sirius_static_assert(sizeof(sirius) >= sizeof(platform),\
+  ss_static_assert(sizeof(sirius) >= sizeof(platform),\
   "The size of `" #sirius "` is smaller than that of `" #platform "`")
 
 #define utils_check_alignof(sirius, platform) \
-  sirius_static_assert(alignof(sirius) >= alignof(platform),\
+  ss_static_assert(alignof(sirius) >= alignof(platform),\
   "The alignment of `" #sirius "` is weaker than that of `" #platform "`")
 
 // clang-format on

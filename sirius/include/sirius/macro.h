@@ -8,25 +8,25 @@
 #  include <stdint.h>
 #endif
 
-/**
- * @brief Timeout, no waiting.
- */
-#define SIRIUS_TIMEOUT_NO_WAITING (0)
+#ifdef __cplusplus
+static constexpr uint64_t kSsTimeoutNoWaiting = 0;
+static constexpr uint64_t kSsTimeoutInfinite = UINT64_MAX;
+#else
+enum SsTimeout {
+  kSsTimeoutNoWaiting = 0,
+  kSsTimeoutInfinite = 0xffffffffffffffffULL,
+};
+#endif
 
-/**
- * @brief Timeout, infinite wait.
- */
-#define SIRIUS_TIMEOUT_INFINITE (UINT64_MAX)
-
-// --- container_of ---
+// --- ss_container_of ---
 #ifndef __cplusplus
-#  undef offsetof
-#  undef container_of
+#  undef ss_offsetof
+#  undef ss_container_of
 
-#  define offsetof(TYPE, MEMBER) ((size_t)&((TYPE *)0)->MEMBER)
-#  define container_of(ptr, type, member) \
+#  define ss_offsetof(TYPE, MEMBER) ((size_t)&((TYPE *)0)->MEMBER)
+#  define ss_container_of(ptr, type, member) \
     ({ \
       const typeof(((type *)0)->member) *__mptr = (ptr); \
-      (type *)((char *)__mptr - offsetof(type, member)); \
+      (type *)((char *)__mptr - ss_offsetof(type, member)); \
     })
 #endif

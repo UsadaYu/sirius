@@ -8,17 +8,16 @@
 #include "utils/errno.h"
 
 #if defined(_WIN32) || defined(_WIN64)
-utils_check_sizeof(sirius_cond_t, CONDITION_VARIABLE);
-utils_check_alignof(sirius_cond_t, CONDITION_VARIABLE);
+utils_check_sizeof(ss_cond_t, CONDITION_VARIABLE);
+utils_check_alignof(ss_cond_t, CONDITION_VARIABLE);
 #else
-utils_check_sizeof(sirius_cond_t, pthread_cond_t);
-utils_check_alignof(sirius_cond_t, pthread_cond_t);
+utils_check_sizeof(ss_cond_t, pthread_cond_t);
+utils_check_alignof(ss_cond_t, pthread_cond_t);
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-sirius_api int
-sirius_cond_init(sirius_cond_t *__restrict cond,
-                 const enum SiriusThreadProcess *__restrict type) {
+sirius_api int ss_cond_init(ss_cond_t *__restrict cond,
+                            const enum SsThreadProcess *__restrict type) {
   /**
    * @note Windows condition variables don't support process sharing and
    * don't have configurable attributes, so here ignore the type parameter.
@@ -28,7 +27,7 @@ sirius_cond_init(sirius_cond_t *__restrict cond,
   return 0;
 }
 
-sirius_api int sirius_cond_destroy(sirius_cond_t *cond) {
+sirius_api int ss_cond_destroy(ss_cond_t *cond) {
   /**
    * @note Windows condition variables don't require explicit destruction.
    */
@@ -36,12 +35,12 @@ sirius_api int sirius_cond_destroy(sirius_cond_t *cond) {
   return 0;
 }
 
-sirius_api int sirius_cond_wait(sirius_cond_t *__restrict cond,
-                                sirius_mutex_t *__restrict mutex) {
+sirius_api int ss_cond_wait(ss_cond_t *__restrict cond,
+                            ss_mutex_t *__restrict mutex) {
   CONDITION_VARIABLE *cv = (CONDITION_VARIABLE *)cond;
-  sirius_mutex_s *m = (sirius_mutex_s *)mutex;
+  ss_mutex_s *m = (ss_mutex_s *)mutex;
 
-  if (m->type == kSiriusMutexRecursive) {
+  if (m->type == kSsMutexTypeRecursive) {
     if (!SleepConditionVariableCS(cv, &m->handle.critical_section, INFINITE)) {
       return utils_winerr_to_errno(GetLastError());
     }
@@ -53,11 +52,11 @@ sirius_api int sirius_cond_wait(sirius_cond_t *__restrict cond,
   return 0;
 }
 
-sirius_api int sirius_cond_timedwait(sirius_cond_t *__restrict cond,
-                                     sirius_mutex_t *__restrict mutex,
-                                     uint64_t milliseconds) {
+sirius_api int ss_cond_timedwait(ss_cond_t *__restrict cond,
+                                 ss_mutex_t *__restrict mutex,
+                                 uint64_t milliseconds) {
   CONDITION_VARIABLE *cv = (CONDITION_VARIABLE *)cond;
-  sirius_mutex_s *m = (sirius_mutex_s *)mutex;
+  ss_mutex_s *m = (ss_mutex_s *)mutex;
   DWORD timeout_ms;
   uint64_t tm_prev, tm_cur, tm_elapsed;
   tm_prev = GetTickCount64();
@@ -85,7 +84,7 @@ sirius_api int sirius_cond_timedwait(sirius_cond_t *__restrict cond,
       } \
     } while (0)
 
-  if (m->type == kSiriusMutexRecursive) {
+  if (m->type == kSsMutexTypeRecursive) {
 #  define C \
     SleepConditionVariableCS(cv, &m->handle.critical_section, timeout_ms)
     E;
@@ -100,24 +99,23 @@ sirius_api int sirius_cond_timedwait(sirius_cond_t *__restrict cond,
 #  undef E
 }
 
-sirius_api int sirius_cond_signal(sirius_cond_t *cond) {
+sirius_api int ss_cond_signal(ss_cond_t *cond) {
   WakeConditionVariable((CONDITION_VARIABLE *)cond);
   return 0;
 }
 
-sirius_api int sirius_cond_broadcast(sirius_cond_t *cond) {
+sirius_api int ss_cond_broadcast(ss_cond_t *cond) {
   WakeAllConditionVariable((CONDITION_VARIABLE *)cond);
   return 0;
 }
 #else
-sirius_api int
-sirius_cond_init(sirius_cond_t *__restrict cond,
-                 const enum SiriusThreadProcess *__restrict type) {
+sirius_api int ss_cond_init(ss_cond_t *__restrict cond,
+                            const enum SsThreadProcess *__restrict type) {
   /**
    * @note If no type is specified or if we want process private (default),
    * we can use the simple initialization.
    */
-  if (!type || *type == kSiriusThreadProcessPrivate)
+  if (!type || *type == kSsThreadProcessPrivate)
     return pthread_cond_init((pthread_cond_t *)cond, nullptr);
 
   int ret;
@@ -138,18 +136,18 @@ sirius_cond_init(sirius_cond_t *__restrict cond,
   return ret;
 }
 
-sirius_api int sirius_cond_destroy(sirius_cond_t *cond) {
+sirius_api int ss_cond_destroy(ss_cond_t *cond) {
   return pthread_cond_destroy((pthread_cond_t *)cond);
 }
 
-sirius_api int sirius_cond_wait(sirius_cond_t *__restrict cond,
-                                sirius_mutex_t *__restrict mutex) {
+sirius_api int ss_cond_wait(ss_cond_t *__restrict cond,
+                            ss_mutex_t *__restrict mutex) {
   return pthread_cond_wait((pthread_cond_t *)cond, (pthread_mutex_t *)mutex);
 }
 
-sirius_api int sirius_cond_timedwait(sirius_cond_t *__restrict cond,
-                                     sirius_mutex_t *__restrict mutex,
-                                     uint64_t milliseconds) {
+sirius_api int ss_cond_timedwait(ss_cond_t *__restrict cond,
+                                 ss_mutex_t *__restrict mutex,
+                                 uint64_t milliseconds) {
   struct timespec ts;
   if (clock_gettime(CLOCK_REALTIME, &ts))
     return errno;
@@ -164,11 +162,11 @@ sirius_api int sirius_cond_timedwait(sirius_cond_t *__restrict cond,
                                 (pthread_mutex_t *)mutex, &ts);
 }
 
-sirius_api int sirius_cond_signal(sirius_cond_t *cond) {
+sirius_api int ss_cond_signal(ss_cond_t *cond) {
   return pthread_cond_signal((pthread_cond_t *)cond);
 }
 
-sirius_api int sirius_cond_broadcast(sirius_cond_t *cond) {
+sirius_api int ss_cond_broadcast(ss_cond_t *cond) {
   return pthread_cond_broadcast((pthread_cond_t *)cond);
 }
 #endif

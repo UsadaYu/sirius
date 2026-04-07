@@ -6,12 +6,13 @@
 
 #include "inner/utils.h"
 
-static constexpr int kNbThreads = 128;
+namespace {
+inline constexpr int kNbThreads = 128;
 
-static std::atomic<int> g_index = 1;
-static std::mutex g_mutex;
+inline std::atomic<int> g_index = 1;
+inline std::mutex g_mutex;
 
-void *foo(void *arg) {
+inline void *foo(void *arg) {
   (void)arg;
 
   std::string nspace;
@@ -26,7 +27,7 @@ void *foo(void *arg) {
     } else if (g_index.load() < 1000) {
       nspace = " ";
     } else {
-      sirius_error("Please reduce the index\n");
+      ss_log_error("Please reduce the index\n");
       nspace = "\n";
     }
 
@@ -35,34 +36,32 @@ void *foo(void *arg) {
       utils_dprintf(1, "\n");
     }
 
-    g_index++;
+    ++g_index;
   }
 
-  sirius_thread_exit(nullptr);
+  ss_thread_exit(nullptr);
   return nullptr;
 }
 
-int main() {
-  auto init = utils::Init();
-
-  sirius_thread_t threads[kNbThreads];
+inline int main_impl() {
+  ss_thread_t threads[kNbThreads];
 
   // --- Join ---
   for (auto &t : threads) {
-    UTILS_ASSERT(!sirius_thread_create(&t, nullptr, foo, nullptr));
+    UTILS_ASSERT(!ss_thread_create(&t, nullptr, foo, nullptr));
   }
   for (auto &t : threads) {
-    UTILS_ASSERT(!sirius_thread_join(t, nullptr));
+    UTILS_ASSERT(!ss_thread_join(t, nullptr));
   }
 
   // --- Detach ---
   g_index = 1;
   utils_dprintf(1, "\n");
-  memset(threads, 0, kNbThreads * sizeof(sirius_thread_t));
-  sirius_thread_attr_t attr {};
-  attr.detach_state = kSiriusThreadCreateDetached;
+  std::memset(threads, 0, kNbThreads * sizeof(ss_thread_t));
+  ss_thread_attr_t attr {};
+  attr.detach_state = kSsThreadCreateDetached;
   for (auto &t : threads) {
-    UTILS_ASSERT(!sirius_thread_create(&t, &attr, foo, nullptr));
+    UTILS_ASSERT(!ss_thread_create(&t, &attr, foo, nullptr));
   }
 
   while (g_index.load() <= kNbThreads) {
@@ -70,4 +69,19 @@ int main() {
   }
 
   return 0;
+}
+} // namespace
+
+int main() {
+  auto init = utils::Init();
+
+  try {
+    return main_impl();
+  } catch (const std::exception &e) {
+    ss_log_error("%s\n", e.what());
+    return -1;
+  } catch (...) {
+    ss_log_error("`exception`: unknow\n");
+    return -1;
+  }
 }

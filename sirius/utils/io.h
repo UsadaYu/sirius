@@ -54,8 +54,8 @@
 #endif
 
 // --- utils_write ---
-static force_inline ssize_t utils_write(int fd, const void *buffer,
-                                        size_t size) {
+static ss_force_inline ssize_t utils_write(int fd, const void *buffer,
+                                           size_t size) {
 #if defined(_WIN32) || defined(_WIN64)
   return (ssize_t)_write(fd, buffer, (unsigned int)(size));
 #else
@@ -72,7 +72,7 @@ static inline int utils_dprintf(int fd, const char *__restrict format, ...) {
   int written = vsnprintf(msg, sizeof(msg), format, args);
   va_end(args);
 
-  if (likely(written > 0 && (size_t)written < sizeof(msg))) {
+  if (ss_likely(written > 0 && (size_t)written < sizeof(msg))) {
     utils_write(fd, msg, written);
   }
 

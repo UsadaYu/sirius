@@ -156,7 +156,7 @@ class Exe {
   std::mutex mutex_ {};
 
   std::filesystem::path path_env() {
-    std::string env = env::get_env(SIRIUS_ENV_LOG_EXE_PATH);
+    std::string env = env::get_env(_SIRIUS_ENV_LOG_EXE_PATH);
     auto path = std::filesystem::path(env);
     return (!path.empty() && std::filesystem::exists(path))
       ? path
