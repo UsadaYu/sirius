@@ -7,7 +7,6 @@ set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
 # --- sirius::foundation ---
 set(sources "")
-list(APPEND sources "log/log.cpp")
 list(APPEND sources "thread/thread.cpp")
 list(APPEND sources "structor.cpp")
 
@@ -22,8 +21,9 @@ target_link_libraries(${LIB_TARGET} PRIVATE "Threads::Threads")
 list(APPEND pkgconfig_libs_private ${GLOB_PKGCONFIG_LIBS_PRIVATE_THREAD})
 
 # --- Compile Definitions ---
-target_compile_definitions(${LIB_TARGET}
-                           PRIVATE "_SIRIUS_LOG_MODULE_NAME=\"${LIB_TARGET}\"")
+target_compile_definitions(
+  ${LIB_TARGET} PRIVATE "_SIRIUS_LOG_MODULE_NAME=\"${LIB_TARGET}\""
+                        "_SIRIUS_FOUNDATION_BUILDING")
 
 # --- Pkg Config ---
 add_subdirectory(pkgconfig)

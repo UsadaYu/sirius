@@ -53,12 +53,12 @@ enum SsOFlags {
  *
  * @return 0 on success, -1 on failure.
  */
-sirius_api int ss_fs_open(const char *path, int flags, int mode);
+SIRIUS_API int ss_fs_open(const char *path, int flags, int mode);
 
 /**
  * @brief Close the file descriptor.
  */
-sirius_api int ss_fs_close(int fd);
+SIRIUS_API int ss_fs_close(int fd);
 
 #ifdef __cplusplus
 }

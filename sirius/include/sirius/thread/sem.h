@@ -21,42 +21,42 @@ extern "C" {
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_sem_init(ss_sem_t *sem, int pshared, unsigned int value);
+SIRIUS_API int ss_sem_init(ss_sem_t *sem, int pshared, unsigned int value);
 
 /**
  * @brief Destroy the semaphore.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_sem_destroy(ss_sem_t *sem);
+SIRIUS_API int ss_sem_destroy(ss_sem_t *sem);
 
 /**
  * @brief Wait the semaphore.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_sem_wait(ss_sem_t *sem);
+SIRIUS_API int ss_sem_wait(ss_sem_t *sem);
 
 /**
  * @brief Try to wait the semaphore.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_sem_trywait(ss_sem_t *sem);
+SIRIUS_API int ss_sem_trywait(ss_sem_t *sem);
 
 /**
  * @brief Wait the semaphore, but limit the waiting time.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_sem_timedwait(ss_sem_t *sem, uint64_t milliseconds);
+SIRIUS_API int ss_sem_timedwait(ss_sem_t *sem, uint64_t milliseconds);
 
 /**
  * @brief Post the semaphore.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_sem_post(ss_sem_t *sem);
+SIRIUS_API int ss_sem_post(ss_sem_t *sem);
 
 #if defined(_WIN32) || defined(_WIN64)
 /**
@@ -69,7 +69,7 @@ sirius_api int ss_sem_post(ss_sem_t *sem);
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_sem_getvalue(ss_sem_t *__restrict sem, int *__restrict sval);
+SIRIUS_API int ss_sem_getvalue(ss_sem_t *__restrict sem, int *__restrict sval);
 #endif
 
 #ifdef __cplusplus

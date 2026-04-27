@@ -10,18 +10,6 @@
 #include "sirius/foundation/structor.h"
 #include "utils/io.hpp"
 
-/**
- * @note This variable only needs to be guaranteed to exist, not a public
- * variable.
- */
-#ifdef __cplusplus
-extern "C" {
-#endif
-int sirius_inner_foundation_link_anchor = 0;
-#ifdef __cplusplus
-}
-#endif
-
 namespace sirius {
 namespace {
 inline std::atomic<bool> g_has_been_destructed {false};
@@ -42,7 +30,7 @@ inline constexpr uint64_t kPriorityEarliest = static_cast<uint64_t>(
 
 using namespace sirius;
 
-extern "C" void
+extern "C" FOUNDATION_API void
 structor_destructor_register(structor_destructor_register_t *cfg) {
   if (!cfg || !cfg->fn_destructor) {
 #ifdef NDEBUG
@@ -68,7 +56,7 @@ structor_destructor_register(structor_destructor_register_t *cfg) {
 /**
  * @note
  */
-extern "C" sirius_api void ss_global_destruct() {
+extern "C" SIRIUS_API void ss_global_destruct() {
   if (g_has_been_destructed.exchange(true, std::memory_order_seq_cst)) {
     return;
   }
@@ -107,18 +95,8 @@ static void destructor(void) {
 __attribute__((constructor))
 #endif
 static void constructor(void) {
-  if (!constructor_foundation_log())
-    goto label_exit;
-
   std::atexit(destructor);
   return;
-
-label_exit:
-#if defined(_WIN32) || defined(_WIN64)
-  exit(EXIT_FAILURE);
-#else
-  _exit(EXIT_FAILURE);
-#endif
 }
 
 #if defined(_MSC_VER)

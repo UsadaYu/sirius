@@ -16,7 +16,7 @@ utils_check_alignof(ss_cond_t, pthread_cond_t);
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-sirius_api int ss_cond_init(ss_cond_t *__restrict cond,
+SIRIUS_API int ss_cond_init(ss_cond_t *__restrict cond,
                             const enum SsThreadProcess *__restrict type) {
   /**
    * @note Windows condition variables don't support process sharing and
@@ -27,7 +27,7 @@ sirius_api int ss_cond_init(ss_cond_t *__restrict cond,
   return 0;
 }
 
-sirius_api int ss_cond_destroy(ss_cond_t *cond) {
+SIRIUS_API int ss_cond_destroy(ss_cond_t *cond) {
   /**
    * @note Windows condition variables don't require explicit destruction.
    */
@@ -35,7 +35,7 @@ sirius_api int ss_cond_destroy(ss_cond_t *cond) {
   return 0;
 }
 
-sirius_api int ss_cond_wait(ss_cond_t *__restrict cond,
+SIRIUS_API int ss_cond_wait(ss_cond_t *__restrict cond,
                             ss_mutex_t *__restrict mutex) {
   CONDITION_VARIABLE *cv = (CONDITION_VARIABLE *)cond;
   ss_mutex_s *m = (ss_mutex_s *)mutex;
@@ -52,7 +52,7 @@ sirius_api int ss_cond_wait(ss_cond_t *__restrict cond,
   return 0;
 }
 
-sirius_api int ss_cond_timedwait(ss_cond_t *__restrict cond,
+SIRIUS_API int ss_cond_timedwait(ss_cond_t *__restrict cond,
                                  ss_mutex_t *__restrict mutex,
                                  uint64_t milliseconds) {
   CONDITION_VARIABLE *cv = (CONDITION_VARIABLE *)cond;
@@ -99,17 +99,17 @@ sirius_api int ss_cond_timedwait(ss_cond_t *__restrict cond,
 #  undef E
 }
 
-sirius_api int ss_cond_signal(ss_cond_t *cond) {
+SIRIUS_API int ss_cond_signal(ss_cond_t *cond) {
   WakeConditionVariable((CONDITION_VARIABLE *)cond);
   return 0;
 }
 
-sirius_api int ss_cond_broadcast(ss_cond_t *cond) {
+SIRIUS_API int ss_cond_broadcast(ss_cond_t *cond) {
   WakeAllConditionVariable((CONDITION_VARIABLE *)cond);
   return 0;
 }
 #else
-sirius_api int ss_cond_init(ss_cond_t *__restrict cond,
+SIRIUS_API int ss_cond_init(ss_cond_t *__restrict cond,
                             const enum SsThreadProcess *__restrict type) {
   /**
    * @note If no type is specified or if we want process private (default),
@@ -136,16 +136,16 @@ sirius_api int ss_cond_init(ss_cond_t *__restrict cond,
   return ret;
 }
 
-sirius_api int ss_cond_destroy(ss_cond_t *cond) {
+SIRIUS_API int ss_cond_destroy(ss_cond_t *cond) {
   return pthread_cond_destroy((pthread_cond_t *)cond);
 }
 
-sirius_api int ss_cond_wait(ss_cond_t *__restrict cond,
+SIRIUS_API int ss_cond_wait(ss_cond_t *__restrict cond,
                             ss_mutex_t *__restrict mutex) {
   return pthread_cond_wait((pthread_cond_t *)cond, (pthread_mutex_t *)mutex);
 }
 
-sirius_api int ss_cond_timedwait(ss_cond_t *__restrict cond,
+SIRIUS_API int ss_cond_timedwait(ss_cond_t *__restrict cond,
                                  ss_mutex_t *__restrict mutex,
                                  uint64_t milliseconds) {
   struct timespec ts;
@@ -162,11 +162,11 @@ sirius_api int ss_cond_timedwait(ss_cond_t *__restrict cond,
                                 (pthread_mutex_t *)mutex, &ts);
 }
 
-sirius_api int ss_cond_signal(ss_cond_t *cond) {
+SIRIUS_API int ss_cond_signal(ss_cond_t *cond) {
   return pthread_cond_signal((pthread_cond_t *)cond);
 }
 
-sirius_api int ss_cond_broadcast(ss_cond_t *cond) {
+SIRIUS_API int ss_cond_broadcast(ss_cond_t *cond) {
   return pthread_cond_broadcast((pthread_cond_t *)cond);
 }
 #endif

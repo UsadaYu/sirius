@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-sirius_api uint64_t _ss_inner_get_tid();
+SIRIUS_API uint64_t _ss_inner_get_tid();
 
 #ifdef __cplusplus
 }

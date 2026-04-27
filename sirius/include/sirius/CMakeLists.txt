@@ -35,8 +35,7 @@ api_install(subdir api_files)
 
 # foundation
 set(subdir "foundation")
-set(api_files "${subdir}/log.h" "${subdir}/structor.h" "${subdir}/sync.h"
-              "${subdir}/thread.h")
+set(api_files "${subdir}/structor.h" "${subdir}/sync.h" "${subdir}/thread.h")
 api_install(subdir api_files)
 
 # inner
@@ -46,7 +45,7 @@ api_install(subdir api_files)
 
 # kit
 set(subdir "kit")
-set(api_files "${subdir}/queue.h")
+set(api_files "${subdir}/log.h" "${subdir}/queue.h")
 api_install(subdir api_files)
 
 # thread

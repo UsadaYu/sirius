@@ -63,14 +63,26 @@ if(SIRIUS_ASAN)
   endif()
 
   if(MSVC)
-    set(asan_compile_options "-fsanitize=address" "-MD" "-Zi" "-Od")
+    set(asan_compile_options "")
+    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+      list(APPEND asan_compile_options "-MD")
+    endif()
+    list(APPEND asan_compile_options "-fsanitize=address" "-Zi" "-Od")
     list(APPEND GLOB_PUBLIC_COMPILE_OPTIONS ${asan_compile_options})
     list(APPEND GLOB_PKGCONFIG_CFLAGS_ASAN ${asan_compile_options})
+
+    set(asan_link_options "-DEBUG" "-INCREMENTAL:NO")
+    list(APPEND GLOB_PUBLIC_LINK_OPTIONS ${asan_link_options})
+    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${asan_link_options})
   else()
     set(asan_compile_options "-fsanitize=address" "-fno-omit-frame-pointer"
                              "-fsanitize-recover=address")
     list(APPEND GLOB_PUBLIC_COMPILE_OPTIONS ${asan_compile_options})
     list(APPEND GLOB_PKGCONFIG_CFLAGS_ASAN ${asan_compile_options})
+
+    set(asan_link_options "-g")
+    list(APPEND GLOB_PUBLIC_LINK_OPTIONS ${asan_link_options})
+    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${asan_link_options})
   endif()
 endif()
 
@@ -87,11 +99,9 @@ if(SIRIUS_ASAN AND SIRIUS_ASAN_FALLBACK_ENABLE)
   unset(lib)
 elseif(SIRIUS_ASAN)
   if(MSVC)
-    set(asan_link_options "-DEBUG" "-INCREMENTAL:NO")
-    list(APPEND GLOB_PUBLIC_LINK_OPTIONS ${asan_link_options})
-    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${asan_link_options})
+    # ...
   else()
-    set(asan_link_options "-g" "-fsanitize=address")
+    set(asan_link_options "-fsanitize=address")
     list(APPEND GLOB_PUBLIC_LINK_OPTIONS ${asan_link_options})
     list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${asan_link_options})
   endif()
@@ -149,6 +159,8 @@ list(APPEND GLOB_PRIVATE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR})
 
 # --- System Include Directories ---
 
-# ---
-add_subdirectory(bin)
+# --- * ---
+# Because executables depend on libraries, `lib` is written before `bin` for the
+# sake of specification.
 add_subdirectory(lib)
+add_subdirectory(bin)

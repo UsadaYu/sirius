@@ -20,29 +20,29 @@
 #  define _SS_INNER_CLANG_VERSION_CHECK_AT_MOST(x, y) 0
 #endif
 
-// --- sirius_api ---
+// --- SIRIUS_API ---
 #if defined(_WIN32) || defined(_WIN64)
-#  ifndef sirius_api
+#  ifndef SIRIUS_API
 #    ifdef _SIRIUS_BUILDING
 #      ifdef _SIRIUS_WIN_DLL
-#        define sirius_api __declspec(dllexport)
+#        define SIRIUS_API __declspec(dllexport)
 #      else
-#        define sirius_api
+#        define SIRIUS_API
 #      endif
 #    else
 #      ifdef _SIRIUS_WIN_DLL
-#        define sirius_api __declspec(dllimport)
+#        define SIRIUS_API __declspec(dllimport)
 #      else
-#        define sirius_api
+#        define SIRIUS_API
 #      endif
 #    endif
 #  endif
 #else
-#  ifndef sirius_api
+#  ifndef SIRIUS_API
 #    if _SS_INNER_GCC_VERSION_CHECK_AT_LEAST(4, 0) || defined(__clang__)
-#      define sirius_api __attribute__((visibility("default")))
+#      define SIRIUS_API __attribute__((visibility("default")))
 #    else
-#      define sirius_api
+#      define SIRIUS_API
 #    endif
 #  endif
 #endif

@@ -11,7 +11,7 @@
 #  include <timeapi.h>
 #endif
 
-sirius_api void ss_usleep(uint64_t usec) {
+SIRIUS_API void ss_usleep(uint64_t usec) {
   if (usec == 0)
     return;
 
@@ -69,7 +69,7 @@ sirius_api void ss_usleep(uint64_t usec) {
 #endif
 }
 
-sirius_api void ss_nsleep(uint64_t nsec) {
+SIRIUS_API void ss_nsleep(uint64_t nsec) {
   if (nsec == 0)
     return;
 
@@ -126,7 +126,7 @@ sirius_api void ss_nsleep(uint64_t nsec) {
 #endif
 }
 
-sirius_api uint64_t ss_get_clock_monotonic_us() {
+SIRIUS_API uint64_t ss_get_clock_monotonic_us() {
 #if defined(_WIN32) || defined(_WIN64)
   static LARGE_INTEGER qpc_frequency_us = {0};
   LARGE_INTEGER counter;
@@ -153,7 +153,7 @@ sirius_api uint64_t ss_get_clock_monotonic_us() {
 #endif
 }
 
-sirius_api uint64_t ss_get_clock_monotonic_ns() {
+SIRIUS_API uint64_t ss_get_clock_monotonic_ns() {
 #if defined(_WIN32) || defined(_WIN64)
   static LARGE_INTEGER frequency = {0};
   LARGE_INTEGER counter;

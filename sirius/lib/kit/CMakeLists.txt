@@ -7,7 +7,9 @@ set(pkgconfig_requires_private "")
 set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
 # --- sirius::kit ---
-set(sources "queue.c")
+set(sources "")
+list(APPEND sources "log.cpp")
+list(APPEND sources "queue.c")
 
 add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})
 add_library(${SIRIUS_NAMESPACE}::${LIB_TARGET} ALIAS ${LIB_TARGET})

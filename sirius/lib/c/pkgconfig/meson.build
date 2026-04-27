@@ -1,3 +1,4 @@
+# https://mesonbuild.com/Pkgconfig-module.html#pkgconfig-module
 pkg = import('pkgconfig')
 pkg.generate(
   sirius_library,

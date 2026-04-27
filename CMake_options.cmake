@@ -8,7 +8,7 @@ option(SIRIUS_WIN_CRTDBG "On windows, enable `_CRTDBG_MAP_ALLOC`" OFF)
 # --- Config ---
 set(SIRIUS_NAMESPACE
     "sirius"
-    CACHE STRING "The namespace of `sirius`.")
+    CACHE STRING "The namespace of `sirius`")
 
 set(SIRIUS_POSIX_FILE_MODE
     "0775"
@@ -34,7 +34,7 @@ set(SIRIUS_LOG_BUF_SIZE
 )
 
 set(SIRIUS_EXE_LOG_NAME
-    "${SIRIUS_NAMESPACE}_log"
+    "sirius_log"
     CACHE STRING "The name of the log executable file")
 
 # --- sirius ---
@@ -61,7 +61,7 @@ set(SIRIUS_ASAN_FALLBACK_LIBS
     CACHE STRING "Libraries")
 
 set(SIRIUS_ASAN_FALLBACK_LIBDIRS
-    "D:/070_Code/110_LLVM/lib/clang/21/lib/windows"
+    "D:/070_Code/110_LLVM/lib/clang/22/lib/windows"
     CACHE STRING "The search path for `SIRIUS_ASAN_FALLBACK_LIBS`")
 
 # sirius::c

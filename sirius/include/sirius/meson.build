@@ -10,7 +10,8 @@ v_h = configure_file(
   install_dir: 'include/sirius'
 )
 
-glob_include += include_directories(join_paths('..'))
+# ---
+sirius_private_include_directories += include_directories(join_paths('..'))
 
 # --- Install ---
 # c
@@ -26,7 +27,7 @@ install_headers(api_sirius, subdir: join_paths('sirius', subdir))
 subdir = join_paths('foundation')
 api_sirius = []
 api_sirius += [
-  join_paths(subdir, 'log.h'),
+  join_paths(subdir, 'structor.h'),
   join_paths(subdir, 'sync.h'),
   join_paths(subdir, 'thread.h'),
 ]
@@ -46,6 +47,7 @@ install_headers(api_sirius, subdir: join_paths('sirius', subdir))
 subdir = join_paths('kit')
 api_sirius = []
 api_sirius += [
+  join_paths(subdir, 'log.h'),
   join_paths(subdir, 'queue.h'),
 ]
 install_headers(api_sirius, subdir: join_paths('sirius', subdir))
@@ -60,5 +62,16 @@ api_sirius += [
   join_paths(subdir, 'sem.h'),
   join_paths(subdir, 'spinlock.h'),
   join_paths(subdir, 'thread.h'),
+]
+install_headers(api_sirius, subdir: subdir)
+
+# .
+subdir = join_paths('.')
+api_sirius = []
+api_sirius += [
+  join_paths(subdir, 'attributes.h'),
+  join_paths(subdir, 'config.h'),
+  join_paths(subdir, 'file.h'),
+  join_paths(subdir, 'macro.h'),
 ]
 install_headers(api_sirius, subdir: subdir)

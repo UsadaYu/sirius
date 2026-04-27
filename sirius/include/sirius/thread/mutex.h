@@ -38,7 +38,7 @@ enum SsMutexType {
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_mutex_init(ss_mutex_t *__restrict mutex,
+SIRIUS_API int ss_mutex_init(ss_mutex_t *__restrict mutex,
                              const enum SsMutexType *__restrict type);
 
 /**
@@ -46,28 +46,28 @@ sirius_api int ss_mutex_init(ss_mutex_t *__restrict mutex,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_mutex_destroy(ss_mutex_t *mutex);
+SIRIUS_API int ss_mutex_destroy(ss_mutex_t *mutex);
 
 /**
  * @brief Lock the mutex.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_mutex_lock(ss_mutex_t *mutex);
+SIRIUS_API int ss_mutex_lock(ss_mutex_t *mutex);
 
 /**
  * @brief Unlock the mutex.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_mutex_unlock(ss_mutex_t *mutex);
+SIRIUS_API int ss_mutex_unlock(ss_mutex_t *mutex);
 
 /**
  * @brief Try to lock the mutex without blocking.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_mutex_trylock(ss_mutex_t *mutex);
+SIRIUS_API int ss_mutex_trylock(ss_mutex_t *mutex);
 
 #ifdef __cplusplus
 }

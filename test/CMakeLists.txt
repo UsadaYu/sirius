@@ -239,6 +239,5 @@ endfunction()
 
 # --- Test ---
 add_subdirectory(c)
-add_subdirectory(foundation)
 add_subdirectory(kit)
 add_subdirectory(thread)

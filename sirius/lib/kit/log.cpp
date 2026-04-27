@@ -2,7 +2,7 @@
 #include "utils/decls.h"
 /* clang-format on */
 
-#include "sirius/foundation/log.h"
+#include "sirius/kit/log.h"
 
 #include "lib/foundation/structor.h"
 #include "sirius/foundation/thread.h"
@@ -222,7 +222,11 @@ class SharedManager {
     si.cb = sizeof(STARTUPINFOA);
     PROCESS_INFORMATION pi {};
     BOOL ret = CreateProcessA(nullptr, cmd_line.data(), nullptr, nullptr, TRUE,
-                              //
+#  ifdef _MSC_VER
+#    pragma message("--- Detached Process ---")
+#  else
+#    warning "--- Detached Process ---"
+#  endif
                               0,
                               // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
                               nullptr, nullptr, &si, &pi);
@@ -421,14 +425,35 @@ inline bool shared_initialization_check() {
 }
 } // namespace
 
-class FsManager {
+class IoManager {
  public:
   std::atomic<bool> out_to_shared = true;
   std::atomic<bool> err_to_shared = true;
 
-  FsManager() = default;
+  IoManager() {
+#if defined(_WIN32) || defined(_WIN64)
+#  if defined(NTDDI_VERSION) && (NTDDI_VERSION >= 0x0A000002)
+    HANDLE h_out = GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE h_err = GetStdHandle(STD_ERROR_HANDLE);
+    if (!h_out || h_out == INVALID_HANDLE_VALUE || !h_err ||
+        h_err == INVALID_HANDLE_VALUE) {
+      return;
+    }
 
-  ~FsManager() = default;
+    DWORD mode = 0;
+    if (GetConsoleMode(h_out, &mode)) {
+      mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+      SetConsoleMode(h_out, mode);
+    }
+    if (GetConsoleMode(h_err, &mode)) {
+      mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+      SetConsoleMode(h_err, mode);
+    }
+#  endif
+#endif
+  };
+
+  ~IoManager() = default;
 
   /**
    * @note In case of an emergency and when it is not possible to write data to
@@ -476,30 +501,7 @@ class FsManager {
 };
 
 namespace {
-static FsManager g_fs_manager;
-
-#if defined(_WIN32) || defined(_WIN64)
-inline void win_enable_ansi() {
-#  if defined(NTDDI_VERSION) && (NTDDI_VERSION >= 0x0A000002)
-  HANDLE h_out = GetStdHandle(STD_OUTPUT_HANDLE);
-  HANDLE h_err = GetStdHandle(STD_ERROR_HANDLE);
-  if (!h_out || h_out == INVALID_HANDLE_VALUE || !h_err ||
-      h_err == INVALID_HANDLE_VALUE) {
-    return;
-  }
-
-  DWORD mode = 0;
-  if (GetConsoleMode(h_out, &mode)) {
-    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    SetConsoleMode(h_out, mode);
-  }
-  if (GetConsoleMode(h_err, &mode)) {
-    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    SetConsoleMode(h_err, mode);
-  }
-#  endif
-}
-#endif
+static IoManager g_io_manager;
 
 inline void error_log_lost() {
   logln_error("\nLog length exceeds the buffer, log will be lost");
@@ -515,8 +517,8 @@ inline void error_log_truncated() {
 
 inline void log_write(u_log::ShmBuf &buffer, size_t data_len) {
   auto &fs_to_shared = buffer.level <= SS_LOG_LEVEL_WARN
-    ? g_fs_manager.err_to_shared
-    : g_fs_manager.out_to_shared;
+    ? g_io_manager.err_to_shared
+    : g_io_manager.out_to_shared;
   bool to_shared = fs_to_shared.load(std::memory_order_relaxed) &&
     shared_initialization_check();
 
@@ -565,14 +567,7 @@ inline size_t count_trailing_new_lines(std::string_view str) {
 
 using namespace sirius;
 
-extern "C" bool constructor_foundation_log() {
-#if defined(_WIN32) || defined(_WIN64)
-  win_enable_ansi();
-#endif
-  return true;
-}
-
-extern "C" sirius_api int ss_log_set_exe_path(const char *path) {
+extern "C" SIRIUS_API int ss_log_set_exe_path(const char *path) {
   if (g_shared_initialized.load(std::memory_order_relaxed)) {
     ss_log_error("The Daemon has started, it is too late to configure\n");
     return EBUSY;
@@ -580,21 +575,21 @@ extern "C" sirius_api int ss_log_set_exe_path(const char *path) {
   return u_log::exe::Exe::instance().set_path(path);
 }
 
-extern "C" sirius_api void ss_log_configure(const ss_log_config_t *config) {
+extern "C" SIRIUS_API void ss_log_configure(const ss_log_config_t *config) {
   if (!config)
     return;
 
-  if (auto ret = g_fs_manager.fs_configure(config->out, u_io::PutType::kOut);
+  if (auto ret = g_io_manager.fs_configure(config->out, u_io::PutType::kOut);
       !ret.has_value()) {
     logln_warnsp("{0}", ret.error().join_self_all());
   }
-  if (auto ret = g_fs_manager.fs_configure(config->err, u_io::PutType::kErr);
+  if (auto ret = g_io_manager.fs_configure(config->err, u_io::PutType::kErr);
       !ret.has_value()) {
     logln_warnsp("{0}", ret.error().join_self_all());
   }
 }
 
-extern "C" sirius_api void ss_log_impl(int level, const char *module,
+extern "C" SIRIUS_API void ss_log_impl(int level, const char *module,
                                        const char *file, int line,
                                        const char *fmt, ...) {
   u_log::ShmBuf buffer {};
@@ -641,7 +636,7 @@ extern "C" sirius_api void ss_log_impl(int level, const char *module,
   log_write(buffer, data.buf_size);
 }
 
-extern "C" sirius_api void ss_logsp_impl(int level, const char *module,
+extern "C" SIRIUS_API void ss_logsp_impl(int level, const char *module,
                                          const char *fmt, ...) {
   u_log::ShmBuf buffer {};
   auto &data = buffer.data.log;

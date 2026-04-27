@@ -48,19 +48,24 @@ else()
   endif()
 endif()
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  unset(SIRIUS_PIC_ENABLE CACHE)
+  set(SIRIUS_PIC_ENABLE
+      OFF
+      CACHE INTERNAL "" FORCE)
+else()
   if(GLOB_LIBRARY_TYPE STREQUAL "SHARED")
     unset(SIRIUS_PIC_ENABLE CACHE)
     set(SIRIUS_PIC_ENABLE
         ON
         CACHE INTERNAL "" FORCE)
   endif()
-  if(NOT SIRIUS_PIC_ENABLE)
-    unset(SIRIUS_TEST_PIE_ENABLE CACHE)
-    set(SIRIUS_TEST_PIE_ENABLE
-        OFF
-        CACHE INTERNAL "" FORCE)
-  endif()
+endif()
+if(NOT SIRIUS_PIC_ENABLE)
+  unset(SIRIUS_TEST_PIE_ENABLE CACHE)
+  set(SIRIUS_TEST_PIE_ENABLE
+      OFF
+      CACHE INTERNAL "" FORCE)
 endif()
 
 # --- Global Dependencies ---
@@ -128,6 +133,7 @@ if(SIRIUS_WIN_CRTDBG AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
   endif()
 endif()
 
+# ---
 add_subdirectory(sirius)
 
 if(SIRIUS_TEST_ENABLE)

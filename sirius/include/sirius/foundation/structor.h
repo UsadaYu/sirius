@@ -10,7 +10,7 @@ extern "C" {
  * @note This function is best called explicitly, especially on Windows when
  * building dynamic libraries.
  */
-sirius_api void ss_global_destruct();
+SIRIUS_API void ss_global_destruct();
 
 #ifdef __cplusplus
 }

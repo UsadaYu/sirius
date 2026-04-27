@@ -38,7 +38,7 @@ test_cpp_stds = []
 #   'target': 'target',
 #   'compile_args': 'compile_args',
 #   'sources': 'sources',
-#   'subdir': 'subdir'
+#   'subdir': 'subdir',
 # ]
 test_targets = []
 

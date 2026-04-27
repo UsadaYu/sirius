@@ -3,7 +3,7 @@
 #include "utils/decls.h"
 /* clang-format on */
 
-#include "sirius/foundation/log.h"
+#include "sirius/kit/log.h"
 #include "utils/utils.h"
 
 #if defined(_WIN32) || defined(_WIN64)

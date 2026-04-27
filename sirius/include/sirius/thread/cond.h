@@ -28,7 +28,7 @@ extern "C" {
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_cond_init(ss_cond_t *__restrict cond,
+SIRIUS_API int ss_cond_init(ss_cond_t *__restrict cond,
                             const enum SsThreadProcess *__restrict type);
 
 /**
@@ -36,14 +36,14 @@ sirius_api int ss_cond_init(ss_cond_t *__restrict cond,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_cond_destroy(ss_cond_t *cond);
+SIRIUS_API int ss_cond_destroy(ss_cond_t *cond);
 
 /**
  * @brief Wait the condition variable.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_cond_wait(ss_cond_t *__restrict cond,
+SIRIUS_API int ss_cond_wait(ss_cond_t *__restrict cond,
                             ss_mutex_t *__restrict mutex);
 
 /**
@@ -51,7 +51,7 @@ sirius_api int ss_cond_wait(ss_cond_t *__restrict cond,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_cond_timedwait(ss_cond_t *__restrict cond,
+SIRIUS_API int ss_cond_timedwait(ss_cond_t *__restrict cond,
                                  ss_mutex_t *__restrict mutex,
                                  uint64_t milliseconds);
 
@@ -60,14 +60,14 @@ sirius_api int ss_cond_timedwait(ss_cond_t *__restrict cond,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_cond_signal(ss_cond_t *cond);
+SIRIUS_API int ss_cond_signal(ss_cond_t *cond);
 
 /**
  * @brief Wake up all condition variable.
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_cond_broadcast(ss_cond_t *cond);
+SIRIUS_API int ss_cond_broadcast(ss_cond_t *cond);
 
 #ifdef __cplusplus
 }

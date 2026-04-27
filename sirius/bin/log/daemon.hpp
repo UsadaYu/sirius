@@ -80,12 +80,12 @@ class Daemon {
         [this](std::stop_token st) { parent_.thread_monitor(st); });
 
       master_.get_shm_header()->is_daemon_ready.store(
-        true, std::memory_order_relaxed);
+        true, std::memory_order_seq_cst);
     }
 
     ~MainStructor() {
       master_.get_shm_header()->is_daemon_ready.store(
-        false, std::memory_order_relaxed);
+        false, std::memory_order_seq_cst);
 
       thread_monitor_.request_stop();
       thread_consumer_.request_stop();
@@ -207,7 +207,6 @@ class Daemon {
   }
 
   void thread_monitor(std::stop_token stop_token) {
-    auto header = master_->get_shm_header();
     auto slots = master_->get_shm_slots();
 
     while (!stop_token.stop_requested()) {

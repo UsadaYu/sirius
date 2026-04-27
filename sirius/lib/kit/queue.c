@@ -4,9 +4,10 @@
 
 #include "sirius/kit/queue.h"
 
-#include "lib/foundation/log/log.h"
+#include "sirius/kit/log.h"
 #include "sirius/thread/cond.h"
 #include "sirius/thread/mutex.h"
+#include "utils/utils.h"
 
 struct ss_queue_t {
   /**
@@ -61,7 +62,7 @@ static inline bool is_power_of_2(size_t n) {
   return n > 0 && (n & (n - 1)) == 0;
 }
 
-sirius_api int ss_queue_alloc(ss_queue_t **__restrict queue,
+SIRIUS_API int ss_queue_alloc(ss_queue_t **__restrict queue,
                               const ss_queue_args_t *__restrict args) {
   if (ss_unlikely(!queue || !args)) {
     ss_log_error("Null pointer\n");
@@ -123,7 +124,7 @@ label_free1:
   return ret;
 }
 
-sirius_api int ss_queue_free(ss_queue_t *queue) {
+SIRIUS_API int ss_queue_free(ss_queue_t *queue) {
   if (ss_unlikely(!queue)) {
     ss_log_error("Null pointer\n");
     return EINVAL;
@@ -190,7 +191,7 @@ sirius_api int ss_queue_free(ss_queue_t *queue) {
     } \
   } while (0)
 
-sirius_api int ss_queue_get(ss_queue_t *queue, size_t *ptr,
+SIRIUS_API int ss_queue_get(ss_queue_t *queue, size_t *ptr,
                             uint64_t milliseconds) {
   if (ss_unlikely(!queue || !ptr)) {
     ss_log_error("Null pointer\n");
@@ -215,7 +216,7 @@ sirius_api int ss_queue_get(ss_queue_t *queue, size_t *ptr,
 #undef E
 }
 
-sirius_api int ss_queue_put(ss_queue_t *queue, size_t ptr,
+SIRIUS_API int ss_queue_put(ss_queue_t *queue, size_t ptr,
                             uint64_t milliseconds) {
   if (ss_unlikely(!queue)) {
     ss_log_error("Null pointer\n");
@@ -241,7 +242,7 @@ sirius_api int ss_queue_put(ss_queue_t *queue, size_t ptr,
 #undef E
 }
 
-sirius_api int ss_queue_reset(ss_queue_t *queue) {
+SIRIUS_API int ss_queue_reset(ss_queue_t *queue) {
   if (ss_unlikely(!queue)) {
     ss_log_error("Null pointer\n");
     return EINVAL;
@@ -256,7 +257,7 @@ sirius_api int ss_queue_reset(ss_queue_t *queue) {
   return 0;
 }
 
-sirius_api int ss_queue_nb_cache(ss_queue_t *queue, size_t *num) {
+SIRIUS_API int ss_queue_nb_cache(ss_queue_t *queue, size_t *num) {
   if (ss_unlikely(!queue || !num)) {
     ss_log_error("Null pointer\n");
     return EINVAL;

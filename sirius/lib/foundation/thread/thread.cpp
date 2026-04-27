@@ -144,7 +144,7 @@ namespace {
 
 using namespace sirius;
 
-extern "C" sirius_api uint64_t _ss_inner_get_tid() {
+extern "C" SIRIUS_API uint64_t _ss_inner_get_tid() {
 #if defined(__linux__)
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 30)
   pid_t gettid(void);
@@ -187,7 +187,7 @@ inline DWORD g_tls_index = TLS_OUT_OF_INDEXES;
 inline std::once_flag once_flag {};
 inline std::atomic<bool> initialized {false};
 
-inline void tls_destructor(void) {
+inline void tls_destructor() {
   if (!initialized.exchange(false, std::memory_order_seq_cst))
     return;
 
@@ -233,7 +233,8 @@ inline void tls_constructor() {
 }
 } // namespace
 
-sirius_api BOOL inner_thread_tls_set_value(LPVOID lpTlsValue, DWORD *dw_err) {
+FOUNDATION_API BOOL inner_thread_tls_set_value(LPVOID lpTlsValue,
+                                               DWORD *dw_err) {
   tls_constructor();
 
   BOOL ret = TlsSetValue(g_tls_index, lpTlsValue);
@@ -243,7 +244,7 @@ sirius_api BOOL inner_thread_tls_set_value(LPVOID lpTlsValue, DWORD *dw_err) {
   return ret;
 }
 
-sirius_api LPVOID inner_thread_tls_get_value(DWORD *dw_err) {
+FOUNDATION_API LPVOID inner_thread_tls_get_value(DWORD *dw_err) {
   tls_constructor();
 
   LPVOID ret = TlsGetValue(g_tls_index);

@@ -49,11 +49,11 @@ extern "C" {
 /**
  * @brief Set the path of the log executable file.
  */
-sirius_api int ss_log_set_exe_path(const char *path);
-sirius_api void ss_log_configure(const ss_log_config_t *cfg);
-sirius_api void ss_log_impl(int level, const char *module, const char *file,
+SIRIUS_API int ss_log_set_exe_path(const char *path);
+SIRIUS_API void ss_log_configure(const ss_log_config_t *cfg);
+SIRIUS_API void ss_log_impl(int level, const char *module, const char *file,
                             int line, const char *fmt, ...);
-sirius_api void ss_logsp_impl(int level, const char *module, const char *fmt,
+SIRIUS_API void ss_logsp_impl(int level, const char *module, const char *fmt,
                               ...);
 
 #ifdef __cplusplus

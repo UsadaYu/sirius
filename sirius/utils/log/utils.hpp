@@ -3,7 +3,7 @@
 #include "utils/decls.h"
 /* clang-format on */
 
-#include "sirius/foundation/log.h"
+#include "sirius/kit/log.h"
 #include "utils/ns.hpp"
 
 #define UTILS_LOG_KEY "utils_log"

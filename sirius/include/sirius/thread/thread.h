@@ -31,8 +31,6 @@ extern "C" {
 #define SS_THREAD_PRIORITY_MAX (99)
 
 enum SsThreadCreate {
-  kSsThreadCreateNone = -1,
-
   /**
    * @brief The thread can be synchronized using the `ss_thread_join` function.
    */
@@ -46,13 +44,6 @@ enum SsThreadCreate {
 };
 
 enum SsThreadSched {
-  kSsThreadSchedNone = -1,
-
-#if defined(_WIN32) || defined(_WIN64)
-  kSsThreadSchedOther = kSsThreadSchedNone,
-  kSsThreadSchedFifo = kSsThreadSchedNone,
-  kSsThreadSchedRR = kSsThreadSchedNone,
-#else
   /**
    * @brief Not real-time.
    */
@@ -67,7 +58,6 @@ enum SsThreadSched {
    * @brief Real-time, first-in, first-out, system permissions may be required.
    */
   kSsThreadSchedRR = 2,
-#endif
 };
 
 typedef struct {
@@ -121,12 +111,6 @@ typedef struct {
 } ss_thread_sched_args_t;
 
 enum SsThreadInherit {
-  kSsThreadInheritNone = -1,
-
-#if defined(_WIN32) || defined(_WIN64)
-  kSsThreadInheritSched = kSsThreadInheritNone,
-  kSsThreadExplicitSched = kSsThreadInheritNone,
-#else
   /**
    * @brief Inherits the scheduling policy and scheduling parameters of the
    * caller thread.
@@ -138,16 +122,9 @@ enum SsThreadInherit {
    * for the thread.
    */
   kSsThreadExplicitSched = 1,
-#endif
 };
 
 enum SsThreadScope {
-  kSsThreadScopeNone = -1,
-
-#if defined(_WIN32) || defined(_WIN64)
-  kSsThreadScopeSystem = kSsThreadScopeNone,
-  kSsThreadScopeProcess = kSsThreadScopeNone,
-#else
   /**
    * @brief Compete with all threads in the system for the CPU time.
    */
@@ -158,7 +135,6 @@ enum SsThreadScope {
    * system permissions may be required.
    */
   kSsThreadScopeProcess = 1,
-#endif
 };
 
 typedef struct {
@@ -229,7 +205,6 @@ typedef struct {
  * @example
  * void *foo(void *arg) {
  *   (void)arg;
- *
  *   return NULL;
  * }
  *
@@ -241,7 +216,7 @@ typedef struct {
  *   return 0;
  * }
  */
-sirius_api int ss_thread_create(ss_thread_t *thread,
+SIRIUS_API int ss_thread_create(ss_thread_t *thread,
                                 const ss_thread_attr_t *attr,
                                 void *(*start_routine)(void *), void *arg);
 
@@ -254,9 +229,9 @@ sirius_api int ss_thread_create(ss_thread_t *thread,
  * to point to a non-temporary memory address.
  */
 #if defined(_WIN32) || defined(_WIN64)
-sirius_api void ss_thread_exit(void *retval) _SS_INNER_THROW_SPEC;
+SIRIUS_API void ss_thread_exit(void *retval) _SS_INNER_THROW_SPEC;
 #else
-sirius_api void ss_thread_exit(void *retval);
+SIRIUS_API void ss_thread_exit(void *retval);
 #endif
 
 /**
@@ -267,7 +242,7 @@ sirius_api void ss_thread_exit(void *retval);
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_thread_join(ss_thread_t thread, void **retval);
+SIRIUS_API int ss_thread_join(ss_thread_t thread, void **retval);
 
 /**
  * @brief Detach the thread.
@@ -276,7 +251,7 @@ sirius_api int ss_thread_join(ss_thread_t thread, void **retval);
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_thread_detach(ss_thread_t thread);
+SIRIUS_API int ss_thread_detach(ss_thread_t thread);
 
 /**
  * @brief Terminate the thread.
@@ -287,7 +262,7 @@ sirius_api int ss_thread_detach(ss_thread_t thread);
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_thread_cancel(ss_thread_t thread);
+SIRIUS_API int ss_thread_cancel(ss_thread_t thread);
 
 /**
  * @brief Get the thread handle.
@@ -296,7 +271,7 @@ sirius_api int ss_thread_cancel(ss_thread_t thread);
  *
  * @return The thread handle.
  */
-sirius_api ss_thread_t ss_thread_self();
+SIRIUS_API ss_thread_t ss_thread_self();
 
 /**
  * @brief Get the maximum priority of the specified thread handle.
@@ -306,7 +281,7 @@ sirius_api ss_thread_t ss_thread_self();
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_thread_get_priority_max(ss_thread_t thread, int *priority);
+SIRIUS_API int ss_thread_get_priority_max(ss_thread_t thread, int *priority);
 
 /**
  * @brief Get the minimum priority of the specified thread handle.
@@ -316,7 +291,7 @@ sirius_api int ss_thread_get_priority_max(ss_thread_t thread, int *priority);
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_thread_get_priority_min(ss_thread_t thread, int *priority);
+SIRIUS_API int ss_thread_get_priority_min(ss_thread_t thread, int *priority);
 
 /**
  * @brief Set the thread attributes.
@@ -326,7 +301,7 @@ sirius_api int ss_thread_get_priority_min(ss_thread_t thread, int *priority);
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_thread_setschedparam(ss_thread_t thread,
+SIRIUS_API int ss_thread_setschedparam(ss_thread_t thread,
                                        const ss_thread_sched_args_t *param);
 
 /**
@@ -337,7 +312,7 @@ sirius_api int ss_thread_setschedparam(ss_thread_t thread,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_thread_getschedparam(ss_thread_t thread,
+SIRIUS_API int ss_thread_getschedparam(ss_thread_t thread,
                                        ss_thread_sched_args_t *param);
 
 #ifdef __cplusplus

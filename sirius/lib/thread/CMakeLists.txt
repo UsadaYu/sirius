@@ -12,7 +12,7 @@ list(APPEND sources "cond.c" "mutex.c" "sem.c")
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   list(APPEND sources "windows/thread.cpp")
 else()
-  list(APPEND sources "posix/thread.c")
+  list(APPEND sources "posix/thread.cpp")
 endif()
 
 add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})

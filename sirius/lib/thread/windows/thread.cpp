@@ -16,11 +16,16 @@
 #include <set>
 #include <thread>
 
-#include "lib/foundation/log/log.h"
+#include "lib/foundation/structor.h"
 #include "sirius/thread/spinlock.h"
 #include "sirius/thread/thread.h"
 #include "utils/errno.h"
 #include "utils/io.hpp"
+
+#define WIN_ERR(err_code, fn_str) \
+  logln_error("{}", \
+              sirius::utils::io::Fmt::win_err(err_code, fn_str, "{0}", \
+                                              utils_pretty_fn));
 
 struct ss_thread_s {
   HANDLE handle;
@@ -64,6 +69,8 @@ class ThreadResourceManager {
   std::mutex mutex {};
   std::set<ss_thread_t> active_threads {};
 
+  ThreadResourceManager() = default;
+
   ~ThreadResourceManager() {
     manager_is_alive() = false;
 
@@ -89,6 +96,25 @@ class ThreadResourceManager {
     return alive;
   }
 
+  static void manager_destructor() {
+    if (!initialized_.exchange(false, std::memory_order_seq_cst))
+      return;
+
+    manager_is_alive() = false;
+  }
+
+  static void manager_constructor() {
+    std::call_once(once_flag_, []() {
+      structor_destructor_register_t dr {};
+      dr.priority =
+        StructorDestructorPriority::kStructorDestructorPriorityEarliest;
+      dr.fn_destructor = manager_destructor;
+      structor_destructor_register(&dr);
+
+      initialized_.store(true, std::memory_order_seq_cst);
+    });
+  }
+
   void mark(ss_thread_t thr) {
     auto lock = std::lock_guard(mutex);
     active_threads.insert(thr);
@@ -108,6 +134,10 @@ class ThreadResourceManager {
       thr = nullptr;
     }
   }
+
+ private:
+  static inline std::once_flag once_flag_ {};
+  static inline std::atomic<bool> initialized_ {false};
 };
 
 namespace {
@@ -152,12 +182,12 @@ inline bool has_been_destructed() {
   if (once_print.exchange(true, std::memory_order_relaxed))
     return true;
 
-  logln_warnsp(
+  logln_error(
     "\n---------- Fatal Error ----------"
-    "\nThe thread manager has been destructed"
-    "\nThe `main` function may have already ended"
-    "\nOr some unknown errors occurred"
-    "\nThere should be no further operations on the thread");
+    "\n- The thread manager has been destructed"
+    "\n- Or some unknown errors occurred"
+    "\n- There should be no further operations on the thread"
+    "\n---------------------------------");
   return true;
 }
 
@@ -177,7 +207,12 @@ inline unsigned __stdcall thread_wrapper(void *pv) {
       return 0;
     }
 
-    foundation_win_last_error(dw_err, "TlsSetValue");
+    static std::atomic<bool> once_print_err_87 = false;
+    if (dw_err != ERROR_INVALID_PARAMETER ||
+        !once_print_err_87.exchange(true, std::memory_order_relaxed)) {
+      WIN_ERR(dw_err, "TlsSetValue");
+    }
+
     try_cleanup(thr);
     return utils_winerr_to_errno(dw_err);
   }
@@ -249,13 +284,13 @@ inline int set_thread_priority(HANDLE thread, int posix_priority) {
     C(16, 22, 23, 24, 25, 26)
   default:
     dw_err = GetLastError();
-    foundation_win_last_error(dw_err, "GetPriorityClass");
+    WIN_ERR(dw_err, "GetPriorityClass");
     return utils_winerr_to_errno(dw_err);
   }
 
   if (!SetThreadPriority(thread, win_priority)) {
     dw_err = GetLastError();
-    foundation_win_last_error(dw_err, "SetThreadPriority");
+    WIN_ERR(dw_err, "SetThreadPriority");
     return utils_winerr_to_errno(dw_err);
   }
   return 0;
@@ -269,7 +304,7 @@ using namespace sirius;
 
 // --- API Interface ---
 
-extern "C" sirius_api int ss_thread_create(ss_thread_t *thread,
+extern "C" SIRIUS_API int ss_thread_create(ss_thread_t *thread,
                                            const ss_thread_attr_t *attr,
                                            void *(*start_routine)(void *),
                                            void *arg) {
@@ -281,6 +316,8 @@ extern "C" sirius_api int ss_thread_create(ss_thread_t *thread,
   uintptr_t h = 0;
   ss_thread_t thr = nullptr;
   thread_wrapper_arg_s *warg = nullptr;
+
+  g_manager.manager_constructor();
 
   if (attr) {
     initflags = CREATE_SUSPENDED;
@@ -303,7 +340,7 @@ extern "C" sirius_api int ss_thread_create(ss_thread_t *thread,
                      initflags, &thread_id);
   if (h == 0) {
     dw_err = GetLastError();
-    foundation_win_last_error(dw_err, "_beginthreadex");
+    WIN_ERR(dw_err, "_beginthreadex");
     ret = utils_winerr_to_errno(dw_err);
     goto label_free1;
   }
@@ -317,7 +354,7 @@ extern "C" sirius_api int ss_thread_create(ss_thread_t *thread,
 
     if ((DWORD)-1 == ResumeThread(thr->handle)) {
       dw_err = GetLastError();
-      foundation_win_last_error(dw_err, "ResumeThread");
+      WIN_ERR(dw_err, "ResumeThread");
       ret = utils_winerr_to_errno(dw_err);
       goto label_free2;
     }
@@ -339,7 +376,7 @@ label_free1:
   return ret;
 }
 
-extern "C" sirius_api void ss_thread_exit(void *retval) _SS_INNER_THROW_SPEC {
+extern "C" SIRIUS_API void ss_thread_exit(void *retval) _SS_INNER_THROW_SPEC {
   /**
    * @note An exception is thrown to trigger stack expansion, and the c++
    * destructor will be executed automatically.
@@ -347,7 +384,7 @@ extern "C" sirius_api void ss_thread_exit(void *retval) _SS_INNER_THROW_SPEC {
   throw SsThreadExitException {retval};
 }
 
-extern "C" sirius_api int ss_thread_join(ss_thread_t thread, void **retval) {
+extern "C" SIRIUS_API int ss_thread_join(ss_thread_t thread, void **retval) {
   /**
    * @note Here, the `resource_is_free` flag is checked to prevent the user from
    * calling the `join` function after the detached thread has ended. Although
@@ -376,7 +413,7 @@ extern "C" sirius_api int ss_thread_join(ss_thread_t thread, void **retval) {
   case WAIT_FAILED:
     dw_err = GetLastError();
     (void)CloseHandle(thread->handle);
-    foundation_win_last_error(dw_err, "WaitForSingleObject");
+    WIN_ERR(dw_err, "WaitForSingleObject");
     return utils_winerr_to_errno(dw_err);
   case WAIT_ABANDONED:
     (void)CloseHandle(thread->handle);
@@ -399,7 +436,7 @@ extern "C" sirius_api int ss_thread_join(ss_thread_t thread, void **retval) {
   return 0;
 }
 
-extern "C" sirius_api int ss_thread_detach(ss_thread_t thread) {
+extern "C" SIRIUS_API int ss_thread_detach(ss_thread_t thread) {
   if (!thread || !thread->handle ||
       thread->resource_is_free.load(std::memory_order_relaxed)) {
     return EINVAL;
@@ -433,23 +470,23 @@ extern "C" sirius_api int ss_thread_detach(ss_thread_t thread) {
   return 0;
 }
 
-extern "C" sirius_api int ss_thread_cancel(ss_thread_t thread) {
+extern "C" SIRIUS_API int ss_thread_cancel(ss_thread_t thread) {
   if (!thread || !thread->handle)
     return 0;
 
   if (!TerminateThread(thread->handle, (DWORD)-1)) {
     const DWORD dw_err = GetLastError();
-    foundation_win_last_error(dw_err, "TerminateThread");
+    WIN_ERR(dw_err, "TerminateThread");
     return utils_winerr_to_errno(dw_err);
   }
   return 0;
 }
 
-extern "C" sirius_api ss_thread_t ss_thread_self() {
+extern "C" SIRIUS_API ss_thread_t ss_thread_self() {
   return (ss_thread_t)inner_thread_tls_get_value(nullptr);
 }
 
-extern "C" sirius_api int ss_thread_get_priority_max(ss_thread_t thread,
+extern "C" SIRIUS_API int ss_thread_get_priority_max(ss_thread_t thread,
                                                      int *priority) {
   if (!priority)
     return EINVAL;
@@ -471,12 +508,12 @@ extern "C" sirius_api int ss_thread_get_priority_max(ss_thread_t thread,
     return 0;
   default:
     dw_err = GetLastError();
-    foundation_win_last_error(dw_err, "GetPriorityClass");
+    WIN_ERR(dw_err, "GetPriorityClass");
     return utils_winerr_to_errno(dw_err);
   }
 }
 
-extern "C" sirius_api int ss_thread_get_priority_min(ss_thread_t thread,
+extern "C" SIRIUS_API int ss_thread_get_priority_min(ss_thread_t thread,
                                                      int *priority) {
   if (!priority)
     return EINVAL;
@@ -498,12 +535,12 @@ extern "C" sirius_api int ss_thread_get_priority_min(ss_thread_t thread,
     return 0;
   default:
     dw_err = GetLastError();
-    foundation_win_last_error(dw_err, "GetPriorityClass");
+    WIN_ERR(dw_err, "GetPriorityClass");
     return utils_winerr_to_errno(dw_err);
   }
 }
 
-extern "C" sirius_api int
+extern "C" SIRIUS_API int
 ss_thread_setschedparam(ss_thread_t thread,
                         const ss_thread_sched_args_t *param) {
   if (!param)
@@ -512,7 +549,7 @@ ss_thread_setschedparam(ss_thread_t thread,
   return set_thread_priority(thread->handle, param->priority);
 }
 
-extern "C" sirius_api int
+extern "C" SIRIUS_API int
 ss_thread_getschedparam(ss_thread_t thread, ss_thread_sched_args_t *param) {
   if (!param)
     return EINVAL;
@@ -522,7 +559,7 @@ ss_thread_getschedparam(ss_thread_t thread, ss_thread_sched_args_t *param) {
   thread_priority = GetThreadPriority(thread->handle);
   if (THREAD_PRIORITY_ERROR_RETURN == thread_priority) {
     dw_err = GetLastError();
-    foundation_win_last_error(dw_err, "GetThreadPriority");
+    WIN_ERR(dw_err, "GetThreadPriority");
     return utils_winerr_to_errno(dw_err);
   }
 
@@ -546,7 +583,7 @@ ss_thread_getschedparam(ss_thread_t thread, ss_thread_sched_args_t *param) {
   case THREAD_PRIORITY_TIME_CRITICAL: \
     E(critical) \
   default: \
-    ss_log_error("Invalid argument. Thread priority: %d\n", thread_priority); \
+    logln_error("Invalid argument. Thread priority: {0}", thread_priority); \
     return -1; \
   }
 
@@ -589,7 +626,7 @@ ss_thread_getschedparam(ss_thread_t thread, ss_thread_sched_args_t *param) {
     break;
   default:
     dw_err = GetLastError();
-    foundation_win_last_error(dw_err, "GetPriorityClass");
+    WIN_ERR(dw_err, "GetPriorityClass");
     return utils_winerr_to_errno(dw_err);
   }
 

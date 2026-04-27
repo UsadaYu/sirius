@@ -43,7 +43,7 @@ typedef struct {
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_queue_alloc(ss_queue_t **__restrict queue,
+SIRIUS_API int ss_queue_alloc(ss_queue_t **__restrict queue,
                               const ss_queue_args_t *__restrict args);
 
 /**
@@ -53,7 +53,7 @@ sirius_api int ss_queue_alloc(ss_queue_t **__restrict queue,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_queue_free(ss_queue_t *queue);
+SIRIUS_API int ss_queue_free(ss_queue_t *queue);
 
 /**
  * @brief Get an element from the queue.
@@ -71,7 +71,7 @@ sirius_api int ss_queue_free(ss_queue_t *queue);
  *
  * - (3) error code otherwise.
  */
-sirius_api int ss_queue_get(ss_queue_t *queue, size_t *ptr,
+SIRIUS_API int ss_queue_get(ss_queue_t *queue, size_t *ptr,
                             uint64_t milliseconds);
 
 /**
@@ -91,7 +91,7 @@ sirius_api int ss_queue_get(ss_queue_t *queue, size_t *ptr,
  *
  * - (3) error code otherwise.
  */
-sirius_api int ss_queue_put(ss_queue_t *queue, size_t ptr,
+SIRIUS_API int ss_queue_put(ss_queue_t *queue, size_t ptr,
                             uint64_t milliseconds);
 
 /**
@@ -101,7 +101,7 @@ sirius_api int ss_queue_put(ss_queue_t *queue, size_t ptr,
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_queue_reset(ss_queue_t *queue);
+SIRIUS_API int ss_queue_reset(ss_queue_t *queue);
 
 /**
  * @brief Get the number of members of the current queue
@@ -112,7 +112,7 @@ sirius_api int ss_queue_reset(ss_queue_t *queue);
  *
  * @return 0 on success, or an `errno` value on failure.
  */
-sirius_api int ss_queue_nb_cache(ss_queue_t *queue, size_t *num);
+SIRIUS_API int ss_queue_nb_cache(ss_queue_t *queue, size_t *num);
 
 #ifdef __cplusplus
 }

@@ -3,45 +3,105 @@ option(
   'build-object-only',
   type: 'boolean',
   value: false,
-  description: 'Build objects only')
+  description: 'Build objects only',
+)
 
-# --- Sirius ---
-# Sirius
 option(
-  'target-namespace',
-  type: 'string',
-  value: 'Sirius',
-  description: 'The meson interaction file namespace of the target')
+  'win-crtdbg',
+  type: 'boolean',
+  value: false,
+  description: 'On windows, enable `_CRTDBG_MAP_ALLOC`',
+)
 
+# --- Config ---
+option(
+  'namespace',
+  type: 'string',
+  value: 'sirius',
+  description: 'The namespace of `sirius`',
+)
+
+option(
+  'posix-file-mode',
+  type: 'string',
+  value: '0775',
+  description: 'On POSIX, the permissions of the created files',
+)
+
+option(
+  'tmp-dir',
+  type: 'string',
+  value: '',
+  description: 'The temporary directory for the files',
+)
+
+option(
+  'user-key',
+  type: 'string',
+  value: 'd32d87be6fe35062a7945ffd4f4a69d4',
+  description: 'User-defined key',
+)
+
+option(
+  'log-shm-capacity',
+  type: 'integer',
+  value: 512,
+  description: 'The capatity of the shared memory in the log module',
+)
+
+option(
+  'log-buf-size',
+  type: 'integer',
+  value: 4096,
+  description:
+    '''
+  The maximum number of bytes written to the file descriptor at a single time''',
+)
+
+option(
+  'exe-log-name',
+  type: 'string',
+  value: 'sirius_log',
+  description: 'The name of the log executable file',
+)
+
+# --- sirius ---
 option(
   'warning-all',
   type: 'boolean',
   value: true,
-  description: 'Enable all compile warnings')
+  description: 'Enable all compile warnings',
+)
 
 option(
   'warning-as-error',
   type: 'boolean',
   value: false,
-  description: 'Regard all warnings as errors')
+  description: 'Regard all warnings as errors',
+)
 
 option(
   'pic-enable',
   type: 'boolean',
   value: true,
-  description: 'Position independent, enable `-fPIC/-fPIE`')
+  description: 'Position independent, enable `-fPIC/-fPIE`',
+)
 
 option(
   'log-level',
-  type: 'integer', value: 3,
-  description: '''
-  Log level: 0: disable the log; 1: error; 2: warn; 3: info; 4: debug''')
+  type: 'integer',
+  value: 3,
+  description:
+    '''
+  Log level: 0: disable the log; 1: error; 2: warn; 3: info; 4: debug''',
+)
 
 option(
   'asan',
   type: 'boolean',
   value: false,
-  description: 'Enable address sanitizer')
+  description: 'Enable address sanitizer',
+)
 
 # For example, on Windows, msvc and clang might have used the same-named
 # libraries but with different sources.
@@ -49,7 +109,8 @@ option(
   'asan-fallback-enable',
   type: 'boolean',
   value: false,
-  description: 'Whether to fall back to custom ASAN libs')
+  description: 'Whether to fall back to custom ASAN libs',
+)
 
 option(
   'asan-fallback-libs',
@@ -58,68 +119,90 @@ option(
     'clang_rt.asan_dynamic-x86_64',
     'clang_rt.asan_dynamic_runtime_thunk-x86_64',
   ],
-  description: 'Libraries')
+  description: 'Libraries',
+)
 
 option(
   'asan-fallback-libdirs',
   type: 'array',
   value: [
-    'D:/070_Code/110_LLVM/lib/clang/21/lib/windows',
+    'D:/070_Code/110_LLVM/lib/clang/22/lib/windows',
   ],
-  description: 'The search path for `asan-fallback-libs`')
+  description: 'The search path for `asan-fallback-libs`',
+)
 
-# Sirius::sirius
+# sirius::c
 option(
-  'sirius-library-name',
+  'c-library-name',
   type: 'string',
-  value: 'sirius',
-  description: 'The name of the target library `sirius`')
+  value: 'sirius_c',
+  description: 'The name of the target library `sirius_c`',
+)
 
+# sirius::foundation
 option(
-  'sirius-print-name',
+  'foundation-library-name',
   type: 'string',
-  value: 'Sirius::sirius',
-  description: '`Sirius::sirius` module print name')
+  value: 'sirius_foundation',
+  description: 'The name of the target library `sirius_foundation`',
+)
 
+# sirius::thread
 option(
-  'sirius-log-buf-size',
-  type: 'integer',
-  value: 2048,
-  description: '''
-  The maximum number of bytes written to the file descriptor at a single time''')
+  'thread-library-name',
+  type: 'string',
+  value: 'sirius_thread',
+  description: 'The name of the target library `sirius_thread`',
+)
+
+# sirius::kit
+option(
+  'kit-library-name',
+  type: 'string',
+  value: 'sirius_kit',
+  description: 'The name of the target library `sirius_kit`',
+)
 
 # --- Test ---
 option(
   'test-enable',
   type: 'boolean',
   value: false,
-  description: 'Enable test')
+  description: 'Enable test',
+)
 
 option(
   'test-pie-enable',
   type: 'boolean',
   value: false,
-  description: 'Position independent, enable `-fPIC/-fPIE`')
+  description: 'Position independent, enable `-fPIC/-fPIE`',
+)
 
 option(
   'test-extra-link-directories',
   type: 'array',
   value: [],
-  description: '''
+  description:
+    '''
   The directory of `libs` that require additional links to the `sirius test`,
-  e.g., "[\'/path/lib1\', \'/path/lib2\']"''')
+  e.g., "[\'/path/lib1\', \'/path/lib2\']"''',
+)
 
 option(
   'test-extra-link-libraries',
   type: 'array',
   value: [],
-  description: '''
+  description:
+    '''
   The name of `libs` that require additional links to the `sirius test`,
-  e.g., "[\'pthread\', \'stdc++\']"''')
+  e.g., "[\'pthread\', \'stdc++\']"''',
+)
 
 option(
   'test-log-level',
   type: 'integer',
   value: 3,
-  description: '''
-  Test log level: 0: disable the log; 1: error; 2: warn; 3: info; 4: debug''')
+  description:
+    '''
+  Test log level: 0: disable the log; 1: error; 2: warn; 3: info; 4: debug''',
+)

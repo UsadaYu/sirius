@@ -21,7 +21,7 @@ extern "C" {
  *
  * - (5) wrong: ss_usleep(1000 * 1000 * 1000 * 1000 * 1000ULL);
  */
-sirius_api void ss_usleep(uint64_t usec);
+SIRIUS_API void ss_usleep(uint64_t usec);
 
 /**
  * @brief Nanosecond hibernation.
@@ -29,7 +29,7 @@ sirius_api void ss_usleep(uint64_t usec);
  * @example
  * @see `ss_usleep`.
  */
-sirius_api void ss_nsleep(uint64_t usec);
+SIRIUS_API void ss_nsleep(uint64_t usec);
 
 /**
  * @brief Get a monotonic clock in microseconds.
@@ -40,7 +40,7 @@ sirius_api void ss_nsleep(uint64_t usec);
  *
  * Returns 0 if the high-resolution timer is not available or fails.
  */
-sirius_api uint64_t ss_get_clock_monotonic_us();
+SIRIUS_API uint64_t ss_get_clock_monotonic_us();
 
 /**
  * @brief Get a monotonic clock in nanoseconds.
@@ -51,7 +51,7 @@ sirius_api uint64_t ss_get_clock_monotonic_us();
  *
  * Returns 0 if the high-resolution timer is not available or fails.
  */
-sirius_api uint64_t ss_get_clock_monotonic_ns();
+SIRIUS_API uint64_t ss_get_clock_monotonic_ns();
 
 #ifdef __cplusplus
 }

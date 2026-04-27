@@ -87,9 +87,9 @@ static inline int utils_dprintf(int fd, const char *__restrict format, ...) {
 }
 
 // --- sirius ---
-#include <sirius/foundation/log.h>
 #include <sirius/foundation/structor.h>
 #include <sirius/foundation/sync.h>
+#include <sirius/kit/log.h>
 
 #define UTILS_ASSERT(expr) \
   do { \
