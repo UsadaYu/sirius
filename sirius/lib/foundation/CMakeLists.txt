@@ -7,7 +7,6 @@ set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
 # --- sirius::foundation ---
 set(sources "")
-list(APPEND sources "thread/thread.cpp")
 list(APPEND sources "structor.cpp")
 
 add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})

@@ -1,5 +1,3 @@
-#include <sirius/foundation/thread.h>
-
 #include <thread>
 
 #include "inner/utils.h"
@@ -17,13 +15,13 @@ inline std::atomic<bool> g_exit_flag = false;
 inline void thread_foo() {
   while (!g_exit_flag.load(std::memory_order_relaxed)) {
     ss_log_error("--------------------------------\n");
-    ss_log_debug("[TID: %llu]\n", ss_thread_id());
-    ss_log_info("[TID: %llu]\n", ss_thread_id());
-    ss_log_warn("[TID: %llu]\n", ss_thread_id());
+    ss_log_debug("ss_log_debug\n");
+    ss_log_info("ss_log_info\n");
+    ss_log_warn("ss_log_warn\n");
 
-    ss_log_debugsp("[TID: %llu]\n", ss_thread_id());
-    ss_log_infosp("[TID: %llu]\n", ss_thread_id());
-    ss_log_warnsp("[TID: %llu]\n", ss_thread_id());
+    ss_log_debugsp("ss_log_debugsp\n");
+    ss_log_infosp("ss_log_infosp\n");
+    ss_log_warnsp("ss_log_warnsp\n");
     ss_log_error("--------------------------------\n\n");
 
     std::this_thread::sleep_for(std::chrono::milliseconds(150));

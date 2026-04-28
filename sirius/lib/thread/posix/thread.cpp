@@ -76,6 +76,10 @@ inline int get_thread_policy(pthread_t thread, int *posix_policy) {
 
 using namespace sirius;
 
+extern "C" SIRIUS_API uint64_t _ss_inner_get_tid() {
+  return utils::thread::get_tid_impl();
+}
+
 extern "C" SIRIUS_API int ss_thread_create(ss_thread_t *thread,
                                            const ss_thread_attr_t *attr,
                                            void *(*start_routine)(void *),

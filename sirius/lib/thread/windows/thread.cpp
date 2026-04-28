@@ -6,9 +6,7 @@
 #include "utils/decls.h"
 /* clang-format on */
 
-// #  include "lib/thread/inner/thread.h"
-
-#include "lib/foundation/thread/thread.hpp"
+#include "sirius/thread/thread.h"
 
 #include <process.h>
 
@@ -18,7 +16,6 @@
 
 #include "lib/foundation/structor.h"
 #include "sirius/thread/spinlock.h"
-#include "sirius/thread/thread.h"
 #include "utils/errno.h"
 #include "utils/io.hpp"
 
@@ -140,13 +137,109 @@ class ThreadResourceManager {
   static inline std::atomic<bool> initialized_ {false};
 };
 
+namespace tls {
+namespace inner {
+inline DWORD g_tls_index = TLS_OUT_OF_INDEXES;
+inline std::once_flag g_once_flag {};
+inline std::atomic<bool> g_initialized {false};
+
+inline auto init() -> std::expected<void, UTrace> {
+  if (g_tls_index == TLS_OUT_OF_INDEXES) {
+    g_tls_index = TlsAlloc();
+    if (g_tls_index == TLS_OUT_OF_INDEXES) {
+      const DWORD dw_err = GetLastError();
+      auto es = utils::io::Fmt::win_err(dw_err, "TlsAlloc");
+      return std::unexpected(UTrace(std::move(es)));
+    }
+  }
+  return {};
+}
+
+inline void destructor() {
+  if (!g_initialized.exchange(false, std::memory_order_seq_cst))
+    return;
+
+  if (g_tls_index == TLS_OUT_OF_INDEXES)
+    return;
+
+  if (!TlsFree(g_tls_index)) {
+    OutputDebugStringA("Error `TlsFree`\n");
+  }
+
+  g_tls_index = TLS_OUT_OF_INDEXES;
+}
+
+/**
+ * @throw `UTraceException`.
+ */
+inline void constructor_impl() {
+  std::call_once(g_once_flag, []() {
+    if (auto ret = init(); !ret.has_value()) {
+      g_initialized.store(false, std::memory_order_seq_cst);
+      throw UTraceException(std::move(ret.error()));
+    }
+
+    structor_destructor_register_t dr {};
+    dr.priority =
+      StructorDestructorPriority::kStructorDestructorPriorityEarliest - 1;
+    dr.fn_destructor = destructor;
+    structor_destructor_register(&dr);
+
+    g_initialized.store(true, std::memory_order_seq_cst);
+  });
+}
+
+inline auto constructor() -> std::expected<void, UTrace> {
+  try {
+    constructor_impl();
+  } catch (const UTraceException &e) {
+    return std::unexpected(std::move(e.utrace()));
+  } catch (const std::exception &e) {
+    return std::unexpected(UTrace(std::move(e.what())));
+  } catch (...) {
+    return std::unexpected(UTrace("`exception`: unknow"));
+  }
+  return {};
+}
+} // namespace inner
+
+inline auto set_value(LPVOID lpTlsValue) -> std::expected<void, UTrace> {
+  return inner::constructor()
+    .and_then([&]() -> std::expected<void, UTrace> {
+      if (!TlsSetValue(inner::g_tls_index, lpTlsValue)) {
+        const DWORD dw_err = GetLastError();
+        auto es = utils::io::Fmt::win_err(dw_err, "TlsSetValue");
+        return std::unexpected(UTrace(std::move(es)));
+      }
+      return {};
+    })
+    .utrace_transform_error_default();
+}
+
+inline auto get_value() -> std::expected<LPVOID, UTrace> {
+  LPVOID ret = nullptr;
+
+  return inner::constructor()
+    .and_then([&]() -> std::expected<LPVOID, UTrace> {
+      ret = TlsGetValue(inner::g_tls_index);
+      const DWORD dw_err = GetLastError();
+      if (0 == (size_t)ret && dw_err != ERROR_SUCCESS) {
+        auto es = utils::io::Fmt::win_err(dw_err, "TlsGetValue");
+        return std::unexpected(UTrace(std::move(es)));
+      }
+      return ret;
+    })
+    .utrace_transform_error_default();
+}
+} // namespace tls
+
 namespace {
+// --- Static Initialization ---
+static ThreadResourceManager g_manager;
+
 inline constexpr int64_t kWinThreadPriorityMax = 31;
 inline constexpr double kPriorityMapRatio =
   (double)SS_THREAD_PRIORITY_MAX / kWinThreadPriorityMax;
-
-// --- Static Initialization ---
-static ThreadResourceManager g_manager;
 
 /**
  * @return If the caller needs to terminate the thread immediately (by calling
@@ -191,30 +284,24 @@ inline bool has_been_destructed() {
   return true;
 }
 
+/**
+ * @note Here it will not return or throw an error unless it's necessary after
+ * the main function has ended, lest some tools treat the error code as a fatal
+ * error.
+ */
 inline unsigned __stdcall thread_wrapper(void *pv) {
   thread_wrapper_arg_s warg = *(thread_wrapper_arg_s *)pv;
   delete static_cast<thread_wrapper_arg_s *>(pv);
 
-  DWORD dw_err = 0;
   ss_thread_t thr = warg.thr;
-  if (!inner_thread_tls_set_value(thr, &dw_err)) {
-    if (has_been_destructed()) {
-      /**
-       * @note Here it will not return an error unless it's necessary after the
-       * main function has ended, lest some tools treat the error code as a
-       * fatal error.
-       */
+
+  if (auto ret = tls::set_value(thr); !ret.has_value()) {
+    if (has_been_destructed())
       return 0;
-    }
 
-    static std::atomic<bool> once_print_err_87 = false;
-    if (dw_err != ERROR_INVALID_PARAMETER ||
-        !once_print_err_87.exchange(true, std::memory_order_relaxed)) {
-      WIN_ERR(dw_err, "TlsSetValue");
-    }
-
+    logln_error("{0}", ret.error().join_self_all());
     try_cleanup(thr);
-    return utils_winerr_to_errno(dw_err);
+    return 0;
   }
 
   try {
@@ -303,6 +390,10 @@ inline int set_thread_priority(HANDLE thread, int posix_priority) {
 using namespace sirius;
 
 // --- API Interface ---
+
+extern "C" SIRIUS_API uint64_t _ss_inner_get_tid() {
+  return utils::thread::get_tid_impl();
+}
 
 extern "C" SIRIUS_API int ss_thread_create(ss_thread_t *thread,
                                            const ss_thread_attr_t *attr,
@@ -483,7 +574,12 @@ extern "C" SIRIUS_API int ss_thread_cancel(ss_thread_t thread) {
 }
 
 extern "C" SIRIUS_API ss_thread_t ss_thread_self() {
-  return (ss_thread_t)inner_thread_tls_get_value(nullptr);
+  auto ret = tls::get_value();
+  if (ret.has_value())
+    return std::move((ss_thread_t)ret.value());
+
+  logln_error("{0}", ret.error().join_self_all());
+  return (ss_thread_t) nullptr;
 }
 
 extern "C" SIRIUS_API int ss_thread_get_priority_max(ss_thread_t thread,

@@ -4,9 +4,9 @@
 
 #include "sirius/kit/queue.h"
 
+#include "lib/thread/cond.h"
+#include "lib/thread/mutex.h"
 #include "sirius/kit/log.h"
-#include "sirius/thread/cond.h"
-#include "sirius/thread/mutex.h"
 #include "utils/utils.h"
 
 struct ss_queue_t {
@@ -47,14 +47,14 @@ struct ss_queue_t {
 static ss_force_inline void queue_mutex_lock(enum SsQueueType type,
                                              ss_mutex_t *mutex) {
   if (kSsQueueTypeMutex == type) {
-    ss_mutex_lock(mutex);
+    ss_mutex_lock_impl(mutex);
   }
 }
 
 static ss_force_inline void queue_mutex_unlock(enum SsQueueType type,
                                                ss_mutex_t *mutex) {
   if (kSsQueueTypeMutex == type) {
-    ss_mutex_unlock(mutex);
+    ss_mutex_unlock_impl(mutex);
   }
 }
 
@@ -102,11 +102,11 @@ SIRIUS_API int ss_queue_alloc(ss_queue_t **__restrict queue,
   }
 
   if (q->type == kSsQueueTypeMutex) {
-    if ((ret = ss_mutex_init(&q->mutex, nullptr)) != 0)
+    if ((ret = ss_mutex_init_impl(&q->mutex, nullptr)) != 0)
       goto label_free2;
-    if ((ret = ss_cond_init(&q->cond_non_empty, nullptr)) != 0)
+    if ((ret = ss_cond_init_impl(&q->cond_non_empty, nullptr)) != 0)
       goto label_free3;
-    if ((ret = ss_cond_init(&q->cond_non_full, nullptr)) != 0)
+    if ((ret = ss_cond_init_impl(&q->cond_non_full, nullptr)) != 0)
       goto label_free4;
   }
 
@@ -114,9 +114,9 @@ SIRIUS_API int ss_queue_alloc(ss_queue_t **__restrict queue,
   return 0;
 
 label_free4:
-  ss_cond_destroy(&q->cond_non_empty);
+  ss_cond_destroy_impl(&q->cond_non_empty);
 label_free3:
-  ss_mutex_destroy(&q->mutex);
+  ss_mutex_destroy_impl(&q->mutex);
 label_free2:
   free(q->elements);
 label_free1:
@@ -131,9 +131,9 @@ SIRIUS_API int ss_queue_free(ss_queue_t *queue) {
   }
 
   if (queue->type == kSsQueueTypeMutex) {
-    ss_cond_destroy(&queue->cond_non_full);
-    ss_cond_destroy(&queue->cond_non_empty);
-    ss_mutex_destroy(&queue->mutex);
+    ss_cond_destroy_impl(&queue->cond_non_full);
+    ss_cond_destroy_impl(&queue->cond_non_empty);
+    ss_mutex_destroy_impl(&queue->mutex);
   }
   if (queue->elements) {
     free(queue->elements);
@@ -154,11 +154,11 @@ SIRIUS_API int ss_queue_free(ss_queue_t *queue) {
         break; \
       case kSsTimeoutInfinite: \
         while (!ret && wait_nr == que->elem_count) { \
-          ret = ss_cond_wait(&cond, &que->mutex); \
+          ret = ss_cond_wait_impl(&cond, &que->mutex); \
         } \
         break; \
       default: \
-        ret = ss_cond_timedwait(&cond, &que->mutex, milliseconds); \
+        ret = ss_cond_timedwait_impl(&cond, &que->mutex, milliseconds); \
         ret = !ret && wait_nr == que->elem_count ? ETIMEDOUT : ret; \
         break; \
       } \
@@ -176,11 +176,11 @@ SIRIUS_API int ss_queue_free(ss_queue_t *queue) {
     ret = 0; \
     switch (type) { \
     case kSsQueueTypeMutex: \
-      ss_mutex_lock(&mutex); \
+      ss_mutex_lock_impl(&mutex); \
       G if (!ret) { \
-        E ss_cond_signal(&cond); \
+        E ss_cond_signal_impl(&cond); \
       } \
-      ss_mutex_unlock(&mutex); \
+      ss_mutex_unlock_impl(&mutex); \
       break; \
     case kSsQueueTypeNoMutex: \
       F E break; \

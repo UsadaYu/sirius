@@ -1,17 +1,13 @@
+#pragma once
 /* clang-format off */
 #include "utils/decls.h"
 /* clang-format on */
 
-#include "sirius/thread/thread.h"
-
-#include "lib/foundation/structor.h"
-#include "lib/foundation/thread/thread.hpp"
-#include "utils/io.hpp"
-
 namespace sirius {
+namespace utils {
+namespace thread {
 #if defined(__linux__)
-namespace {
-[[maybe_unused]] inline uint64_t linux_thread_id() {
+inline uint64_t linux_get_tid_impl() {
 #  if defined(__x86_64__)
   pid_t tid;
   __asm__ volatile(
@@ -138,23 +134,18 @@ namespace {
   return (uint64_t)(uintptr_t)pthread_self();
 #  endif
 }
-} // namespace
 #endif
-} // namespace sirius
 
-using namespace sirius;
-
-extern "C" SIRIUS_API uint64_t _ss_inner_get_tid() {
+inline uint64_t get_tid_impl() {
 #if defined(__linux__)
 #  if defined(__GLIBC__) && defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 30)
-  pid_t gettid(void);
-  return (uint64_t)gettid();
+  return (uint64_t)::gettid();
 #  elif defined(SYS_gettid) && \
     (defined(_GNU_SOURCE) || \
      (defined(__STDC_VERSION__) && __STDC_VERSION__ <= 201710L))
   return (uint64_t)syscall(SYS_gettid);
 #  else
-  return linux_thread_id();
+  return linux_get_tid_impl();
 #  endif
 #elif defined(_WIN32) || defined(_WIN64)
   return (uint64_t)GetCurrentThreadId();
@@ -180,77 +171,6 @@ extern "C" SIRIUS_API uint64_t _ss_inner_get_tid() {
   return (uint64_t)(uintptr_t)pthread_self();
 #endif
 }
-
-#if defined(_WIN32) || defined(_WIN64)
-namespace {
-inline DWORD g_tls_index = TLS_OUT_OF_INDEXES;
-inline std::once_flag once_flag {};
-inline std::atomic<bool> initialized {false};
-
-inline void tls_destructor() {
-  if (!initialized.exchange(false, std::memory_order_seq_cst))
-    return;
-
-  if (g_tls_index == TLS_OUT_OF_INDEXES)
-    return;
-
-  if (!TlsFree(g_tls_index)) {
-    OutputDebugStringA("Error `TlsFree`\n");
-  }
-
-  g_tls_index = TLS_OUT_OF_INDEXES;
-}
-
-inline auto tls_init() -> std::expected<void, UTrace> {
-  if (g_tls_index == TLS_OUT_OF_INDEXES) {
-    g_tls_index = TlsAlloc();
-    if (g_tls_index == TLS_OUT_OF_INDEXES) {
-      const DWORD dw_err = GetLastError();
-      auto es = utils::io::Fmt::win_err(dw_err, "TlsAlloc");
-      return std::unexpected(UTrace(std::move(es)));
-    }
-  }
-  return {};
-}
-
-/**
- * @throw `UTraceException`.
- */
-inline void tls_constructor() {
-  std::call_once(once_flag, []() {
-    if (auto ret = tls_init(); !ret.has_value()) {
-      initialized.store(false, std::memory_order_seq_cst);
-      throw UTraceException(std::move(ret.error()));
-    }
-
-    structor_destructor_register_t dr {};
-    dr.priority = 0;
-    dr.fn_destructor = tls_destructor;
-    structor_destructor_register(&dr);
-
-    initialized.store(true, std::memory_order_seq_cst);
-  });
-}
-} // namespace
-
-FOUNDATION_API BOOL inner_thread_tls_set_value(LPVOID lpTlsValue,
-                                               DWORD *dw_err) {
-  tls_constructor();
-
-  BOOL ret = TlsSetValue(g_tls_index, lpTlsValue);
-  if (dw_err) {
-    *dw_err = GetLastError();
-  }
-  return ret;
-}
-
-FOUNDATION_API LPVOID inner_thread_tls_get_value(DWORD *dw_err) {
-  tls_constructor();
-
-  LPVOID ret = TlsGetValue(g_tls_index);
-  if (dw_err) {
-    *dw_err = GetLastError();
-  }
-  return ret;
-}
-#endif
+} // namespace thread
+} // namespace utils
+} // namespace sirius

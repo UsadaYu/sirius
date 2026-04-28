@@ -5,7 +5,6 @@
 #include "sirius/kit/log.h"
 
 #include "lib/foundation/structor.h"
-#include "sirius/foundation/thread.h"
 #include "utils/log/exe.hpp"
 #include "utils/log/shm.hpp"
 

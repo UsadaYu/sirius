@@ -29,7 +29,6 @@ api_sirius = []
 api_sirius += [
   join_paths(subdir, 'structor.h'),
   join_paths(subdir, 'sync.h'),
-  join_paths(subdir, 'thread.h'),
 ]
 install_headers(api_sirius, subdir: join_paths('sirius', subdir))
 

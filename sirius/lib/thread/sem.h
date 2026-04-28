@@ -1,0 +1,181 @@
+#pragma once
+/* clang-format off */
+#include "utils/decls.h"
+/* clang-format on */
+
+#include "sirius/thread/sem.h"
+#include "utils/attributes.h"
+#include "utils/errno.h"
+
+#if defined(_WIN32) || defined(_WIN64)
+#else
+#  include <semaphore.h>
+#endif
+
+#if defined(_WIN32) || defined(_WIN64)
+utils_check_sizeof(ss_sem_t, HANDLE);
+utils_check_alignof(ss_sem_t, HANDLE);
+#else
+utils_check_sizeof(ss_sem_t, sem_t);
+utils_check_alignof(ss_sem_t, sem_t);
+#endif
+
+#if defined(_WIN32) || defined(_WIN64)
+static inline int ss_sem_init_impl(ss_sem_t *sem, int pshared,
+                                   unsigned int value) {
+  (void)pshared;
+
+  /**
+   * @note Windows doesn't have `pshared`, ignore it. Use large max count.
+   */
+  LONG initial = (value > (unsigned)LONG_MAX) ? LONG_MAX : (LONG)value;
+  LONG maximum = LONG_MAX;
+  HANDLE h = CreateSemaphore(nullptr, initial, maximum, nullptr);
+  if (!h) {
+    const DWORD dw_err = GetLastError();
+    return utils_winerr_to_errno(dw_err);
+  }
+  *((HANDLE *)sem) = h;
+  return 0;
+}
+
+static inline int ss_sem_destroy_impl(ss_sem_t *sem) {
+  if (!sem || !*((HANDLE *)sem))
+    return EINVAL;
+
+  BOOL ok = CloseHandle(*((HANDLE *)sem));
+  if (!ok)
+    return utils_winerr_to_errno(GetLastError());
+  *((HANDLE *)sem) = nullptr;
+  return 0;
+}
+
+static inline int ss_sem_wait_impl(ss_sem_t *sem) {
+  DWORD wait_ret = WaitForSingleObject(*((HANDLE *)sem), INFINITE);
+  switch (wait_ret) {
+  case WAIT_OBJECT_0:
+    return 0;
+  case WAIT_FAILED:
+    return utils_winerr_to_errno(GetLastError());
+  case WAIT_ABANDONED:
+    return EINVAL;
+  default:
+    return EINVAL;
+  }
+}
+
+static inline int ss_sem_trywait_impl(ss_sem_t *sem) {
+  DWORD wait_ret = WaitForSingleObject(*((HANDLE *)sem), 0);
+  switch (wait_ret) {
+  case WAIT_OBJECT_0:
+    return 0;
+  case WAIT_TIMEOUT:
+    /**
+     * @brief Mirror `sem_trywait`: would return `EAGAIN/EBUSY`.
+     */
+    return EBUSY;
+  case WAIT_FAILED:
+    return utils_winerr_to_errno(GetLastError());
+  case WAIT_ABANDONED:
+    return EINVAL;
+  default:
+    return EINVAL;
+  }
+}
+
+static inline int ss_sem_timedwait_impl(ss_sem_t *sem, uint64_t milliseconds) {
+  DWORD timeout_ms;
+  uint64_t tm_prev, tm_cur, tm_elapsed;
+  tm_prev = GetTickCount64();
+
+  while (milliseconds > 0) {
+    timeout_ms = milliseconds > (uint64_t)(INFINITE - 1) ? INFINITE - 1
+                                                         : (DWORD)milliseconds;
+    DWORD wait_ret = WaitForSingleObject(*((HANDLE *)sem), timeout_ms);
+    switch (wait_ret) {
+    case WAIT_OBJECT_0:
+      return 0;
+    case WAIT_TIMEOUT:
+      tm_cur = GetTickCount64();
+      tm_elapsed = tm_cur - tm_prev;
+      if (tm_elapsed >= milliseconds)
+        return ETIMEDOUT;
+      milliseconds -= tm_elapsed;
+      tm_prev = tm_cur;
+      break;
+    case WAIT_FAILED:
+      return utils_winerr_to_errno(GetLastError());
+    case WAIT_ABANDONED:
+      return EINVAL;
+    default:
+      return EINVAL;
+    }
+  }
+  return ETIMEDOUT;
+}
+
+static inline int ss_sem_post_impl(ss_sem_t *sem) {
+  BOOL ok = ReleaseSemaphore(*((HANDLE *)sem), 1, nullptr);
+  if (!ok)
+    return utils_winerr_to_errno(GetLastError());
+  return 0;
+}
+#else
+/**
+ * @note On POSIX, the semaphore function returns 0 on success, -1 on error with
+ * `errno` set.
+ */
+
+static inline int ss_sem_init_impl(ss_sem_t *sem, int pshared,
+                                   unsigned int value) {
+  return sem_init((sem_t *)sem, pshared, value) == 0 ? 0 : errno;
+}
+
+static inline int ss_sem_destroy_impl(ss_sem_t *sem) {
+  return sem_destroy((sem_t *)sem) == 0 ? 0 : errno;
+}
+
+static inline int ss_sem_wait_impl(ss_sem_t *sem) {
+  int ret;
+
+  /**
+   * @brief Retry if interrupted by signal.
+   */
+  do {
+    ret = sem_wait((sem_t *)sem);
+  } while (ret == -1 && errno == EINTR);
+  return ret == 0 ? 0 : errno;
+}
+
+static inline int ss_sem_trywait_impl(ss_sem_t *sem) {
+  return sem_trywait((sem_t *)sem) == 0 ? 0 : errno;
+}
+
+static inline int ss_sem_timedwait_impl(ss_sem_t *sem, uint64_t milliseconds) {
+  struct timespec ts;
+  if (clock_gettime(CLOCK_REALTIME, &ts))
+    return errno;
+
+  ts.tv_sec += (time_t)(milliseconds / 1000);
+  ts.tv_nsec += (long)((milliseconds % 1000) * 1000000L);
+  if (ts.tv_nsec >= 1000000000L) {
+    ts.tv_sec += ts.tv_nsec / 1000000000L;
+    ts.tv_nsec = ts.tv_nsec % 1000000000L;
+  }
+
+  int ret;
+  do {
+    ret = sem_timedwait((sem_t *)sem, &ts);
+  } while (ret == -1 && errno == EINTR);
+  return ret == 0 ? 0 : errno;
+}
+
+static inline int ss_sem_post_impl(ss_sem_t *sem) {
+  return sem_post((sem_t *)sem) == 0 ? 0 : errno;
+}
+
+static inline int ss_sem_getvalue_impl(ss_sem_t *__restrict sem,
+                                       int *__restrict sval) {
+  return sem_getvalue((sem_t *)sem, sval) == 0 ? 0 : errno;
+}
+#endif

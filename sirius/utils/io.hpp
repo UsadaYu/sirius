@@ -5,11 +5,11 @@
 
 #include <mutex>
 
-#include "sirius/foundation/thread.h"
 #include "utils/attributes.h"
 #include "utils/config.h"
 #include "utils/fs.hpp"
 #include "utils/io.h"
+#include "utils/thread.hpp"
 
 namespace sirius {
 namespace utils {
@@ -126,7 +126,7 @@ class Fmt {
       f_str.empty() ? "" : std::format("{0}:{1} ", f_str, line);
     inner = std::format("{0:5} [{1:02d}:{2:02d}:{3:02d} {4} {5}] {6}", prefix,
                         tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, module,
-                        ss_thread_id(), f_pos);
+                        thread::get_tid_impl(), f_pos);
     result =
       std::vformat("{0:-<{1}}", std::make_format_args(inner, kPrefixLength));
     return result;
