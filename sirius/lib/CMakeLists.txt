@@ -28,11 +28,9 @@ list(APPEND LIB_PKGCONFIG_LIBS ${GLOB_PKGCONFIG_LIBS_ASAN})
 list(APPEND LIB_PKGCONFIG_CFLAGS ${GLOB_PKGCONFIG_CFLAGS_ASAN})
 
 # --- Compile Definitions ---
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  if(GLOB_LIBRARY_TYPE STREQUAL "SHARED")
-    list(APPEND LIB_PUBLIC_COMPILE_DEFINITIONS ${_sirius_win_dll})
-    list(APPEND LIB_PKGCONFIG_CFLAGS "-D${_sirius_win_dll}")
-  endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND GLOB_LIBRARY_TYPE STREQUAL "SHARED")
+  list(APPEND LIB_PUBLIC_COMPILE_DEFINITIONS ${_sirius_win_dll})
+  list(APPEND LIB_PKGCONFIG_CFLAGS "-D${_sirius_win_dll}")
 endif()
 
 # --- Compile Options ---
@@ -47,27 +45,36 @@ endif()
 
 # --- System Include Directories ---
 
-# --- foundation ---
-set(LIB_TARGET ${SIRIUS_FOUNDATION_LIBRARY_NAME})
-list(APPEND _sirius_libraries ${LIB_TARGET})
-add_subdirectory(foundation)
+#[================================[
+# --- Dependency Relationship ---
+# LIBRARY         DEPENDENCY
+# c               None
+# foundation      None
+# kit             foundation, thread
+# thread          foundation
+#]================================]
 
 # --- c ---
 set(LIB_TARGET ${SIRIUS_C_LIBRARY_NAME})
 list(APPEND _sirius_libraries ${LIB_TARGET})
 add_subdirectory(c)
 
-# --- kit ---
-set(LIB_TARGET ${SIRIUS_KIT_LIBRARY_NAME})
+# --- foundation ---
+set(LIB_TARGET ${SIRIUS_FOUNDATION_LIBRARY_NAME})
 list(APPEND _sirius_libraries ${LIB_TARGET})
-add_subdirectory(kit)
+add_subdirectory(foundation)
 
 # --- thread ---
 set(LIB_TARGET ${SIRIUS_THREAD_LIBRARY_NAME})
 list(APPEND _sirius_libraries ${LIB_TARGET})
 add_subdirectory(thread)
 
-# ---
+# --- kit ---
+set(LIB_TARGET ${SIRIUS_KIT_LIBRARY_NAME})
+list(APPEND _sirius_libraries ${LIB_TARGET})
+add_subdirectory(kit)
+
+# --- * ---
 foreach(lib IN LISTS _sirius_libraries)
   foreach(t "PRIVATE" "PUBLIC")
     target_compile_definitions(${lib} ${t} ${LIB_${t}_COMPILE_DEFINITIONS})

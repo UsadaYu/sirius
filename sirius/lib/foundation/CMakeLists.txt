@@ -1,19 +1,20 @@
 # --- Variables ---
-set(lib_version "${PROJECT_VERSION}")
+set(foundation_version "${PROJECT_VERSION}")
 
 set(pkgconfig_libs "${LIB_PKGCONFIG_LIBS}")
 set(pkgconfig_libs_private "${LIB_PKGCONFIG_LIBS_PRIVATE}")
 set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
 # --- sirius::foundation ---
-set(sources "")
-list(APPEND sources "structor.cpp")
+set(foundation_sources "structor.cpp")
 
-add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})
+add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${foundation_sources})
 add_library(${SIRIUS_NAMESPACE}::${LIB_TARGET} ALIAS ${LIB_TARGET})
-unset(sources)
+unset(foundation_sources)
 
 utils_set_output_directory_to_mirror(TARGET ${LIB_TARGET})
+
+set_target_properties(${LIB_TARGET} PROPERTIES VERSION ${foundation_version})
 
 # thread
 target_link_libraries(${LIB_TARGET} PRIVATE "Threads::Threads")
@@ -36,4 +37,4 @@ install(
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-# ---
+# --- * ---

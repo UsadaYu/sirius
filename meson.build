@@ -119,7 +119,7 @@ if get_option('win-crtdbg') and host_machine.system() == 'windows'
   endif
 endif
 
-# ---
+# --- * ---
 subdir('sirius')
 
 warning('test !!!!!!!!!!!!!!!!!!')
