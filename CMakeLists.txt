@@ -133,7 +133,7 @@ if(SIRIUS_WIN_CRTDBG AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
   endif()
 endif()
 
-# ---
+# --- * ---
 add_subdirectory(sirius)
 
 if(SIRIUS_TEST_ENABLE)

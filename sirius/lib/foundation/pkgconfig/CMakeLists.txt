@@ -2,7 +2,7 @@ utils_generate_pkgconfig(
   LIBNAME
   ${LIB_TARGET}
   VERSION
-  ${lib_version}
+  ${foundation_version}
   LIBS
   "${pkgconfig_libs}"
   LIBS_PRIVATE

@@ -1,26 +1,26 @@
 # --- Variables ---
-glob_sirius_win_dll = '_SIRIUS_WIN_DLL'
+_sirius_win_dll = '_SIRIUS_WIN_DLL'
 
-private_compile_args = []
-private_compile_c_args = []
-private_compile_cpp_args = []
-private_dependencies = []
-private_include_directories = []
-# private_link_whole = []
-# private_link_with = []
-private_link_args = []
-private_override_options = []
+lib_compile_args = sirius_compile_args
+lib_compile_c_args = sirius_compile_c_args
+lib_compile_cpp_args = sirius_compile_cpp_args
+lib_dependencies = sirius_dependencies
+lib_include_directories = sirius_include_directories
+# lib_link_whole = sirius_link_whole
+# lib_link_with = sirius_link_with
+lib_link_args = sirius_link_args
+lib_override_options = sirius_override_options
 
-interface_compile_args = []
-# interface_include_directories = []
-# interface_link_whole = []
-# interface_link_with = []
-interface_link_args = []
+lib_pkgconfig_extra_cflags = sirius_pkgconfig_extra_cflags
+lib_pkgconfig_libraries = sirius_pkgconfig_libraries
+lib_pkgconfig_libraries_private = sirius_pkgconfig_libraries_private
+lib_pkgconfig_requires = sirius_pkgconfig_requires
+lib_pkgconfig_requires_private = sirius_pkgconfig_requires_private
 
 # --- Compile Args ---
 if host_machine.system() == 'windows' and glob_library_type == 'shared'
-  private_compile_args += ['-D' + glob_sirius_win_dll]
-  interface_compile_args += ['-D' + glob_sirius_win_dll]
+  lib_compile_args += ['-D' + _sirius_win_dll]
+  lib_pkgconfig_extra_cflags += ['-D' + _sirius_win_dll]
 endif
 
 # --- Dependencies ---
@@ -29,7 +29,16 @@ endif
 
 # --- Link Args ---
 
-# --- Sirius::sirius ---
-subdir('sirius')
+# --- Dependency Relationship ---
+# LIBRARY         DEPENDENCY
+# c               None
+# foundation      None
+# thread          foundation
+# kit             foundation, thread
 
-# ---
+subdir('c')
+subdir('foundation')
+subdir('thread')
+subdir('kit')
+
+# --- * ---

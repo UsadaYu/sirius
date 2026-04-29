@@ -2,7 +2,7 @@ get_filename_component(main_name "Lock1.c" NAME_WE)
 
 utils_query_compiler_config(ACTION "test_matrix" RESULT std_flags LANGUAGE "c")
 
-# ---
+# --- * ---
 set(_libsirius_c "${SIRIUS_NAMESPACE}::${SIRIUS_C_LIBRARY_NAME}")
 set(_test_link_libraries "${TEST_LINK_LIBRARIES}")
 list(APPEND TEST_LINK_LIBRARIES ${_libsirius_c})
@@ -51,7 +51,7 @@ foreach(std_flag IN LISTS std_flags)
   test_add_single_test(TARGET ${target} DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endforeach()
 
-# ---
+# --- * ---
 set(TEST_LINK_LIBRARIES "${_test_link_libraries}")
 
 # --- Lock2-Mutex ---

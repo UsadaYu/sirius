@@ -1,5 +1,5 @@
 # --- Variables ---
-set(lib_version "${PROJECT_VERSION}")
+set(c_version "${PROJECT_VERSION}")
 
 set(pkgconfig_libs "${LIB_PKGCONFIG_LIBS}")
 set(pkgconfig_libs_private "${LIB_PKGCONFIG_LIBS_PRIVATE}")
@@ -7,17 +7,15 @@ set(pkgconfig_requires_private "")
 set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
 # --- sirius::c ---
-set(sources "")
-list(APPEND sources "fcntl/fs.cpp")
-list(APPEND sources "time.c")
+set(c_sources "fcntl/fs.cpp" "time.c")
 
-add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})
+add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${c_sources})
 add_library(${SIRIUS_NAMESPACE}::${LIB_TARGET} ALIAS ${LIB_TARGET})
-unset(sources)
+unset(c_sources)
 
 utils_set_output_directory_to_mirror(TARGET ${LIB_TARGET})
 
-set_target_properties(${LIB_TARGET} PROPERTIES VERSION ${lib_version})
+set_target_properties(${LIB_TARGET} PROPERTIES VERSION ${c_version})
 
 target_compile_definitions(${LIB_TARGET}
                            PRIVATE "_SIRIUS_LOG_MODULE_NAME=\"${LIB_TARGET}\"")
@@ -40,4 +38,4 @@ install(
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-# ---
+# --- * ---

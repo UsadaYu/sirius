@@ -1,105 +1,96 @@
-message('----------------------')
-message('--- Sirius::sirius ---')
-message('----------------------')
-
 # --- Variables ---
-libsirius = get_option('sirius-library-name')
+thread_version = glob_version
 
-sirius_private_compile_args = private_compile_args
-sirius_private_compile_c_args = private_compile_c_args
-sirius_private_compile_cpp_args = private_compile_cpp_args
-sirius_private_dependencies = private_dependencies
-sirius_private_include_directories = private_include_directories
-sirius_private_link_args = private_link_args
-sirius_private_override_options = private_override_options
+thread_library_name = get_option('thread-library-name')
 
-sirius_interface_compile_args = interface_compile_args
-sirius_interface_link_args = interface_link_args
+thread_compile_args = lib_compile_args
+thread_compile_c_args = lib_compile_c_args
+thread_compile_cpp_args = lib_compile_cpp_args
+thread_dependencies = lib_dependencies
+thread_include_directories = lib_include_directories
+thread_link_args = lib_link_args
+thread_override_options = lib_override_options
+
+thread_pkgconfig_extra_cflags = lib_pkgconfig_extra_cflags
+thread_pkgconfig_libraries = lib_pkgconfig_libraries
+thread_pkgconfig_libraries_private = lib_pkgconfig_libraries_private
+thread_pkgconfig_requires = lib_pkgconfig_requires
+thread_pkgconfig_requires_private = lib_pkgconfig_requires_private
 
 # --- Source Files ---
-sirius_sources = []
-
-sirius_sources += [
-  'inner/initializer.c',
-  'inner/thread.cpp',
+thread_sources = [
+  'cond.c',
+  'mutex.c',
+  'sem.c',
 ]
-sirius_sources += [
-  'sirius_cond.c',
-  'sirius_log.c',
-  'sirius_mutex.c',
-  'sirius_queue.c',
-  'sirius_sem.c',
-  'sirius_thread.c',
-  'sirius_time.c',
-]
+if host_machine.system() == 'windows'
+  thread_sources += join_paths('windows', 'thread.cpp')
+else
+  thread_sources += join_paths('posix', 'thread.cpp')
+endif
 
 # --- Compile Args ---
-sirius_private_compile_args += [
-  '-D_SIRIUS_LOG_MODULE_NAME="@0@"'.format(get_option('sirius-print-name')),
-  '-D_SIRIUS_LOG_BUF_SIZE=@0@'.format(get_option('sirius-log-buf-size')),
+thread_compile_args += [
+  '-D_SIRIUS_LOG_MODULE_NAME="@0@"'.format(thread_library_name),
 ]
 
-# --- Include Directories ---
-sirius_private_include_directories += include_directories('.')
-
 # --- Dependencies ---
-# thread
-sirius_private_dependencies += [dependency('threads')]
-
-# winmm
-if host_machine.system() == 'windows'
-  sirius_private_dependencies += cpp.find_library('winmm', required: true)
-endif
+thread_dependencies += [
+  dependency('threads', required: true),
+  sirius_foundation_dep,
+]
 
 # --- Link Args ---
 
 # --- Library Target ---
 if glob_library_type == 'object'
-  sirius_library = static_library(
-    libsirius,
-    c_args: sirius_private_compile_args + sirius_private_compile_c_args,
-    cpp_args: sirius_private_compile_args + sirius_private_compile_cpp_args,
-    dependencies: sirius_private_dependencies,
+  sirius_thread_library = static_library(
+    thread_library_name,
+    c_args: thread_compile_args + thread_compile_c_args,
+    cpp_args: thread_compile_args + thread_compile_cpp_args,
+    dependencies: thread_dependencies,
     gnu_symbol_visibility: 'hidden',
-    include_directories: sirius_private_include_directories,
+    include_directories: thread_include_directories,
     install: false,
-    link_args: sirius_private_link_args,
-    override_options: sirius_private_override_options,
+    link_args: thread_link_args,
+    override_options: thread_override_options,
     pic: glob_sirius_pic_enable,
-    sources: sirius_sources,
+    sources: thread_sources,
   )
 
-  sirius_objects = sirius_library.extract_all_objects(recursive: true)
+  thread_objects = sirius_thread_library.extract_all_objects(
+    recursive: true,
+  )
 
-  sirius_dep = declare_dependency(
-    compile_args: sirius_interface_compile_args,
-    dependencies: sirius_private_dependencies,
-    include_directories: sirius_private_include_directories,
-    link_args: sirius_interface_link_args,
-    objects: sirius_objects,
+  sirius_thread_dep = declare_dependency(
+    compile_args: thread_pkgconfig_extra_cflags,
+    dependencies: thread_dependencies,
+    include_directories: sirius_api_directories,
+    link_args: thread_pkgconfig_libraries + thread_pkgconfig_libraries_private,
+    objects: thread_objects,
   )
 else
-  sirius_library = library(
-    libsirius,
-    c_args: sirius_private_compile_args + sirius_private_compile_c_args,
-    cpp_args: sirius_private_compile_args + sirius_private_compile_cpp_args,
-    dependencies: sirius_private_dependencies,
+  sirius_thread_library = library(
+    thread_library_name,
+    c_args: thread_compile_args + thread_compile_c_args,
+    cpp_args: thread_compile_args + thread_compile_cpp_args,
+    dependencies: thread_dependencies,
     gnu_symbol_visibility: 'hidden',
-    include_directories: sirius_private_include_directories,
+    include_directories: thread_include_directories,
     install: true,
-    link_args: sirius_private_link_args,
-    override_options: sirius_private_override_options,
+    link_args: thread_link_args,
+    override_options: thread_override_options,
     pic: glob_sirius_pic_enable,
-    sources: sirius_sources,
-    version: glob_version,
+    sources: thread_sources,
+    version: thread_version,
   )
 
-  sirius_dep = declare_dependency(
-    compile_args: sirius_interface_compile_args,
-    dependencies: sirius_private_dependencies,
-    include_directories: sirius_private_include_directories,
-    link_args: sirius_interface_link_args,
-    link_with: sirius_library,
+  sirius_thread_dep = declare_dependency(
+    compile_args: thread_pkgconfig_extra_cflags,
+    dependencies: thread_dependencies,
+    include_directories: sirius_api_directories,
+    link_args: thread_pkgconfig_libraries + thread_pkgconfig_libraries_private,
+    link_with: sirius_thread_library,
   )
 endif
 

@@ -7,11 +7,12 @@ v_h = configure_file(
   input: 'version.h.in',
   output: 'version.h',
   configuration: conf_data,
-  install_dir: 'include/sirius'
+  install_dir: join_paths('include', 'sirius'),
 )
 
-# ---
-sirius_private_include_directories += include_directories(join_paths('..'))
+# --- * ---
+sirius_include_directories += include_directories(join_paths('..'))
+sirius_api_directories += include_directories(join_paths('..'))
 
 # --- Install ---
 # c
@@ -62,7 +63,7 @@ api_sirius += [
   join_paths(subdir, 'spinlock.h'),
   join_paths(subdir, 'thread.h'),
 ]
-install_headers(api_sirius, subdir: subdir)
+install_headers(api_sirius, subdir: join_paths('sirius', subdir))
 
 # .
 subdir = join_paths('.')
@@ -73,4 +74,4 @@ api_sirius += [
   join_paths(subdir, 'file.h'),
   join_paths(subdir, 'macro.h'),
 ]
-install_headers(api_sirius, subdir: subdir)
+install_headers(api_sirius, subdir: join_paths('sirius', subdir))

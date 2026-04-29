@@ -8,7 +8,7 @@ project(
   ],
   meson_version: '>=1.10.1',
   version: run_command(
-    find_program('python'),
+    find_program('python3'),
     join_paths('scripts', 'build', 'version.py'),
     '--json',
     join_paths('config', 'build', 'version.json'),
@@ -119,7 +119,7 @@ if get_option('win-crtdbg') and host_machine.system() == 'windows'
   endif
 endif
 
-# ---
+# --- * ---
 subdir('sirius')
 
 warning('test !!!!!!!!!!!!!!!!!!')

@@ -1,10 +1,13 @@
 pkg = import('pkgconfig')
 pkg.generate(
-  sirius_library,
-  description: 'sirius::' + libsirius,
-  extra_cflags: sirius_interface_compile_args,
-  libraries: sirius_interface_link_args,
-  name: libsirius,
+  sirius_foundation_library,
+  description: 'sirius::' + foundation_library_name,
+  extra_cflags: foundation_pkgconfig_extra_cflags,
+  libraries: foundation_pkgconfig_libraries,
+  libraries_private: foundation_pkgconfig_libraries_private,
+  name: foundation_library_name,
+  requires: foundation_pkgconfig_requires,
+  requires_private: foundation_pkgconfig_requires_private,
   url: 'https://github.com/UsadaYu/sirius',
-  version: lib_version,
+  version: foundation_version,
 )
