@@ -1,5 +1,5 @@
 # --- Variables ---
-set(lib_version "${PROJECT_VERSION}")
+set(kit_version "${PROJECT_VERSION}")
 
 set(pkgconfig_libs "${LIB_PKGCONFIG_LIBS}")
 set(pkgconfig_libs_private "${LIB_PKGCONFIG_LIBS_PRIVATE}")
@@ -7,9 +7,7 @@ set(pkgconfig_requires_private "")
 set(pkgconfig_cflags "${LIB_PKGCONFIG_CFLAGS}")
 
 # --- sirius::kit ---
-set(sources "")
-list(APPEND sources "log.cpp")
-list(APPEND sources "queue.c")
+set(sources "log.cpp" "queue.c")
 
 add_library(${LIB_TARGET} ${GLOB_LIBRARY_TYPE} ${sources})
 add_library(${SIRIUS_NAMESPACE}::${LIB_TARGET} ALIAS ${LIB_TARGET})
@@ -17,7 +15,7 @@ unset(sources)
 
 utils_set_output_directory_to_mirror(TARGET ${LIB_TARGET})
 
-set_target_properties(${LIB_TARGET} PROPERTIES VERSION ${PROJECT_VERSION})
+set_target_properties(${LIB_TARGET} PROPERTIES VERSION ${kit_version})
 
 target_compile_definitions(${LIB_TARGET}
                            PRIVATE "_SIRIUS_LOG_MODULE_NAME=\"${LIB_TARGET}\"")
@@ -45,4 +43,4 @@ install(
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-# ---
+# --- * ---

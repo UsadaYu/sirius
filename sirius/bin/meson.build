@@ -2,15 +2,13 @@
 fs = import('fs')
 
 # --- Variables ---
-bin_compile_args = sirius_private_compile_args
-bin_compile_c_args = sirius_private_compile_c_args
-bin_compile_cpp_args = sirius_private_compile_cpp_args
-bin_dependencies = sirius_private_dependencies
-bin_include_directories = sirius_private_include_directories
-# bin_link_whole = sirius_private_link_whole
-# bin_link_with = sirius_private_link_with
-bin_link_args = sirius_private_link_args
-bin_override_options = sirius_private_override_options
+bin_compile_args = sirius_compile_args
+bin_compile_c_args = sirius_compile_c_args
+bin_compile_cpp_args = sirius_compile_cpp_args
+bin_dependencies = sirius_dependencies
+bin_include_directories = sirius_include_directories
+bin_link_args = sirius_link_args
+bin_override_options = sirius_override_options
 
 # [
 #   'target': 'target',
@@ -31,8 +29,8 @@ foreach bin_target : bin_targets
   exe = executable(
     bin_target['target'],
     sources,
-    c_args: bin_target['compile_args'] + bin_compile_c_args,
-    cpp_args: bin_target['compile_args'] + bin_compile_cpp_args,
+    c_args: bin_target['compile_args'] + bin_compile_args + bin_compile_c_args,
+    cpp_args: bin_target['compile_args'] + bin_compile_args + bin_compile_cpp_args,
     dependencies: bin_target['dependencies'] + bin_dependencies,
     include_directories: bin_include_directories,
     install: true,
