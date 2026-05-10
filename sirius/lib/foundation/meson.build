@@ -57,7 +57,7 @@ if glob_library_type == 'object'
   sirius_foundation_dep = declare_dependency(
     compile_args: foundation_pkgconfig_extra_cflags,
     dependencies: foundation_dependencies,
-    include_directories: sirius_api_directories,
+    include_directories: ss_api_directories,
     link_args: foundation_pkgconfig_libraries + foundation_pkgconfig_libraries_private,
     objects: foundation_objects,
   )
@@ -80,7 +80,7 @@ else
   sirius_foundation_dep = declare_dependency(
     compile_args: foundation_pkgconfig_extra_cflags,
     dependencies: foundation_dependencies,
-    include_directories: sirius_api_directories,
+    include_directories: ss_api_directories,
     link_args: foundation_pkgconfig_libraries + foundation_pkgconfig_libraries_private,
     link_with: sirius_foundation_library,
   )

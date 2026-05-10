@@ -10,7 +10,7 @@ set(TEST_ENV "")
 set(TEST_ENV_MODIFICATION "")
 
 list(APPEND TEST_ENV
-     "_SIRIUS_ENV_LOG_EXE_PATH=$<TARGET_FILE:${SIRIUS_EXE_LOG_NAME}>")
+     "SIRIUS_ENV_LOG_EXE_PATH=$<TARGET_FILE:${SIRIUS_EXE_LOG_NAME}>")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   set(var "")
@@ -19,13 +19,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(var "${SIRIUS_NAMESPACE}::${SIRIUS_C_LIBRARY_NAME}")
     list(APPEND TEST_ENV_MODIFICATION
          "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
+    set(var "${SIRIUS_NAMESPACE}::${SIRIUS_FOUNDATION_LIBRARY_NAME}")
+    list(APPEND TEST_ENV_MODIFICATION
+         "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
     set(var "${SIRIUS_NAMESPACE}::${SIRIUS_KIT_LIBRARY_NAME}")
     list(APPEND TEST_ENV_MODIFICATION
          "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
     set(var "${SIRIUS_NAMESPACE}::${SIRIUS_THREAD_LIBRARY_NAME}")
-    list(APPEND TEST_ENV_MODIFICATION
-         "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
-    set(var "${SIRIUS_NAMESPACE}::${SIRIUS_FOUNDATION_LIBRARY_NAME}")
     list(APPEND TEST_ENV_MODIFICATION
          "PATH=path_list_prepend:$<TARGET_FILE_DIR:${var}>")
   endif()

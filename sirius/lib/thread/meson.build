@@ -65,7 +65,7 @@ if glob_library_type == 'object'
   sirius_thread_dep = declare_dependency(
     compile_args: thread_pkgconfig_extra_cflags,
     dependencies: thread_dependencies,
-    include_directories: sirius_api_directories,
+    include_directories: ss_api_directories,
     link_args: thread_pkgconfig_libraries + thread_pkgconfig_libraries_private,
     objects: thread_objects,
   )
@@ -88,7 +88,7 @@ else
   sirius_thread_dep = declare_dependency(
     compile_args: thread_pkgconfig_extra_cflags,
     dependencies: thread_dependencies,
-    include_directories: sirius_api_directories,
+    include_directories: ss_api_directories,
     link_args: thread_pkgconfig_libraries + thread_pkgconfig_libraries_private,
     link_with: sirius_thread_library,
   )

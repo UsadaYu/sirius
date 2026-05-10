@@ -55,7 +55,7 @@ if glob_library_type == 'object'
   sirius_c_dep = declare_dependency(
     compile_args: c_pkgconfig_extra_cflags,
     dependencies: c_dependencies,
-    include_directories: sirius_api_directories,
+    include_directories: ss_api_directories,
     link_args: c_pkgconfig_libraries + c_pkgconfig_libraries_private,
     objects: c_objects,
   )
@@ -78,7 +78,7 @@ else
   sirius_c_dep = declare_dependency(
     compile_args: c_pkgconfig_extra_cflags,
     dependencies: c_dependencies,
-    include_directories: sirius_api_directories,
+    include_directories: ss_api_directories,
     link_args: c_pkgconfig_libraries + c_pkgconfig_libraries_private,
     link_with: sirius_c_library,
   )

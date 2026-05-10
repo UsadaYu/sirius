@@ -18,7 +18,7 @@ set_target_properties(${LIB_TARGET} PROPERTIES VERSION ${foundation_version})
 
 # thread
 target_link_libraries(${LIB_TARGET} PRIVATE "Threads::Threads")
-list(APPEND pkgconfig_libs_private ${GLOB_PKGCONFIG_LIBS_PRIVATE_THREAD})
+list(APPEND pkgconfig_libs_private ${SS_PKGCONFIG_LIBS_PRIVATE_THREAD})
 
 # --- Compile Definitions ---
 target_compile_definitions(

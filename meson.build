@@ -122,10 +122,9 @@ endif
 # --- * ---
 subdir('sirius')
 
-warning('test !!!!!!!!!!!!!!!!!!')
-# if get_option('test-enable')
-#   subdir('test')
-# endif
+if get_option('test-enable')
+  subdir('test')
+endif
 
 summary(
   {

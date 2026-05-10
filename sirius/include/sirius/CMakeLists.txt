@@ -10,8 +10,8 @@ configure_file(${template} ${gen} @ONLY)
 # --- * ---
 list(APPEND include_directories "${CMAKE_CURRENT_BINARY_DIR}/..")
 list(APPEND include_directories "${CMAKE_CURRENT_SOURCE_DIR}/..")
-set(GLOB_PRIVATE_INCLUDE_DIRECTORIES
-    ${GLOB_PRIVATE_INCLUDE_DIRECTORIES} ${include_directories}
+set(SS_PRIVATE_INCLUDE_DIRECTORIES
+    ${SS_PRIVATE_INCLUDE_DIRECTORIES} ${include_directories}
     PARENT_SCOPE)
 
 # --- * ---

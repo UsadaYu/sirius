@@ -16,8 +16,9 @@ foreach group : groups
             std['std'],
             '-D_SIRIUS_LOG_MODULE_NAME="@0@"'.format(target)
         ],
+        'dependencies': thread_dependencies,
         'sources': group['sources'],
-        'subdir': fs.name(meson.current_source_dir()),
+        'subdir': join_paths(thread_updir, fs.name(meson.current_source_dir())),
       }
     ]
   endforeach

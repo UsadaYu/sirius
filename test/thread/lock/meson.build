@@ -1,18 +1,21 @@
 groups = [
   {
     'compile_args': ['-DLOCK_TYPE=0'],
+    'dependencies': [thread_dependencies, sirius_c_dep],
     'name': 'Lock1-Spinlock',
     'sources': ['Lock1.c'],
     'stds': test_c_stds,
   },
   {
     'compile_args': ['-DLOCK_TYPE=1'],
+    'dependencies': [thread_dependencies, sirius_c_dep],
     'name': 'Lock1-Mutex',
     'sources': ['Lock1.c'],
     'stds': test_c_stds,
   },
   {
     'compile_args': [],
+    'dependencies': [thread_dependencies],
     'name': 'Lock2',
     'sources': ['Lock2-Mutex.cpp'],
     'stds': test_cpp_stds,
@@ -30,8 +33,9 @@ foreach group : groups
             '-D_SIRIUS_LOG_MODULE_NAME="@0@"'.format(target),
             group['compile_args'],
         ],
+        'dependencies': group['dependencies'],
         'sources': group['sources'],
-        'subdir': fs.name(meson.current_source_dir()),
+        'subdir': join_paths(thread_updir, fs.name(meson.current_source_dir())),
       }
     ]
   endforeach

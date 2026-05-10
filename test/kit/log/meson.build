@@ -1,8 +1,8 @@
 groups = [
   {
     'name': 'Log1',
-    'sources': ['Log1.c'],
-    'stds': test_c_stds,
+    'sources': ['Log1.cpp'],
+    'stds': test_cpp_stds,
   },
 ]
 
@@ -18,8 +18,9 @@ foreach group : groups
             '-D_SIRIUS_LOG_MODULE_NAME="@0@"'.format(target),
             '-D_GEN_FILE_NAME="@0@"'.format(gen),
         ],
+        'dependencies': kit_dependencies,
         'sources': group['sources'],
-        'subdir': fs.name(meson.current_source_dir()),
+        'subdir': join_paths(kit_updir, fs.name(meson.current_source_dir())),
       }
     ]
   endforeach

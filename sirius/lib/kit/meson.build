@@ -59,7 +59,7 @@ if glob_library_type == 'object'
   sirius_kit_dep = declare_dependency(
     compile_args: kit_pkgconfig_extra_cflags,
     dependencies: kit_dependencies,
-    include_directories: sirius_api_directories,
+    include_directories: ss_api_directories,
     link_args: kit_pkgconfig_libraries + kit_pkgconfig_libraries_private,
     objects: kit_objects,
   )
@@ -82,7 +82,7 @@ else
   sirius_kit_dep = declare_dependency(
     compile_args: kit_pkgconfig_extra_cflags,
     dependencies: kit_dependencies,
-    include_directories: sirius_api_directories,
+    include_directories: ss_api_directories,
     link_args: kit_pkgconfig_libraries + kit_pkgconfig_libraries_private,
     link_with: sirius_kit_library,
   )

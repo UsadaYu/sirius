@@ -6,18 +6,18 @@ message(STATUS "--------------")
 include(CheckLinkerFlag)
 
 # --- Global Variables ---
-set(GLOB_PKGCONFIG_LIBS_PRIVATE_THREAD "")
-set(GLOB_PKGCONFIG_LIBS_ASAN "")
-set(GLOB_PKGCONFIG_CFLAGS_ASAN "")
+set(SS_PKGCONFIG_LIBS_PRIVATE_THREAD "")
+set(SS_PKGCONFIG_LIBS_ASAN "")
+set(SS_PKGCONFIG_CFLAGS_ASAN "")
 
 foreach(t "PRIVATE" "PUBLIC")
-  set(GLOB_${t}_COMPILE_DEFINITIONS "")
-  set(GLOB_${t}_COMPILE_OPTIONS "")
-  set(GLOB_${t}_INCLUDE_DIRECTORIES "")
-  set(GLOB_${t}_LINK_DIRECTORIES "")
-  set(GLOB_${t}_LINK_LIBRARIES "")
-  set(GLOB_${t}_LINK_OPTIONS "")
-  set(GLOB_${t}_SYSTEM_INCLUDE_DIRECTORIES "")
+  set(SS_${t}_COMPILE_DEFINITIONS "")
+  set(SS_${t}_COMPILE_OPTIONS "")
+  set(SS_${t}_INCLUDE_DIRECTORIES "")
+  set(SS_${t}_LINK_DIRECTORIES "")
+  set(SS_${t}_LINK_LIBRARIES "")
+  set(SS_${t}_LINK_OPTIONS "")
+  set(SS_${t}_SYSTEM_INCLUDE_DIRECTORIES "")
 endforeach()
 unset(t)
 
@@ -33,11 +33,11 @@ find_package(Threads)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
   check_linker_flag(CXX "-pthread" CXX_LINKER_HAVE_PTHREAD)
   if(CXX_LINKER_HAVE_PTHREAD)
-    set(GLOB_PKGCONFIG_LIBS_PRIVATE_THREAD "-pthread")
+    set(SS_PKGCONFIG_LIBS_PRIVATE_THREAD "-pthread")
   else()
     check_linker_flag(CXX "-lpthread" CXX_LINKER_HAVE_LIB_PTHREAD)
     if(CXX_LINKER_HAVE_LIB_PTHREAD)
-      set(GLOB_PKGCONFIG_LIBS_PRIVATE_THREAD "-lpthread")
+      set(SS_PKGCONFIG_LIBS_PRIVATE_THREAD "-lpthread")
     else()
       message(
         WARNING
@@ -68,21 +68,21 @@ if(SIRIUS_ASAN)
       list(APPEND asan_compile_options "-MD")
     endif()
     list(APPEND asan_compile_options "-fsanitize=address" "-Zi" "-Od")
-    list(APPEND GLOB_PUBLIC_COMPILE_OPTIONS ${asan_compile_options})
-    list(APPEND GLOB_PKGCONFIG_CFLAGS_ASAN ${asan_compile_options})
+    list(APPEND SS_PUBLIC_COMPILE_OPTIONS ${asan_compile_options})
+    list(APPEND SS_PKGCONFIG_CFLAGS_ASAN ${asan_compile_options})
 
     set(asan_link_options "-DEBUG" "-INCREMENTAL:NO")
-    list(APPEND GLOB_PUBLIC_LINK_OPTIONS ${asan_link_options})
-    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${asan_link_options})
+    list(APPEND SS_PUBLIC_LINK_OPTIONS ${asan_link_options})
+    list(APPEND SS_PKGCONFIG_LIBS_ASAN ${asan_link_options})
   else()
     set(asan_compile_options "-fsanitize=address" "-fno-omit-frame-pointer"
                              "-fsanitize-recover=address")
-    list(APPEND GLOB_PUBLIC_COMPILE_OPTIONS ${asan_compile_options})
-    list(APPEND GLOB_PKGCONFIG_CFLAGS_ASAN ${asan_compile_options})
+    list(APPEND SS_PUBLIC_COMPILE_OPTIONS ${asan_compile_options})
+    list(APPEND SS_PKGCONFIG_CFLAGS_ASAN ${asan_compile_options})
 
     set(asan_link_options "-g")
-    list(APPEND GLOB_PUBLIC_LINK_OPTIONS ${asan_link_options})
-    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${asan_link_options})
+    list(APPEND SS_PUBLIC_LINK_OPTIONS ${asan_link_options})
+    list(APPEND SS_PKGCONFIG_LIBS_ASAN ${asan_link_options})
   endif()
 endif()
 
@@ -92,8 +92,8 @@ if(SIRIUS_ASAN AND SIRIUS_ASAN_FALLBACK_ENABLE)
       libasan ${lib}
       PATHS ${SIRIUS_ASAN_FALLBACK_LIBDIRS}
       NO_DEFAULT_PATH REQUIRED)
-    list(APPEND GLOB_PUBLIC_LINK_LIBRARIES ${libasan})
-    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${libasan})
+    list(APPEND SS_PUBLIC_LINK_LIBRARIES ${libasan})
+    list(APPEND SS_PKGCONFIG_LIBS_ASAN ${libasan})
     unset(libasan CACHE) # Necessary
   endforeach()
   unset(lib)
@@ -102,17 +102,17 @@ elseif(SIRIUS_ASAN)
     # ...
   else()
     set(asan_link_options "-fsanitize=address")
-    list(APPEND GLOB_PUBLIC_LINK_OPTIONS ${asan_link_options})
-    list(APPEND GLOB_PKGCONFIG_LIBS_ASAN ${asan_link_options})
+    list(APPEND SS_PUBLIC_LINK_OPTIONS ${asan_link_options})
+    list(APPEND SS_PKGCONFIG_LIBS_ASAN ${asan_link_options})
   endif()
 endif()
 
 # --- Compile Definitions ---
-list(APPEND GLOB_PRIVATE_COMPILE_DEFINITIONS "_SIRIUS_BUILDING"
+list(APPEND SS_PRIVATE_COMPILE_DEFINITIONS "_SIRIUS_BUILDING"
      "_SIRIUS_LOG_LEVEL=${SIRIUS_LOG_LEVEL}")
 list(
   APPEND
-  GLOB_PRIVATE_COMPILE_DEFINITIONS
+  SS_PRIVATE_COMPILE_DEFINITIONS
   "_SIRIUS_NAMESPACE=\"${SIRIUS_NAMESPACE}\""
   "_SIRIUS_POSIX_FILE_MODE=\"${SIRIUS_POSIX_FILE_MODE}\""
   "_SIRIUS_TMP_DIR=\"${SIRIUS_TMP_DIR}\""
@@ -126,7 +126,7 @@ list(
 foreach(lang "C" "CXX")
   utils_query_compiler_config(ACTION "project_flags" RESULT flag LANGUAGE
                               ${lang})
-  list(APPEND GLOB_PRIVATE_COMPILE_OPTIONS
+  list(APPEND SS_PRIVATE_COMPILE_OPTIONS
        "$<$<COMPILE_LANGUAGE:${lang}>:${flag}>")
 endforeach()
 unset(flag)
@@ -134,22 +134,22 @@ unset(lang)
 
 if(SIRIUS_WARNING_ALL)
   if(MSVC)
-    list(APPEND GLOB_PRIVATE_COMPILE_OPTIONS "/W4")
+    list(APPEND SS_PRIVATE_COMPILE_OPTIONS "/W4")
   else()
-    list(APPEND GLOB_PRIVATE_COMPILE_OPTIONS "-Wall")
+    list(APPEND SS_PRIVATE_COMPILE_OPTIONS "-Wall")
   endif()
 endif()
 
 if(SIRIUS_WARNING_AS_ERROR)
   if(MSVC)
-    list(APPEND GLOB_PRIVATE_COMPILE_OPTIONS "/WX")
+    list(APPEND SS_PRIVATE_COMPILE_OPTIONS "/WX")
   else()
-    list(APPEND GLOB_PRIVATE_COMPILE_OPTIONS "-Werror")
+    list(APPEND SS_PRIVATE_COMPILE_OPTIONS "-Werror")
   endif()
 endif()
 
 # --- Include Directories ---
-list(APPEND GLOB_PRIVATE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR})
+list(APPEND SS_PRIVATE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR})
 
 # --- Link Directories ---
 

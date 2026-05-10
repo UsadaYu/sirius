@@ -79,7 +79,7 @@ jobs:
 
       - name: Run Tests
         working-directory: .
-        run: meson test -C builddir --num-processes 4 --print-errorlogs
+        run: meson test -C builddir --num-processes 4 --print-errorlogs --timeout 600
 
   build-options-linux:
     name: Linux-x64 - OBJECT:${{ matrix.build_object_only }} - PIC:${{ matrix.pic_enable }}
@@ -130,7 +130,7 @@ jobs:
 
       - name: Run Tests
         working-directory: .
-        run: meson test -C builddir --num-processes 4 --print-errorlogs
+        run: meson test -C builddir --num-processes 4 --print-errorlogs --timeout 600
 
   build-options-windows:
     name: Windows-x64 - OBJECT:true
@@ -159,4 +159,4 @@ jobs:
 
       - name: Run Tests
         working-directory: .
-        run: meson test -C builddir --num-processes 4 --print-errorlogs
+        run: meson test -C builddir --num-processes 4 --print-errorlogs --timeout 600

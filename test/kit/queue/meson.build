@@ -14,10 +14,11 @@ foreach group : groups
         'target': target,
         'compile_args': [
             std['std'],
-            '-D_SIRIUS_LOG_MODULE_NAME="@0@"'.format(target)
+            '-D_SIRIUS_LOG_MODULE_NAME="@0@"'.format(target),
         ],
+        'dependencies': kit_dependencies,
         'sources': group['sources'],
-        'subdir': fs.name(meson.current_source_dir()),
+        'subdir': join_paths(kit_updir, fs.name(meson.current_source_dir())),
       }
     ]
   endforeach

@@ -11,8 +11,8 @@ v_h = configure_file(
 )
 
 # --- * ---
-sirius_include_directories += include_directories(join_paths('..'))
-sirius_api_directories += include_directories(join_paths('..'))
+ss_include_directories += include_directories(join_paths('..'))
+ss_api_directories += include_directories(join_paths('..'))
 
 # --- Install ---
 # c

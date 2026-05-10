@@ -1,4 +1,4 @@
-# sirius-0.3.22
+# sirius-0.3.23
 
 ---
 
@@ -46,5 +46,5 @@ meson compile -C builddir --verbose
 meson install -C builddir
 
 # --- Run Tests ---
-meson test -C builddir --verbose --num-processes 4
+meson test -C builddir --verbose --num-processes 4 --timeout 100
 ```

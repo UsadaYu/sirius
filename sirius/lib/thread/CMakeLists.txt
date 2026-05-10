@@ -27,7 +27,7 @@ target_compile_definitions(${LIB_TARGET}
 
 # thread
 target_link_libraries(${LIB_TARGET} PRIVATE "Threads::Threads")
-list(APPEND pkgconfig_libs_private ${GLOB_PKGCONFIG_LIBS_PRIVATE_THREAD})
+list(APPEND pkgconfig_libs_private ${SS_PKGCONFIG_LIBS_PRIVATE_THREAD})
 
 # sirius_foundation
 target_link_libraries(
